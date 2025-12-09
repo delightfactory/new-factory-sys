@@ -1,0 +1,94 @@
+import { PageHeader } from "@/components/ui/page-header";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
+import {
+    FileText,
+    Package,
+    Factory,
+    TrendingUp,
+    ArrowLeft,
+    AlertTriangle,
+    Activity
+} from "lucide-react";
+
+export default function ReportsHub() {
+    const reports = [
+        {
+            title: "نظام دعم القرار (Executive)",
+            description: "لوحة قيادة استراتيجية للمدير العام: مؤشرات الصحة، الربحية، والتوصيات الذكية.",
+            icon: Activity,
+            color: "text-indigo-600",
+            path: "/reports/executive",
+            bg: "bg-indigo-50 dark:bg-indigo-900/20"
+        },
+        {
+            title: "تقييم المخزون",
+            description: "تحليل شامل لقيمة المخزون الحالي (خامات، منتجات، تعبئة) وتكلفة كل صنف.",
+            icon: Package,
+            color: "text-blue-500",
+            path: "/reports/inventory",
+            bg: "bg-blue-50 dark:bg-blue-900/20"
+        },
+        {
+            title: "كفاءة الإنتاج",
+            description: "متابعة أوامر التشغيل، الكميات المنتجة، ونسب الهالك للأوامر المنتهية.",
+            icon: Factory,
+            color: "text-orange-500",
+            path: "/reports/production",
+            bg: "bg-orange-50 dark:bg-orange-900/20"
+        },
+        {
+            title: "أداء المنتجات",
+            description: "تحليل ربحية كل منتج، هوامش الربح، والأصناف الأكثر مبيعاً.",
+            icon: TrendingUp,
+            color: "text-green-500",
+            path: "/reports/products",
+            bg: "bg-green-50 dark:bg-green-900/20"
+        },
+        {
+            title: "نواقص المخزون",
+            description: "قائمة عاجلة بالأصناف التي وصلت للحد الأدنى وتحتاج طلب شراء.",
+            icon: AlertTriangle,
+            color: "text-red-500",
+            path: "/reports/low-stock",
+            bg: "bg-red-50 dark:bg-red-900/20"
+        },
+    ];
+
+    return (
+        <div className="space-y-6">
+            <PageHeader
+                title="مركز التقارير"
+                description="تقارير تفصيلية لتحليل أداء المصنع واتخاذ القرارات"
+                icon={FileText}
+            />
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {reports.map((report) => (
+                    <Card key={report.path} className="hover:shadow-lg transition-all border-muted">
+                        <CardHeader className="flex flex-row items-start gap-4 space-y-0">
+                            <div className={`p-3 rounded-xl ${report.bg}`}>
+                                <report.icon className={`w-6 h-6 ${report.color}`} />
+                            </div>
+                            <div className="space-y-1">
+                                <CardTitle className="text-base">{report.title}</CardTitle>
+                                <CardDescription className="text-xs leading-relaxed">
+                                    {report.description}
+                                </CardDescription>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <Button variant="outline" className="w-full gap-2 group" asChild>
+                                <Link to={report.path}>
+                                    عرض التقرير
+                                    <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                                </Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    );
+}
