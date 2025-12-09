@@ -230,7 +230,12 @@ export default function Layout() {
     }, [profile]); // Re-calculate when profile changes
 
     const toggleTheme = () => {
-        setTheme(theme === "dark" ? "light" : "dark");
+        // Get the effective theme (considering 'system' setting)
+        const effectiveTheme = theme === "system"
+            ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+            : theme;
+
+        setTheme(effectiveTheme === "dark" ? "light" : "dark");
     };
 
     const handleSignOut = async () => {

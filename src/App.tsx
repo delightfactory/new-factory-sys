@@ -10,6 +10,7 @@ import CommercialRoutes from "./pages/commercial";
 import FinancialRoutes from "./pages/financial";
 
 import { AuthProvider } from "./contexts/AuthContext";
+import { ThemeProvider } from "./components/theme-provider";
 import Login from "./pages/auth/Login";
 import ProtectedLayout from "./components/ProtectedLayout";
 import SettingsRoutes from "./pages/settings";
@@ -20,29 +21,32 @@ const queryClient = new QueryClient();
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
+      <ThemeProvider defaultTheme="light" storageKey="factory-theme">
+        <AuthProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
 
-            <Route path="/" element={<ProtectedLayout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="inventory/*" element={<InventoryRoutes />} />
-              <Route path="production/*" element={<ProductionRoutes />} />
-              <Route path="packaging/*" element={<PackagingRoutes />} />
-              <Route path="commercial/*" element={<CommercialRoutes />} />
-              <Route path="financial/*" element={<FinancialRoutes />} />
-              <Route path="reports/*" element={<ReportsRoutes />} />
-              <Route path="settings/*" element={<SettingsRoutes />} />
-            </Route>
+              <Route path="/" element={<ProtectedLayout />}>
+                <Route index element={<Dashboard />} />
+                <Route path="inventory/*" element={<InventoryRoutes />} />
+                <Route path="production/*" element={<ProductionRoutes />} />
+                <Route path="packaging/*" element={<PackagingRoutes />} />
+                <Route path="commercial/*" element={<CommercialRoutes />} />
+                <Route path="financial/*" element={<FinancialRoutes />} />
+                <Route path="reports/*" element={<ReportsRoutes />} />
+                <Route path="settings/*" element={<SettingsRoutes />} />
+              </Route>
 
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-        <Toaster position="top-left" richColors />
-      </AuthProvider>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+          <Toaster position="top-left" richColors />
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
 
 export default App;
+

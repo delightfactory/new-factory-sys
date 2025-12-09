@@ -46,8 +46,21 @@ export default {
                     DEFAULT: "hsl(var(--card))",
                     foreground: "hsl(var(--card-foreground))",
                 },
+                // Chart colors for data visualization
+                chart: {
+                    1: "hsl(var(--chart-1))",
+                    2: "hsl(var(--chart-2))",
+                    3: "hsl(var(--chart-3))",
+                    4: "hsl(var(--chart-4))",
+                    5: "hsl(var(--chart-5))",
+                },
+                // Status colors
+                success: "hsl(var(--success))",
+                warning: "hsl(var(--warning))",
+                info: "hsl(var(--info))",
             },
         }
     },
     plugins: [import("tailwindcss-animate")],
 }
+
