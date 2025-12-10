@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { InventoryService } from "@/services/InventoryService";
 import { DataTable } from "@/components/ui/data-table";
@@ -55,6 +56,7 @@ export default function FinishedProducts() {
     const [isOpen, setIsOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editingId, setEditingId] = useState<number | null>(null);
+    const navigate = useNavigate();
 
     // Fetch Products
     const { data: products, isLoading } = useQuery({
@@ -312,7 +314,11 @@ export default function FinishedProducts() {
             />
 
             {products && products.length > 0 ? (
-                <DataTable columns={columns} data={products} />
+                <DataTable
+                    columns={columns}
+                    data={products}
+                    onRowClick={(item) => navigate(`/inventory/finished/${item.id}`)}
+                />
             ) : (
                 <EmptyState
                     icon={Package2}

@@ -10,7 +10,10 @@ import {
     ArrowLeft,
     AlertTriangle,
     Activity,
-    BarChart3
+    BarChart3,
+    Clock,
+    RotateCw,
+    Users
 } from "lucide-react";
 
 export default function ReportsHub() {
@@ -22,6 +25,30 @@ export default function ReportsHub() {
             color: "text-indigo-600",
             path: "/reports/executive",
             bg: "bg-indigo-50 dark:bg-indigo-900/20"
+        },
+        {
+            title: "أعمار الديون",
+            description: "تحليل الفواتير المستحقة حسب فترة التأخير (30/60/90+ يوم) للعملاء والموردين.",
+            icon: Clock,
+            color: "text-cyan-500",
+            path: "/reports/aging",
+            bg: "bg-cyan-50 dark:bg-cyan-900/20"
+        },
+        {
+            title: "دوران المخزون",
+            description: "معدل دوران الأصناف، أيام التغطية، والمخزون الراكد لتحسين إدارة المخزون.",
+            icon: RotateCw,
+            color: "text-teal-500",
+            path: "/reports/turnover",
+            bg: "bg-teal-50 dark:bg-teal-900/20"
+        },
+        {
+            title: "تحليل العملاء والموردين",
+            description: "تحليل شامل للأطراف: التعاملات، المرتجعات، متوسط فترة السداد.",
+            icon: Users,
+            color: "text-pink-500",
+            path: "/reports/party-analysis",
+            bg: "bg-pink-50 dark:bg-pink-900/20"
         },
         {
             title: "تحليل المخزون المتقدم",

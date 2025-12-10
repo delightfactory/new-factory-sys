@@ -9,6 +9,37 @@ export interface SemiFinishedIngredient {
     raw_material?: RawMaterial; // Joined data
 }
 
+// Item types for inventory movements
+type ItemType = 'raw_materials' | 'packaging_materials' | 'semi_finished_products' | 'finished_products';
+
+// Helper function to log inventory movements
+const logMovement = async (
+    itemId: number,
+    itemType: ItemType,
+    movementType: 'in' | 'out' | 'adjustment',
+    quantity: number,
+    previousBalance: number,
+    newBalance: number,
+    reason: string,
+    referenceId?: string
+) => {
+    try {
+        await supabase.from('inventory_movements').insert({
+            item_id: itemId,
+            item_type: itemType,
+            movement_type: movementType,
+            quantity: quantity,
+            previous_balance: previousBalance,
+            new_balance: newBalance,
+            reason: reason,
+            reference_id: referenceId || null
+        });
+    } catch (error) {
+        console.error('Failed to log movement:', error);
+        // Don't throw - logging failure shouldn't block the operation
+    }
+};
+
 export const InventoryService = {
     // ... (Previous Raw/Packaging methods remain) ...
 
@@ -182,6 +213,7 @@ export const InventoryService = {
                 id: ing.raw_material_id,
                 name: (ing.raw_materials as any)?.name || '',
                 unit: (ing.raw_materials as any)?.unit || '',
+                unitCost: (ing.raw_materials as any)?.unit_cost || 0,
                 quantityPerBatch: ing.quantity || 0,
                 percentage: ing.percentage || 0,
                 availableStock: (ing.raw_materials as any)?.quantity || 0
@@ -194,7 +226,7 @@ export const InventoryService = {
         // Get finished product details (semi-finished link)
         const { data: product, error: productError } = await supabase
             .from('finished_products')
-            .select('semi_finished_id, semi_finished_quantity, semi_finished_products(id, name, unit, quantity)')
+            .select('semi_finished_id, semi_finished_quantity, semi_finished_products(id, name, unit, quantity, unit_cost)')
             .eq('id', finishedProductId)
             .single();
 
@@ -203,7 +235,7 @@ export const InventoryService = {
         // Get packaging materials with stock
         const { data: packaging, error: packagingError } = await supabase
             .from('finished_product_packaging')
-            .select('*, packaging_materials(id, name, unit, quantity)')
+            .select('*, packaging_materials(id, name, unit, quantity, unit_cost)')
             .eq('finished_product_id', finishedProductId);
 
         if (packagingError) throw packagingError;
@@ -214,14 +246,16 @@ export const InventoryService = {
                 name: (product.semi_finished_products as any)?.name || '',
                 unit: (product.semi_finished_products as any)?.unit || '',
                 quantityPerUnit: product.semi_finished_quantity || 0,
-                availableStock: (product.semi_finished_products as any)?.quantity || 0
+                availableStock: (product.semi_finished_products as any)?.quantity || 0,
+                unitCost: (product.semi_finished_products as any)?.unit_cost || 0
             } : null,
             packagingMaterials: packaging?.map(pkg => ({
                 id: pkg.packaging_material_id,
                 name: (pkg.packaging_materials as any)?.name || '',
                 unit: (pkg.packaging_materials as any)?.unit || '',
                 quantityPerUnit: pkg.quantity || 0,
-                availableStock: (pkg.packaging_materials as any)?.quantity || 0
+                availableStock: (pkg.packaging_materials as any)?.quantity || 0,
+                unitCost: (pkg.packaging_materials as any)?.unit_cost || 0
             })) || []
         };
     },
@@ -353,7 +387,7 @@ export const InventoryService = {
 
     createProductionOrder: async (
         order: Omit<ProductionOrder, 'id' | 'created_at' | 'updated_at'>,
-        items: { semi_finished_id: number; quantity: number }[]
+        items: { semi_finished_id: number; quantity: number; unit_cost?: number; total_cost?: number }[]
     ) => {
         // 1. Create Order Header
         const { data: newOrder, error: orderError } = await supabase
@@ -370,8 +404,8 @@ export const InventoryService = {
                 production_order_id: newOrder.id,
                 semi_finished_id: item.semi_finished_id,
                 quantity: item.quantity,
-                unit_cost: 0, // Will be calculated/updated later or triggered
-                total_cost: 0
+                unit_cost: item.unit_cost || 0,
+                total_cost: item.total_cost || 0
             }));
 
             const { error: itemsError } = await supabase
@@ -414,9 +448,16 @@ export const InventoryService = {
         if (itemsError) throw itemsError;
         if (!items || items.length === 0) throw new Error("Order has no items");
 
-        // 2. Validations & Calculations (Client-simulated transaction)
-        // Note: In a real heavy-load app, this should be a Postgres Function to ensure atomicity.
+        // Fetch order code for reference
+        const { data: order } = await supabase
+            .from('production_orders')
+            .select('code')
+            .eq('id', orderId)
+            .single();
 
+        const orderRef = order?.code || `PO-${orderId}`;
+
+        // 2. Validations & Calculations (Client-simulated transaction)
         for (const item of items) {
             // Get Recipe
             const { data: recipeHelpers, error: recipeError } = await supabase
@@ -435,35 +476,70 @@ export const InventoryService = {
                 for (const ing of recipeHelpers.semi_finished_ingredients) {
                     const qtyNeeded = ing.quantity * ratio;
 
-                    // Get current stock to validate (Optional but good)
-                    // Decrement
+                    // Get current stock first
+                    const { data: rm } = await supabase
+                        .from('raw_materials')
+                        .select('quantity')
+                        .eq('id', ing.raw_material_id)
+                        .single();
+
+                    const previousBalance = rm?.quantity || 0;
+                    const newBalance = previousBalance - qtyNeeded;
+
+                    // Decrement via RPC
                     const { error: rawError } = await supabase.rpc('decrement_raw_material', {
                         row_id: ing.raw_material_id,
                         amount: qtyNeeded
                     });
 
-                    // Fallback if RPC doesn't exist, try direct update (less safe)
-                    if (rawError) {
-                        // Assuming RPC exists from previous setup or we do direct update
-                        const { data: rm } = await supabase.from('raw_materials').select('quantity').eq('id', ing.raw_material_id).single();
-                        if (rm) {
-                            await supabase
-                                .from('raw_materials')
-                                .update({ quantity: rm.quantity - qtyNeeded })
-                                .eq('id', ing.raw_material_id);
-                        }
+                    // Fallback if RPC doesn't exist
+                    if (rawError && rm) {
+                        await supabase
+                            .from('raw_materials')
+                            .update({ quantity: newBalance })
+                            .eq('id', ing.raw_material_id);
                     }
+
+                    // Log the movement
+                    await logMovement(
+                        ing.raw_material_id,
+                        'raw_materials',
+                        'out',
+                        qtyNeeded,
+                        previousBalance,
+                        newBalance,
+                        'استهلاك في أمر إنتاج',
+                        orderRef
+                    );
                 }
             }
 
             // 4. Add Semi-Finished Stock
-            const { data: sf } = await supabase.from('semi_finished_products').select('quantity').eq('id', item.semi_finished_id).single();
-            if (sf) {
-                await supabase
-                    .from('semi_finished_products')
-                    .update({ quantity: (sf.quantity || 0) + item.quantity })
-                    .eq('id', item.semi_finished_id);
-            }
+            const { data: sf } = await supabase
+                .from('semi_finished_products')
+                .select('quantity')
+                .eq('id', item.semi_finished_id)
+                .single();
+
+            const sfPreviousBalance = sf?.quantity || 0;
+            const sfNewBalance = sfPreviousBalance + item.quantity;
+
+            await supabase
+                .from('semi_finished_products')
+                .update({ quantity: sfNewBalance })
+                .eq('id', item.semi_finished_id);
+
+            // Log the semi-finished addition
+            await logMovement(
+                item.semi_finished_id,
+                'semi_finished_products',
+                'in',
+                item.quantity,
+                sfPreviousBalance,
+                sfNewBalance,
+                'إنتاج من أمر تشغيل',
+                orderRef
+            );
         }
 
         // 5. Update Status
@@ -482,7 +558,7 @@ export const InventoryService = {
 
     createPackagingOrder: async (
         order: { code: string; date: string; notes: string; status: string; total_cost: number },
-        items: { finished_product_id: number; quantity: number }[]
+        items: { finished_product_id: number; quantity: number; unit_cost?: number; total_cost?: number }[]
     ) => {
         // 1. Create Order Header
         const { data: newOrder, error: orderError } = await supabase
@@ -499,8 +575,8 @@ export const InventoryService = {
                 packaging_order_id: newOrder.id,
                 finished_product_id: item.finished_product_id,
                 quantity: item.quantity,
-                unit_cost: 0,
-                total_cost: 0
+                unit_cost: item.unit_cost || 0,
+                total_cost: item.total_cost || 0
             }));
 
             const { error: itemsError } = await supabase
@@ -545,6 +621,15 @@ export const InventoryService = {
         if (itemsError) throw itemsError;
         if (!items || items.length === 0) throw new Error("Order has no items");
 
+        // Fetch order code for reference
+        const { data: order } = await supabase
+            .from('packaging_orders')
+            .select('code')
+            .eq('id', orderId)
+            .single();
+
+        const orderRef = order?.code || `PKG-${orderId}`;
+
         for (const item of items) {
             // Get Finished Product Details (Semi-Finished Link + Packaging Materials)
             const { data: product, error: prodError } = await supabase
@@ -555,32 +640,102 @@ export const InventoryService = {
 
             if (prodError) throw prodError;
 
-            const producedQty = item.quantity; // e.g. 50 Boxes
+            const producedQty = item.quantity;
 
-            // 2. Deduct Semi-Finished (e.g. 50 * 0.2kg = 10kg)
+            // 2. Deduct Semi-Finished
             if (product.semi_finished_id && product.semi_finished_quantity) {
                 const requiredSemi = producedQty * product.semi_finished_quantity;
-                const { error: rpcError } = await supabase.rpc('decrement_semi_finished', { row_id: product.semi_finished_id, amount: requiredSemi });
+
+                // Get current balance
+                const { data: sf } = await supabase
+                    .from('semi_finished_products')
+                    .select('quantity')
+                    .eq('id', product.semi_finished_id)
+                    .single();
+
+                const sfPrevBalance = sf?.quantity || 0;
+                const sfNewBalance = sfPrevBalance - requiredSemi;
+
+                const { error: rpcError } = await supabase.rpc('decrement_semi_finished', {
+                    row_id: product.semi_finished_id,
+                    amount: requiredSemi
+                });
                 if (rpcError) throw rpcError;
+
+                // Log semi-finished deduction
+                await logMovement(
+                    product.semi_finished_id,
+                    'semi_finished_products',
+                    'out',
+                    requiredSemi,
+                    sfPrevBalance,
+                    sfNewBalance,
+                    'استهلاك في أمر تعبئة',
+                    orderRef
+                );
             }
 
-            // 3. Deduct Packaging Materials (e.g. 50 * 1 Bottle)
+            // 3. Deduct Packaging Materials
             if (product.finished_product_packaging) {
                 for (const pkg of product.finished_product_packaging) {
                     const requiredPkg = producedQty * pkg.quantity;
-                    const { error: rpcError } = await supabase.rpc('decrement_packaging_material', { row_id: pkg.packaging_material_id, amount: requiredPkg });
+
+                    // Get current balance
+                    const { data: pm } = await supabase
+                        .from('packaging_materials')
+                        .select('quantity')
+                        .eq('id', pkg.packaging_material_id)
+                        .single();
+
+                    const pmPrevBalance = pm?.quantity || 0;
+                    const pmNewBalance = pmPrevBalance - requiredPkg;
+
+                    const { error: rpcError } = await supabase.rpc('decrement_packaging_material', {
+                        row_id: pkg.packaging_material_id,
+                        amount: requiredPkg
+                    });
                     if (rpcError) throw rpcError;
+
+                    // Log packaging material deduction
+                    await logMovement(
+                        pkg.packaging_material_id,
+                        'packaging_materials',
+                        'out',
+                        requiredPkg,
+                        pmPrevBalance,
+                        pmNewBalance,
+                        'استهلاك في أمر تعبئة',
+                        orderRef
+                    );
                 }
             }
 
             // 4. Add Finished Product Stock
-            const { data: fp } = await supabase.from('finished_products').select('quantity').eq('id', item.finished_product_id).single();
-            if (fp) {
-                await supabase
-                    .from('finished_products')
-                    .update({ quantity: (fp.quantity || 0) + producedQty })
-                    .eq('id', item.finished_product_id);
-            }
+            const { data: fp } = await supabase
+                .from('finished_products')
+                .select('quantity')
+                .eq('id', item.finished_product_id)
+                .single();
+
+            const fpPrevBalance = fp?.quantity || 0;
+            const fpNewBalance = fpPrevBalance + producedQty;
+
+            await supabase
+                .from('finished_products')
+                .update({ quantity: fpNewBalance })
+                .eq('id', item.finished_product_id);
+
+            // Log finished product addition
+            await logMovement(
+                item.finished_product_id,
+                'finished_products',
+                'in',
+                producedQty,
+                fpPrevBalance,
+                fpNewBalance,
+                'إنتاج من أمر تعبئة',
+                orderRef
+            );
         }
 
         return InventoryService.updatePackagingOrderStatus(orderId, 'completed');

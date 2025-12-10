@@ -6,6 +6,9 @@ import LowStockReport from "./LowStockReport";
 import ProductionReport from "./ProductionReport";
 import ProductPerformanceReport from "./ProductPerformanceReport";
 import ExecutiveAnalytics from "./ExecutiveAnalytics";
+import AgingReport from "./AgingReport";
+import InventoryTurnoverReport from "./InventoryTurnoverReport";
+import PartyAnalysisReport from "./PartyAnalysisReport";
 
 export default function ReportsRoutes() {
     return (
@@ -17,6 +20,9 @@ export default function ReportsRoutes() {
             <Route path="production" element={<ProductionReport />} />
             <Route path="products" element={<ProductPerformanceReport />} />
             <Route path="executive" element={<ExecutiveAnalytics />} />
+            <Route path="aging" element={<AgingReport />} />
+            <Route path="turnover" element={<InventoryTurnoverReport />} />
+            <Route path="party-analysis" element={<PartyAnalysisReport />} />
         </Routes>
     );
 }

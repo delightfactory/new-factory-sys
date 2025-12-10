@@ -27,6 +27,7 @@ interface DataTableProps<TData, TValue> {
     data: TData[]
     searchPlaceholder?: string
     searchable?: boolean
+    onRowClick?: (row: TData) => void
 }
 
 export function DataTable<TData, TValue>({
@@ -34,6 +35,7 @@ export function DataTable<TData, TValue>({
     data,
     searchPlaceholder = "بحث...",
     searchable = true,
+    onRowClick,
 }: DataTableProps<TData, TValue>) {
     const [sorting, setSorting] = useState<SortingState>([])
     const [globalFilter, setGlobalFilter] = useState("")
@@ -92,6 +94,8 @@ export function DataTable<TData, TValue>({
                                 <TableRow
                                     key={row.id}
                                     data-state={row.getIsSelected() && "selected"}
+                                    className={onRowClick ? "cursor-pointer hover:bg-muted/50" : ""}
+                                    onClick={() => onRowClick?.(row.original)}
                                 >
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>

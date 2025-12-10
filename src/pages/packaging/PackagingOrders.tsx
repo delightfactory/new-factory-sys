@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { InventoryService } from "@/services/InventoryService";
 import { DataTable } from "@/components/ui/data-table";
@@ -45,6 +46,7 @@ export default function PackagingOrders() {
     const [loadingRequirements, setLoadingRequirements] = useState<Record<string, boolean>>({});
     const [pendingDemands, setPendingDemands] = useState<{ packagingDemand: Map<number, number>; semiFinishedDemand: Map<number, number> }>({ packagingDemand: new Map(), semiFinishedDemand: new Map() });
     const [viewOrderId, setViewOrderId] = useState<number | null>(null);
+    const navigate = useNavigate();
 
     // Fetch order details when viewing
     const { data: orderDetails, isLoading: isLoadingDetails } = useQuery({
@@ -103,17 +105,46 @@ export default function PackagingOrders() {
     // Create Mutation
     const createMutation = useMutation({
         mutationFn: async (data: OrderFormValues) => {
+            let orderTotalCost = 0;
+            const itemsData = data.items.map(item => {
+                const prodId = item.finished_product_id;
+                const quantity = item.quantity;
+                const reqData = requirementsData[prodId];
+
+                let unitCost = 0;
+
+                if (reqData) {
+                    // 1. Cost of semi-finished
+                    if (reqData.semiFinished) {
+                        const sfCost = (reqData.semiFinished.unitCost || 0) * reqData.semiFinished.quantityPerUnit;
+                        unitCost += sfCost;
+                    }
+
+                    // 2. Cost of packaging materials
+                    reqData.packagingMaterials.forEach((pkg: any) => {
+                        const pkgCost = (pkg.unitCost || 0) * pkg.quantityPerUnit;
+                        unitCost += pkgCost;
+                    });
+                }
+
+                const itemTotalCost = unitCost * quantity;
+                orderTotalCost += itemTotalCost;
+
+                return {
+                    finished_product_id: Number(prodId),
+                    quantity: quantity,
+                    unit_cost: parseFloat(unitCost.toFixed(2)),
+                    total_cost: parseFloat(itemTotalCost.toFixed(2))
+                };
+            });
+
             const orderData = {
                 code: data.code,
                 date: data.date,
                 notes: data.notes,
-                status: 'pending',
-                total_cost: 0
+                status: 'pending' as const,
+                total_cost: parseFloat(orderTotalCost.toFixed(2))
             };
-            const itemsData = data.items.map(item => ({
-                finished_product_id: Number(item.finished_product_id),
-                quantity: item.quantity
-            }));
             return InventoryService.createPackagingOrder(orderData, itemsData);
         },
         onSuccess: () => {
@@ -256,7 +287,11 @@ export default function PackagingOrders() {
             />
 
             {orders && orders.length > 0 ? (
-                <DataTable columns={columns} data={orders} />
+                <DataTable
+                    columns={columns}
+                    data={orders}
+                    onRowClick={(order) => navigate(`/packaging/orders/${order.id}`)}
+                />
             ) : (
                 <EmptyState
                     icon={Package}

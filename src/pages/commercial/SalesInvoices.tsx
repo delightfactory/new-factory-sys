@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { SalesInvoicesService, type SalesInvoice, type SalesInvoiceItem } from "@/services/SalesInvoicesService";
 import { PartiesService } from "@/services/PartiesService";
@@ -31,6 +32,7 @@ export default function SalesInvoices() {
     const [activeTab, setActiveTab] = useState("list");
     const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     const { data: invoices } = useQuery({
         queryKey: ['sales_invoices'],
@@ -105,7 +107,11 @@ export default function SalesInvoices() {
                                 </TableHeader>
                                 <TableBody>
                                     {invoices?.map((inv) => (
-                                        <TableRow key={inv.id}>
+                                        <TableRow
+                                            key={inv.id}
+                                            className="cursor-pointer hover:bg-muted/50"
+                                            onClick={() => navigate(`/commercial/selling/${inv.id}`)}
+                                        >
                                             <TableCell className="font-medium">{inv.invoice_number || inv.id}</TableCell>
                                             <TableCell>{inv.customer?.name}</TableCell>
                                             <TableCell>{inv.transaction_date}</TableCell>

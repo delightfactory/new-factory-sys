@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PartiesService, type Party } from "@/services/PartiesService";
 import { DataTable } from "@/components/ui/data-table";
@@ -27,6 +28,7 @@ export default function Parties() {
     const [selectedParty, setSelectedParty] = useState<Party | null>(null);
     const [selectedType, setSelectedType] = useState<'supplier' | 'customer'>('supplier');
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     // Fetch Parties
     const { data: parties } = useQuery({
@@ -109,11 +111,19 @@ export default function Parties() {
                 </TabsList>
 
                 <TabsContent value="supplier" className="space-y-4">
-                    <DataTable columns={columns} data={parties || []} />
+                    <DataTable
+                        columns={columns}
+                        data={parties || []}
+                        onRowClick={(party) => navigate(`/commercial/parties/${party.id}`)}
+                    />
                 </TabsContent>
 
                 <TabsContent value="customer" className="space-y-4">
-                    <DataTable columns={columns} data={parties || []} />
+                    <DataTable
+                        columns={columns}
+                        data={parties || []}
+                        onRowClick={(party) => navigate(`/commercial/parties/${party.id}`)}
+                    />
                 </TabsContent>
             </Tabs>
 

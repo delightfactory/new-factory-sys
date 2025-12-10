@@ -1,10 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { InventoryService } from "@/services/InventoryService";
 import { DataTable } from "@/components/ui/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type ProductionOrder } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Plus, CheckCircle, XCircle, Factory, Eye, Loader2 } from "lucide-react";
+import { Plus, CheckCircle, XCircle, Factory, Eye, Loader2, AlertTriangle, Calculator } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -45,6 +46,7 @@ export default function ProductionOrders() {
     const [loadingIngredients, setLoadingIngredients] = useState<Record<string, boolean>>({});
     const [pendingDemands, setPendingDemands] = useState<Map<number, number>>(new Map());
     const [viewOrderId, setViewOrderId] = useState<number | null>(null);
+    const navigate = useNavigate();
 
     // Fetch order details when viewing
     const { data: orderDetails, isLoading: isLoadingDetails } = useQuery({
@@ -103,17 +105,40 @@ export default function ProductionOrders() {
     // Create Mutation
     const createMutation = useMutation({
         mutationFn: async (data: OrderFormValues) => {
+            let orderTotalCost = 0;
+            const itemsData = data.items.map(item => {
+                const prodId = item.semi_finished_id;
+                const quantity = item.quantity;
+                const ingData = ingredientsData[prodId];
+
+                let itemTotalCost = 0;
+                if (ingData && quantity > 0) {
+                    const ratio = quantity / ingData.batchSize;
+                    ingData.ingredients.forEach((ing: any) => {
+                        const requiredQty = ing.quantityPerBatch * ratio;
+                        itemTotalCost += requiredQty * (ing.unitCost || 0);
+                    });
+                }
+
+                const unitCost = quantity > 0 ? itemTotalCost / quantity : 0;
+                orderTotalCost += itemTotalCost;
+
+                return {
+                    semi_finished_id: Number(prodId),
+                    quantity: quantity,
+                    unit_cost: parseFloat(unitCost.toFixed(2)),
+                    total_cost: parseFloat(itemTotalCost.toFixed(2))
+                };
+            });
+
             const orderData = {
                 code: data.code,
                 date: data.date,
                 notes: data.notes,
                 status: 'pending' as const,
-                total_cost: 0
+                total_cost: parseFloat(orderTotalCost.toFixed(2))
             };
-            const itemsData = data.items.map(item => ({
-                semi_finished_id: Number(item.semi_finished_id),
-                quantity: item.quantity
-            }));
+
             return InventoryService.createProductionOrder(orderData, itemsData);
         },
         onSuccess: () => {
@@ -254,7 +279,11 @@ export default function ProductionOrders() {
             />
 
             {orders && orders.length > 0 ? (
-                <DataTable columns={columns} data={orders} />
+                <DataTable
+                    columns={columns}
+                    data={orders}
+                    onRowClick={(order) => navigate(`/production/orders/${order.id}`)}
+                />
             ) : (
                 <EmptyState
                     icon={Factory}
@@ -408,6 +437,83 @@ export default function ProductionOrders() {
                                 <Plus className="h-4 w-4 mr-1" /> إضافة منتج آخر
                             </Button>
                         </div>
+
+                        {/* BOM Cost Summary & Warnings Panel */}
+                        {(() => {
+                            // Calculate total BOM cost and missing materials
+                            let totalEstimatedCost = 0;
+                            const missingMaterials: { name: string; needed: number; available: number; unit: string }[] = [];
+
+                            fields.forEach((_, idx) => {
+                                const prodId = form.watch(`items.${idx}.semi_finished_id`);
+                                const qty = form.watch(`items.${idx}.quantity`) || 0;
+                                const ingData = ingredientsData[prodId];
+
+                                if (ingData && qty > 0) {
+                                    const ratio = qty / ingData.batchSize;
+                                    ingData.ingredients.forEach((ing: any) => {
+                                        const requiredQty = ing.quantityPerBatch * ratio;
+                                        const cost = requiredQty * (ing.unitCost || 0);
+                                        totalEstimatedCost += cost;
+
+                                        if (requiredQty > ing.availableStock) {
+                                            // Check if already in array
+                                            const existing = missingMaterials.find(m => m.name === ing.name);
+                                            if (!existing) {
+                                                missingMaterials.push({
+                                                    name: ing.name,
+                                                    needed: Math.round(requiredQty * 100) / 100,
+                                                    available: Math.round(ing.availableStock * 100) / 100,
+                                                    unit: ing.unit
+                                                });
+                                            }
+                                        }
+                                    });
+                                }
+                            });
+
+                            const hasItems = fields.some((_, idx) => {
+                                const id = form.watch(`items.${idx}.semi_finished_id`);
+                                const qty = form.watch(`items.${idx}.quantity`);
+                                return id && qty > 0;
+                            });
+
+                            if (!hasItems) return null;
+
+                            return (
+                                <div className="space-y-3 border rounded-lg p-4 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Calculator className="h-5 w-5 text-blue-600" />
+                                            <span className="font-medium">التكلفة التقديرية للمواد الخام</span>
+                                        </div>
+                                        <span className="text-xl font-bold text-blue-700 dark:text-blue-400">
+                                            {totalEstimatedCost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م
+                                        </span>
+                                    </div>
+
+                                    {missingMaterials.length > 0 && (
+                                        <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                                            <div className="flex items-center gap-2 text-red-700 dark:text-red-400 mb-2">
+                                                <AlertTriangle className="h-4 w-4" />
+                                                <span className="font-medium">تحذير: مواد غير كافية ({missingMaterials.length})</span>
+                                            </div>
+                                            <ul className="text-sm text-red-600 dark:text-red-300 space-y-1">
+                                                {missingMaterials.slice(0, 5).map((m, i) => (
+                                                    <li key={i} className="flex justify-between">
+                                                        <span>{m.name}</span>
+                                                        <span className="font-mono">مطلوب: {m.needed} / متاح: {m.available} {m.unit}</span>
+                                                    </li>
+                                                ))}
+                                                {missingMaterials.length > 5 && (
+                                                    <li className="text-xs opacity-70">... و{missingMaterials.length - 5} مواد أخرى</li>
+                                                )}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         <div className="flex justify-end pt-4 border-t gap-3">
                             <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>إلغاء</Button>

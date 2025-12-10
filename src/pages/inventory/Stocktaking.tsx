@@ -99,7 +99,11 @@ export default function Stocktaking() {
             />
 
             {sessions && sessions.length > 0 ? (
-                <DataTable columns={columns} data={sessions} />
+                <DataTable
+                    columns={columns}
+                    data={sessions}
+                    onRowClick={(session) => setActiveSessionId(session.id)}
+                />
             ) : (
                 <EmptyState
                     icon={ClipboardList}

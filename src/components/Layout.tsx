@@ -23,7 +23,8 @@ import {
     UserCog,
     FileText,
     Sparkles,
-    Database
+    Database,
+    ArrowRightLeft
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { GlobalSearch } from "@/components/ui/global-search";
 
 interface MenuItemProps {
     icon: any;
@@ -203,6 +205,7 @@ export default function Layout() {
                     { label: "نصف مصنع", path: "/inventory/semi-finished", icon: Archive },
                     { label: "منتجات نهائية", path: "/inventory/finished", icon: ShoppingCart },
                     { label: "جرد المخزون", path: "/inventory/stocktaking", icon: ListTodo },
+                    { label: "سجل الحركات", path: "/inventory/movements", icon: ArrowRightLeft },
                 ]
             },
             {
@@ -454,6 +457,9 @@ export default function Layout() {
 
                     {/* Right Side Header Items */}
                     <div className="flex items-center gap-2">
+                        {/* Global Search */}
+                        <GlobalSearch />
+
                         {/* Date Display */}
                         <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent/50 text-sm text-muted-foreground">
                             <span>📅</span>
