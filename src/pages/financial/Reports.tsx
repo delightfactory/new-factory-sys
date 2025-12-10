@@ -62,22 +62,22 @@ export default function FinancialReports() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">التقارير المالية (P&L)</h2>
-                    <p className="text-muted-foreground">قائمة الدخل: الإيرادات، التكاليف، والأرباح.</p>
+                    <h2 className="text-2xl lg:text-3xl font-bold tracking-tight">التقارير المالية (P&L)</h2>
+                    <p className="text-muted-foreground text-sm">قائمة الدخل: الإيرادات، التكاليف، والأرباح.</p>
                 </div>
 
-                <div className="flex items-end gap-2">
-                    <div className="grid gap-1.5 code">
-                        <Label>من</Label>
-                        <Input type="date" value={dateRange.start} onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))} className="w-[140px]" />
+                <div className="flex flex-wrap items-end gap-2 lg:mr-auto">
+                    <div className="grid gap-1">
+                        <Label className="text-xs">من</Label>
+                        <Input type="date" value={dateRange.start} onChange={e => setDateRange(prev => ({ ...prev, start: e.target.value }))} className="w-[130px] text-sm" />
                     </div>
-                    <div className="grid gap-1.5">
-                        <Label>إلى</Label>
-                        <Input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} className="w-[140px]" />
+                    <div className="grid gap-1">
+                        <Label className="text-xs">إلى</Label>
+                        <Input type="date" value={dateRange.end} onChange={e => setDateRange(prev => ({ ...prev, end: e.target.value }))} className="w-[130px] text-sm" />
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-wrap">
                         <Button variant="outline" size="sm" onClick={() => setPreset('thisMonth')}>الشهر الحالي</Button>
                         <Button variant="outline" size="sm" onClick={() => setPreset('lastMonth')}>الشهر الماضي</Button>
                     </div>

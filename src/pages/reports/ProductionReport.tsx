@@ -62,8 +62,8 @@ export default function ProductionReport() {
 
     return (
         <div className="space-y-6 print:space-y-4">
-            <div className="flex items-center justify-between print:hidden">
-                <div className="flex items-center gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
+                <div className="flex items-center gap-2 sm:gap-4">
                     <Button variant="ghost" size="icon" asChild>
                         <Link to="/reports"><ArrowRight /></Link>
                     </Button>
@@ -73,9 +73,9 @@ export default function ProductionReport() {
                         icon={Factory}
                     />
                 </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={handlePrint}>
-                        <Printer className="w-4 h-4 mr-2" />
+                <div className="flex gap-2 mr-auto sm:mr-0">
+                    <Button variant="outline" onClick={handlePrint} size="sm">
+                        <Printer className="w-4 h-4 ml-2" />
                         طباعة
                     </Button>
                 </div>
@@ -86,7 +86,7 @@ export default function ProductionReport() {
             ) : (
                 <>
                     {/* KPI Cards */}
-                    <div className="grid gap-4 md:grid-cols-4 print:grid-cols-4">
+                    <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 print:grid-cols-4">
                         <Card className="bg-blue-50 dark:bg-blue-900/20">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-medium text-blue-600">إجمالي الأوامر</CardTitle>
@@ -135,27 +135,29 @@ export default function ProductionReport() {
                         <CardHeader>
                             <CardTitle>سجل أوامر التشغيل (آخر 50 أمر)</CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>المنتج</TableHead>
-                                        <TableHead>الحالة</TableHead>
-                                        <TableHead className="text-left">تاريخ الإنشاء</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {stats?.orders.map((order: any) => (
-                                        <TableRow key={order.id}>
-                                            <TableCell className="font-medium">{order.finished_product?.name || 'غير محدد'}</TableCell>
-                                            <TableCell>{getStatusBadge(order.status)}</TableCell>
-                                            <TableCell className="text-left text-muted-foreground text-sm">
-                                                {format(new Date(order.created_at), 'dd/MM/yyyy')}
-                                            </TableCell>
+                        <CardContent className="overflow-x-auto">
+                            <div className="min-w-[400px]">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>المنتج</TableHead>
+                                            <TableHead>الحالة</TableHead>
+                                            <TableHead className="text-left">تاريخ الإنشاء</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {stats?.orders.map((order: any) => (
+                                            <TableRow key={order.id}>
+                                                <TableCell className="font-medium">{order.finished_product?.name || 'غير محدد'}</TableCell>
+                                                <TableCell>{getStatusBadge(order.status)}</TableCell>
+                                                <TableCell className="text-left text-muted-foreground text-sm">
+                                                    {format(new Date(order.created_at), 'dd/MM/yyyy')}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </CardContent>
                     </Card>
                 </>

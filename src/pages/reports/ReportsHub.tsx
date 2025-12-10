@@ -9,7 +9,8 @@ import {
     TrendingUp,
     ArrowLeft,
     AlertTriangle,
-    Activity
+    Activity,
+    BarChart3
 } from "lucide-react";
 
 export default function ReportsHub() {
@@ -21,6 +22,14 @@ export default function ReportsHub() {
             color: "text-indigo-600",
             path: "/reports/executive",
             bg: "bg-indigo-50 dark:bg-indigo-900/20"
+        },
+        {
+            title: "تحليل المخزون المتقدم",
+            description: "تحليل ABC، توزيع القيمة، الترتيب حسب القيمة/الكمية/الربح، رسوم بيانية.",
+            icon: BarChart3,
+            color: "text-purple-500",
+            path: "/reports/inventory-analytics",
+            bg: "bg-purple-50 dark:bg-purple-900/20"
         },
         {
             title: "تقييم المخزون",
