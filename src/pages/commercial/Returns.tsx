@@ -534,11 +534,39 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                                 <div className="grid grid-cols-2 gap-3">
                                     <div>
                                         <label className="text-xs text-muted-foreground mb-1 block">الكمية</label>
-                                        <Input type="number" step="0.01" {...register(`items.${index}.quantity`, { required: true })} placeholder="0" />
+                                        <Controller
+                                            name={`items.${index}.quantity`}
+                                            control={control}
+                                            rules={{ required: true }}
+                                            render={({ field }) => (
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={field.value || ''}
+                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                    onBlur={field.onBlur}
+                                                    placeholder="0"
+                                                />
+                                            )}
+                                        />
                                     </div>
                                     <div>
                                         <label className="text-xs text-muted-foreground mb-1 block">السعر</label>
-                                        <Input type="number" step="0.01" {...register(`items.${index}.unit_price`, { required: true })} placeholder="0.00" />
+                                        <Controller
+                                            name={`items.${index}.unit_price`}
+                                            control={control}
+                                            rules={{ required: true }}
+                                            render={({ field }) => (
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={field.value || ''}
+                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                    onBlur={field.onBlur}
+                                                    placeholder="0.00"
+                                                />
+                                            )}
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -607,10 +635,10 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            <Input type="number" step="0.01" {...register(`items.${index}.quantity`, { required: true })} placeholder="الكمية" />
+                                            <Input type="number" step="0.01" {...register(`items.${index}.quantity`, { required: true, valueAsNumber: true })} placeholder="الكمية" />
                                         </TableCell>
                                         <TableCell>
-                                            <Input type="number" step="0.01" {...register(`items.${index}.unit_price`, { required: true })} placeholder="السعر" />
+                                            <Input type="number" step="0.01" {...register(`items.${index}.unit_price`, { required: true, valueAsNumber: true })} placeholder="السعر" />
                                         </TableCell>
                                         <TableCell>
                                             <Button variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-red-500" /></Button>

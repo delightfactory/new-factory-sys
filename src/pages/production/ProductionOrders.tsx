@@ -4,7 +4,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type ProductionOrder } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Plus, CheckCircle, XCircle, Factory } from "lucide-react";
+import { Plus, CheckCircle, XCircle, Factory, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,6 +25,7 @@ import { useState, useEffect } from "react";
 import { Badge } from "../../components/ui/badge";
 import { format } from "date-fns";
 import { MaterialPreviewCard, type MaterialItem } from "@/components/ui/material-preview-card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // Types for the form
 type OrderFormValues = {
@@ -42,6 +43,15 @@ export default function ProductionOrders() {
     const [isOpen, setIsOpen] = useState(false);
     const [ingredientsData, setIngredientsData] = useState<Record<string, { batchSize: number; ingredients: any[] }>>({});
     const [loadingIngredients, setLoadingIngredients] = useState<Record<string, boolean>>({});
+    const [pendingDemands, setPendingDemands] = useState<Map<number, number>>(new Map());
+    const [viewOrderId, setViewOrderId] = useState<number | null>(null);
+
+    // Fetch order details when viewing
+    const { data: orderDetails, isLoading: isLoadingDetails } = useQuery({
+        queryKey: ['productionOrderItems', viewOrderId],
+        queryFn: () => viewOrderId ? InventoryService.getProductionOrderItems(viewOrderId) : null,
+        enabled: !!viewOrderId
+    });
 
     // Fetch Orders
     const { data: orders, isLoading } = useQuery({
@@ -83,6 +93,10 @@ export default function ProductionOrders() {
     useEffect(() => {
         if (isOpen) {
             fetchNextCode();
+            // Fetch pending demands when dialog opens
+            InventoryService.getPendingProductionDemand()
+                .then(demands => setPendingDemands(demands))
+                .catch(err => console.error('Failed to fetch pending demands', err));
         }
     }, [isOpen]);
 
@@ -192,12 +206,15 @@ export default function ProductionOrders() {
                 const item = row.original;
                 return (
                     <div className="flex gap-2 justify-end">
+                        {/* View Details Button - Always visible */}
+                        <Button size="sm" variant="outline" onClick={() => setViewOrderId(item.id)}>
+                            <Eye className="w-4 h-4" />
+                        </Button>
                         {item.status === 'pending' && (
                             <>
                                 <Button size="sm" onClick={() => handleComplete(item.id)} className="bg-green-600 hover:bg-green-700">
                                     <CheckCircle className="w-4 h-4 mr-1" /> إتمام
                                 </Button>
-                                {/* Setup cancel for pending (just status update) */}
                                 <Button size="sm" variant="destructive" onClick={() => handleCancel(item.id, 'pending')}>
                                     <XCircle className="w-4 h-4" />
                                 </Button>
@@ -299,16 +316,45 @@ export default function ProductionOrders() {
                                 };
 
                                 // Calculate required materials based on quantity and batch size
+                                // AND calculate aggregated demands from OTHER items in this order
                                 const materialItems: MaterialItem[] = (() => {
                                     if (!productIngredients || selectedQuantity <= 0) return [];
                                     const ratio = selectedQuantity / productIngredients.batchSize;
-                                    return productIngredients.ingredients.map(ing => ({
-                                        id: ing.id,
-                                        name: ing.name,
-                                        unit: ing.unit,
-                                        requiredQty: Math.round(ing.quantityPerBatch * ratio * 100) / 100,
-                                        availableQty: ing.availableStock
-                                    }));
+
+                                    // SEQUENTIAL LOGIC: Only items BEFORE current (lower index) have priority
+                                    // Items earlier in the order "reserve" stock first
+                                    const previousItemsDemand = new Map<number, number>();
+                                    fields.forEach((_, idx) => {
+                                        if (idx >= index) return; // Skip current and all items AFTER
+                                        const otherId = form.watch(`items.${idx}.semi_finished_id`);
+                                        const otherQty = form.watch(`items.${idx}.quantity`) || 0;
+                                        const otherIngData = ingredientsData[otherId];
+                                        if (!otherIngData || otherQty <= 0) return;
+
+                                        const otherRatio = otherQty / otherIngData.batchSize;
+                                        otherIngData.ingredients.forEach(ing => {
+                                            const needed = ing.quantityPerBatch * otherRatio;
+                                            previousItemsDemand.set(ing.id, (previousItemsDemand.get(ing.id) || 0) + needed);
+                                        });
+                                    });
+
+                                    return productIngredients.ingredients.map(ing => {
+                                        const requiredQty = Math.round(ing.quantityPerBatch * ratio * 100) / 100;
+                                        const pendingReserved = pendingDemands.get(ing.id) || 0;
+                                        const otherOrderDemand = previousItemsDemand.get(ing.id) || 0;
+                                        const adjustedAvailable = InventoryService.calculateAdjustedAvailability(
+                                            ing.availableStock,
+                                            pendingReserved,
+                                            otherOrderDemand
+                                        );
+                                        return {
+                                            id: ing.id,
+                                            name: ing.name,
+                                            unit: ing.unit,
+                                            requiredQty,
+                                            availableQty: Math.round(adjustedAvailable * 100) / 100
+                                        };
+                                    });
                                 })();
 
                                 return (
@@ -370,6 +416,115 @@ export default function ProductionOrders() {
                             </Button>
                         </div>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Order Details Dialog - Enhanced */}
+            <Dialog open={!!viewOrderId} onOpenChange={(open) => !open && setViewOrderId(null)}>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader className="pb-4 border-b">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <DialogTitle className="text-xl flex items-center gap-2">
+                                    <Factory className="h-5 w-5 text-primary" />
+                                    تفاصيل أمر الإنتاج
+                                </DialogTitle>
+                                <DialogDescription className="mt-1">
+                                    عرض تفاصيل الأمر والمنتجات المطلوبة
+                                </DialogDescription>
+                            </div>
+                            {orders?.find(o => o.id === viewOrderId) && (
+                                <Badge variant={
+                                    orders.find(o => o.id === viewOrderId)?.status === 'completed' ? 'default' :
+                                        orders.find(o => o.id === viewOrderId)?.status === 'pending' ? 'secondary' :
+                                            orders.find(o => o.id === viewOrderId)?.status === 'cancelled' ? 'destructive' : 'outline'
+                                } className="text-sm px-3 py-1">
+                                    {orders.find(o => o.id === viewOrderId)?.status === 'pending' ? 'قيد الانتظار' :
+                                        orders.find(o => o.id === viewOrderId)?.status === 'completed' ? 'مكتمل' :
+                                            orders.find(o => o.id === viewOrderId)?.status === 'cancelled' ? 'ملغي' : 'جاري'}
+                                </Badge>
+                            )}
+                        </div>
+                    </DialogHeader>
+
+                    {isLoadingDetails ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                        </div>
+                    ) : (
+                        <div className="space-y-6 pt-4">
+                            {/* Order Header Info */}
+                            {orders?.find(o => o.id === viewOrderId) && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                        <div className="text-xs text-muted-foreground mb-1">رقم الأمر</div>
+                                        <div className="font-bold text-lg">{orders.find(o => o.id === viewOrderId)?.code}</div>
+                                    </div>
+                                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                        <div className="text-xs text-muted-foreground mb-1">التاريخ</div>
+                                        <div className="font-medium">{orders.find(o => o.id === viewOrderId)?.date ? format(new Date(orders.find(o => o.id === viewOrderId)!.date), "dd/MM/yyyy") : '-'}</div>
+                                    </div>
+                                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                        <div className="text-xs text-muted-foreground mb-1">عدد المنتجات</div>
+                                        <div className="font-bold text-lg text-primary">{orderDetails?.length || 0}</div>
+                                    </div>
+                                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                        <div className="text-xs text-muted-foreground mb-1">إجمالي الكميات</div>
+                                        <div className="font-bold text-lg">{orderDetails?.reduce((sum, i: any) => sum + (i.quantity || 0), 0).toLocaleString()}</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Notes if available */}
+                            {orders?.find(o => o.id === viewOrderId)?.notes && (
+                                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                                    <div className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">ملاحظات</div>
+                                    <div className="text-sm">{orders.find(o => o.id === viewOrderId)?.notes}</div>
+                                </div>
+                            )}
+
+                            {/* Products Table */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="bg-muted/30 px-4 py-2 border-b">
+                                    <h3 className="font-medium text-sm">المنتجات المطلوبة</h3>
+                                </div>
+                                {orderDetails && orderDetails.length > 0 ? (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-muted/20">
+                                                <TableHead className="font-bold">#</TableHead>
+                                                <TableHead className="font-bold">المنتج (نصف مصنع)</TableHead>
+                                                <TableHead className="text-center font-bold">الكمية</TableHead>
+                                                <TableHead className="text-center font-bold">الوحدة</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {orderDetails.map((item: any, idx: number) => (
+                                                <TableRow key={item.id} className="hover:bg-muted/30">
+                                                    <TableCell className="text-muted-foreground w-12">{idx + 1}</TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {item.semi_finished_products?.name || `ID: ${item.semi_finished_id}`}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <span className="font-mono bg-primary/10 text-primary px-2 py-1 rounded">
+                                                            {item.quantity?.toLocaleString()}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-muted-foreground">
+                                                        {item.semi_finished_products?.unit || '-'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                ) : (
+                                    <div className="py-8 text-center text-muted-foreground">
+                                        لا توجد منتجات في هذا الأمر
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>

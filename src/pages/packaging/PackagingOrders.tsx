@@ -4,7 +4,7 @@ import { DataTable } from "@/components/ui/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type PackagingOrder } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Plus, CheckCircle, XCircle, Package } from "lucide-react";
+import { Plus, CheckCircle, XCircle, Package, Eye, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -25,6 +25,7 @@ import { useState, useEffect } from "react";
 import { Badge } from "../../components/ui/badge";
 import { format } from "date-fns";
 import { MaterialPreviewCard, type MaterialItem } from "@/components/ui/material-preview-card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 // Types for the form
 type OrderFormValues = {
@@ -42,6 +43,15 @@ export default function PackagingOrders() {
     const [isOpen, setIsOpen] = useState(false);
     const [requirementsData, setRequirementsData] = useState<Record<string, { semiFinished: any; packagingMaterials: any[] }>>({});
     const [loadingRequirements, setLoadingRequirements] = useState<Record<string, boolean>>({});
+    const [pendingDemands, setPendingDemands] = useState<{ packagingDemand: Map<number, number>; semiFinishedDemand: Map<number, number> }>({ packagingDemand: new Map(), semiFinishedDemand: new Map() });
+    const [viewOrderId, setViewOrderId] = useState<number | null>(null);
+
+    // Fetch order details when viewing
+    const { data: orderDetails, isLoading: isLoadingDetails } = useQuery({
+        queryKey: ['packagingOrderItems', viewOrderId],
+        queryFn: () => viewOrderId ? InventoryService.getPackagingOrderItems(viewOrderId) : null,
+        enabled: !!viewOrderId
+    });
 
     // Fetch Orders
     const { data: orders, isLoading } = useQuery({
@@ -83,6 +93,10 @@ export default function PackagingOrders() {
     useEffect(() => {
         if (isOpen) {
             fetchNextCode();
+            // Fetch pending demands when dialog opens
+            InventoryService.getPendingPackagingDemand()
+                .then(demands => setPendingDemands(demands))
+                .catch(err => console.error('Failed to fetch pending demands', err));
         }
     }, [isOpen]);
 
@@ -193,6 +207,9 @@ export default function PackagingOrders() {
                 const item = row.original;
                 return (
                     <div className="flex gap-2 justify-end">
+                        <Button size="sm" variant="outline" onClick={() => setViewOrderId(item.id)}>
+                            <Eye className="w-4 h-4" />
+                        </Button>
                         {item.status === 'pending' && (
                             <>
                                 <Button size="sm" onClick={() => handleComplete(item.id)} className="bg-green-600 hover:bg-green-700">
@@ -301,29 +318,61 @@ export default function PackagingOrders() {
                                 };
 
                                 // Calculate required materials based on quantity
+                                // AND aggregate demands from other items + pending orders
                                 const materialItems: MaterialItem[] = (() => {
                                     if (!productRequirements || selectedQuantity <= 0) return [];
                                     const items: MaterialItem[] = [];
 
-                                    // Add semi-finished product requirement
+                                    // SEQUENTIAL LOGIC: Only items BEFORE current (lower index) have priority
+                                    const prevSfDemand = new Map<number, number>();
+                                    const prevPkgDemand = new Map<number, number>();
+                                    fields.forEach((_, idx) => {
+                                        if (idx >= index) return; // Skip current and all items AFTER
+                                        const otherId = form.watch(`items.${idx}.finished_product_id`);
+                                        const otherQty = form.watch(`items.${idx}.quantity`) || 0;
+                                        const otherReq = requirementsData[otherId];
+                                        if (!otherReq || otherQty <= 0) return;
+
+                                        if (otherReq.semiFinished) {
+                                            const needed = otherReq.semiFinished.quantityPerUnit * otherQty;
+                                            prevSfDemand.set(otherReq.semiFinished.id, (prevSfDemand.get(otherReq.semiFinished.id) || 0) + needed);
+                                        }
+                                        otherReq.packagingMaterials.forEach((pkg: any) => {
+                                            const needed = pkg.quantityPerUnit * otherQty;
+                                            prevPkgDemand.set(pkg.id, (prevPkgDemand.get(pkg.id) || 0) + needed);
+                                        });
+                                    });
+
+                                    // Add semi-finished product requirement with adjusted availability
                                     if (productRequirements.semiFinished) {
+                                        const sf = productRequirements.semiFinished;
+                                        const pendingReserved = pendingDemands.semiFinishedDemand.get(sf.id) || 0;
+                                        const otherOrderDemand = prevSfDemand.get(sf.id) || 0;
+                                        const adjustedAvailable = InventoryService.calculateAdjustedAvailability(
+                                            sf.availableStock, pendingReserved, otherOrderDemand
+                                        );
                                         items.push({
-                                            id: productRequirements.semiFinished.id,
-                                            name: `نصف مصنع: ${productRequirements.semiFinished.name}`,
-                                            unit: productRequirements.semiFinished.unit,
-                                            requiredQty: Math.round(productRequirements.semiFinished.quantityPerUnit * selectedQuantity * 100) / 100,
-                                            availableQty: productRequirements.semiFinished.availableStock
+                                            id: sf.id,
+                                            name: `نصف مصنع: ${sf.name}`,
+                                            unit: sf.unit,
+                                            requiredQty: Math.round(sf.quantityPerUnit * selectedQuantity * 100) / 100,
+                                            availableQty: Math.round(adjustedAvailable * 100) / 100
                                         });
                                     }
 
-                                    // Add packaging materials
+                                    // Add packaging materials with adjusted availability
                                     productRequirements.packagingMaterials.forEach(pkg => {
+                                        const pendingReserved = pendingDemands.packagingDemand.get(pkg.id) || 0;
+                                        const otherOrderDemand = prevPkgDemand.get(pkg.id) || 0;
+                                        const adjustedAvailable = InventoryService.calculateAdjustedAvailability(
+                                            pkg.availableStock, pendingReserved, otherOrderDemand
+                                        );
                                         items.push({
                                             id: pkg.id,
                                             name: pkg.name,
                                             unit: pkg.unit,
                                             requiredQty: Math.round(pkg.quantityPerUnit * selectedQuantity * 100) / 100,
-                                            availableQty: pkg.availableStock
+                                            availableQty: Math.round(adjustedAvailable * 100) / 100
                                         });
                                     });
 
@@ -389,6 +438,115 @@ export default function PackagingOrders() {
                             </Button>
                         </div>
                     </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Order Details Dialog - Enhanced */}
+            <Dialog open={!!viewOrderId} onOpenChange={(open) => !open && setViewOrderId(null)}>
+                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader className="pb-4 border-b">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <DialogTitle className="text-xl flex items-center gap-2">
+                                    <Package className="h-5 w-5 text-primary" />
+                                    تفاصيل أمر التعبئة
+                                </DialogTitle>
+                                <DialogDescription className="mt-1">
+                                    عرض تفاصيل الأمر والمنتجات المطلوبة
+                                </DialogDescription>
+                            </div>
+                            {orders?.find(o => o.id === viewOrderId) && (
+                                <Badge variant={
+                                    orders.find(o => o.id === viewOrderId)?.status === 'completed' ? 'default' :
+                                        orders.find(o => o.id === viewOrderId)?.status === 'pending' ? 'secondary' :
+                                            orders.find(o => o.id === viewOrderId)?.status === 'cancelled' ? 'destructive' : 'outline'
+                                } className="text-sm px-3 py-1">
+                                    {orders.find(o => o.id === viewOrderId)?.status === 'pending' ? 'قيد الانتظار' :
+                                        orders.find(o => o.id === viewOrderId)?.status === 'completed' ? 'مكتمل' :
+                                            orders.find(o => o.id === viewOrderId)?.status === 'cancelled' ? 'ملغي' : 'جاري'}
+                                </Badge>
+                            )}
+                        </div>
+                    </DialogHeader>
+
+                    {isLoadingDetails ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+                        </div>
+                    ) : (
+                        <div className="space-y-6 pt-4">
+                            {/* Order Header Info */}
+                            {orders?.find(o => o.id === viewOrderId) && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                        <div className="text-xs text-muted-foreground mb-1">رقم الأمر</div>
+                                        <div className="font-bold text-lg">{orders.find(o => o.id === viewOrderId)?.code}</div>
+                                    </div>
+                                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                        <div className="text-xs text-muted-foreground mb-1">التاريخ</div>
+                                        <div className="font-medium">{orders.find(o => o.id === viewOrderId)?.date ? format(new Date(orders.find(o => o.id === viewOrderId)!.date), "dd/MM/yyyy") : '-'}</div>
+                                    </div>
+                                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                        <div className="text-xs text-muted-foreground mb-1">عدد المنتجات</div>
+                                        <div className="font-bold text-lg text-primary">{orderDetails?.length || 0}</div>
+                                    </div>
+                                    <div className="bg-muted/50 rounded-lg p-3 text-center">
+                                        <div className="text-xs text-muted-foreground mb-1">إجمالي الكميات</div>
+                                        <div className="font-bold text-lg">{orderDetails?.reduce((sum, i: any) => sum + (i.quantity || 0), 0).toLocaleString()}</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Notes if available */}
+                            {orders?.find(o => o.id === viewOrderId)?.notes && (
+                                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                                    <div className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-1">ملاحظات</div>
+                                    <div className="text-sm">{orders.find(o => o.id === viewOrderId)?.notes}</div>
+                                </div>
+                            )}
+
+                            {/* Products Table */}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="bg-muted/30 px-4 py-2 border-b">
+                                    <h3 className="font-medium text-sm">المنتجات المطلوبة</h3>
+                                </div>
+                                {orderDetails && orderDetails.length > 0 ? (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-muted/20">
+                                                <TableHead className="font-bold">#</TableHead>
+                                                <TableHead className="font-bold">المنتج النهائي</TableHead>
+                                                <TableHead className="text-center font-bold">الكمية</TableHead>
+                                                <TableHead className="text-center font-bold">الوحدة</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {orderDetails.map((item: any, idx: number) => (
+                                                <TableRow key={item.id} className="hover:bg-muted/30">
+                                                    <TableCell className="text-muted-foreground w-12">{idx + 1}</TableCell>
+                                                    <TableCell className="font-medium">
+                                                        {item.finished_products?.name || `ID: ${item.finished_product_id}`}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <span className="font-mono bg-primary/10 text-primary px-2 py-1 rounded">
+                                                            {item.quantity?.toLocaleString()}
+                                                        </span>
+                                                    </TableCell>
+                                                    <TableCell className="text-center text-muted-foreground">
+                                                        {item.finished_products?.unit || '-'}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                ) : (
+                                    <div className="py-8 text-center text-muted-foreground">
+                                        لا توجد منتجات في هذا الأمر
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>

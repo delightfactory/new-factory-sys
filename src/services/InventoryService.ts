@@ -515,6 +515,15 @@ export const InventoryService = {
         return newOrder;
     },
 
+    getPackagingOrderItems: async (orderId: number) => {
+        const { data, error } = await supabase
+            .from('packaging_order_items')
+            .select('*, finished_products(name, unit)')
+            .eq('packaging_order_id', orderId);
+        if (error) throw error;
+        return data;
+    },
+
     updatePackagingOrderStatus: async (id: number, status: string) => {
         const { data, error } = await supabase
             .from('packaging_orders')
@@ -697,5 +706,134 @@ export const InventoryService = {
         }
 
         return InventoryService.updatePackagingOrderStatus(orderId, 'cancelled');
+    },
+
+    // --- SMART AVAILABILITY: Calculate pending demands ---
+
+    /**
+     * Calculate raw materials reserved by pending/inProgress production orders
+     * Returns Map<raw_material_id, reserved_quantity>
+     */
+    getPendingProductionDemand: async (): Promise<Map<number, number>> => {
+        const demandMap = new Map<number, number>();
+
+        // Get all pending/inProgress production orders with their items
+        const { data: pendingOrders, error: ordersError } = await supabase
+            .from('production_orders')
+            .select('id, status')
+            .in('status', ['pending', 'inProgress']);
+
+        if (ordersError) throw ordersError;
+        if (!pendingOrders || pendingOrders.length === 0) return demandMap;
+
+        // Get all items for these orders
+        const orderIds = pendingOrders.map(o => o.id);
+        const { data: items, error: itemsError } = await supabase
+            .from('production_order_items')
+            .select('semi_finished_id, quantity')
+            .in('production_order_id', orderIds);
+
+        if (itemsError) throw itemsError;
+        if (!items || items.length === 0) return demandMap;
+
+        // For each item, get recipe and calculate raw material needs
+        for (const item of items) {
+            const { data: recipe, error: recipeError } = await supabase
+                .from('semi_finished_products')
+                .select('recipe_batch_size, semi_finished_ingredients(raw_material_id, quantity)')
+                .eq('id', item.semi_finished_id)
+                .single();
+
+            if (recipeError || !recipe) continue;
+
+            const batchSize = recipe.recipe_batch_size || 100;
+            const ratio = item.quantity / batchSize;
+
+            if (recipe.semi_finished_ingredients) {
+                for (const ing of recipe.semi_finished_ingredients as any[]) {
+                    const qtyNeeded = (ing.quantity || 0) * ratio;
+                    const currentDemand = demandMap.get(ing.raw_material_id) || 0;
+                    demandMap.set(ing.raw_material_id, currentDemand + qtyNeeded);
+                }
+            }
+        }
+
+        return demandMap;
+    },
+
+    /**
+     * Calculate packaging materials and semi-finished products reserved by pending packaging orders
+     * Returns { packagingDemand: Map, semiFinishedDemand: Map }
+     */
+    getPendingPackagingDemand: async (): Promise<{
+        packagingDemand: Map<number, number>;
+        semiFinishedDemand: Map<number, number>;
+    }> => {
+        const packagingDemand = new Map<number, number>();
+        const semiFinishedDemand = new Map<number, number>();
+
+        // Get all pending/inProgress packaging orders with their items
+        const { data: pendingOrders, error: ordersError } = await supabase
+            .from('packaging_orders')
+            .select('id, status')
+            .in('status', ['pending', 'inProgress']);
+
+        if (ordersError) throw ordersError;
+        if (!pendingOrders || pendingOrders.length === 0) {
+            return { packagingDemand, semiFinishedDemand };
+        }
+
+        // Get all items for these orders
+        const orderIds = pendingOrders.map(o => o.id);
+        const { data: items, error: itemsError } = await supabase
+            .from('packaging_order_items')
+            .select('finished_product_id, quantity')
+            .in('packaging_order_id', orderIds);
+
+        if (itemsError) throw itemsError;
+        if (!items || items.length === 0) {
+            return { packagingDemand, semiFinishedDemand };
+        }
+
+        // For each item, get finished product requirements
+        for (const item of items) {
+            const { data: product, error: productError } = await supabase
+                .from('finished_products')
+                .select('semi_finished_id, semi_finished_quantity, finished_product_packaging(packaging_material_id, quantity)')
+                .eq('id', item.finished_product_id)
+                .single();
+
+            if (productError || !product) continue;
+
+            // Semi-finished demand
+            if (product.semi_finished_id) {
+                const sfNeeded = (product.semi_finished_quantity || 0) * item.quantity;
+                const currentSF = semiFinishedDemand.get(product.semi_finished_id) || 0;
+                semiFinishedDemand.set(product.semi_finished_id, currentSF + sfNeeded);
+            }
+
+            // Packaging materials demand
+            if (product.finished_product_packaging) {
+                for (const pkg of product.finished_product_packaging as any[]) {
+                    const pkgNeeded = (pkg.quantity || 0) * item.quantity;
+                    const currentPkg = packagingDemand.get(pkg.packaging_material_id) || 0;
+                    packagingDemand.set(pkg.packaging_material_id, currentPkg + pkgNeeded);
+                }
+            }
+        }
+
+        return { packagingDemand, semiFinishedDemand };
+    },
+
+    /**
+     * Calculate true available quantity for a material type
+     * available = currentStock - pendingDemand
+     */
+    calculateAdjustedAvailability: (
+        currentStock: number,
+        pendingDemand: number,
+        currentOrderDemand: number = 0
+    ): number => {
+        return Math.max(0, currentStock - pendingDemand - currentOrderDemand);
     },
 };

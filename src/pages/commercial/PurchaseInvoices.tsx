@@ -363,10 +363,117 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                         </FormField>
                     </FormGrid>
 
-                    {/* Items Table */}
-                    <div className="border rounded-md p-4 bg-muted/10">
+                    {/* Items Section */}
+                    <div className="border rounded-md p-3 sm:p-4 bg-muted/10">
                         <Label className="mb-2 block text-lg font-semibold">الأصناف</Label>
-                        <div className="overflow-x-auto -mx-4 px-4">
+
+                        {/* Mobile Cards */}
+                        <div className="block md:hidden space-y-3">
+                            {fields.map((field, index) => {
+                                const type = watch(`items.${index}.item_type`);
+                                const list: any[] = inventoryItems ? (inventoryItems as any)[type] : [];
+                                const qty = watch(`items.${index}.quantity`) || 0;
+                                const price = watch(`items.${index}.unit_price`) || 0;
+                                const total = (qty * price).toFixed(2);
+
+                                return (
+                                    <div key={field.id} className="bg-background border rounded-lg p-4 space-y-3 relative">
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="absolute top-2 left-2 h-8 w-8"
+                                            onClick={() => remove(index)}
+                                        >
+                                            <Trash2 className="w-4 h-4 text-red-500" />
+                                        </Button>
+
+                                        <div className="pr-10">
+                                            <label className="text-xs text-muted-foreground mb-1 block">النوع</label>
+                                            <Controller
+                                                name={`items.${index}.item_type`}
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <Select onValueChange={(val) => { field.onChange(val); setValue(`items.${index}.item_id`, ''); }} value={field.value}>
+                                                        <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="raw_material">خام</SelectItem>
+                                                            <SelectItem value="packaging_material">تعبئة</SelectItem>
+                                                            <SelectItem value="semi_finished">نصف مصنع</SelectItem>
+                                                            <SelectItem value="finished_product">منتج تام</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="text-xs text-muted-foreground mb-1 block">الصنف</label>
+                                            <SearchableSelect
+                                                options={list?.map((item: any) => ({
+                                                    value: item.id.toString(),
+                                                    label: item.name
+                                                })) || []}
+                                                value={watch(`items.${index}.item_id`)?.toString()}
+                                                onValueChange={(val) => setValue(`items.${index}.item_id`, val, { shouldValidate: true })}
+                                                placeholder="اختر الصنف"
+                                                searchPlaceholder="ابحث..."
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="text-xs text-muted-foreground mb-1 block">الكمية</label>
+                                                <Controller
+                                                    name={`items.${index}.quantity`}
+                                                    control={control}
+                                                    rules={{ required: true, min: 0.01 }}
+                                                    render={({ field }) => (
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={field.value || ''}
+                                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                            onBlur={field.onBlur}
+                                                            placeholder="0"
+                                                        />
+                                                    )}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-muted-foreground mb-1 block">السعر</label>
+                                                <Controller
+                                                    name={`items.${index}.unit_price`}
+                                                    control={control}
+                                                    rules={{ required: true, min: 0 }}
+                                                    render={({ field }) => (
+                                                        <Input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={field.value || ''}
+                                                            onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                            onBlur={field.onBlur}
+                                                            placeholder="0.00"
+                                                        />
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex justify-between items-center pt-2 border-t">
+                                            <span className="text-sm text-muted-foreground">الإجمالي</span>
+                                            <span className="font-bold text-primary">{total} ج.م</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            {fields.length === 0 && (
+                                <div className="text-center text-muted-foreground py-4 text-sm">لم يتم إضافة أصناف بعد</div>
+                            )}
+                        </div>
+
+                        {/* Desktop Table */}
+                        <div className="hidden md:block overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
@@ -415,10 +522,10 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                                                     />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Input type="number" step="0.01" className="h-8" {...register(`items.${index}.quantity`, { required: true, min: 0.01 })} />
+                                                    <Input type="number" step="0.01" className="h-8" {...register(`items.${index}.quantity`, { required: true, min: 0.01, valueAsNumber: true })} />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Input type="number" step="0.01" className="h-8" {...register(`items.${index}.unit_price`, { required: true, min: 0 })} />
+                                                    <Input type="number" step="0.01" className="h-8" {...register(`items.${index}.unit_price`, { required: true, min: 0, valueAsNumber: true })} />
                                                 </TableCell>
                                                 <TableCell>
                                                     {((parseFloat(watch(`items.${index}.quantity`) || "0") * parseFloat(watch(`items.${index}.unit_price`) || "0")).toFixed(2))}
@@ -432,7 +539,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                                 </TableBody>
                             </Table>
                         </div>
-                        <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => append({ item_type: 'raw_material', quantity: 1, unit_price: 0 })}>
+                        <Button type="button" variant="outline" size="sm" className="mt-2 w-full sm:w-auto" onClick={() => append({ item_type: 'raw_material', quantity: 1, unit_price: 0 })}>
                             <Plus className="w-4 h-4 mr-1" /> إضافة صنف
                         </Button>
                     </div>
