@@ -24,6 +24,7 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { useState, useEffect } from "react";
 import { Badge } from "../../components/ui/badge";
 import { format } from "date-fns";
+import { MaterialPreviewCard, type MaterialItem } from "@/components/ui/material-preview-card";
 
 // Types for the form
 type OrderFormValues = {
@@ -39,6 +40,8 @@ type OrderFormValues = {
 export default function PackagingOrders() {
     const queryClient = useQueryClient();
     const [isOpen, setIsOpen] = useState(false);
+    const [requirementsData, setRequirementsData] = useState<Record<string, { semiFinished: any; packagingMaterials: any[] }>>({});
+    const [loadingRequirements, setLoadingRequirements] = useState<Record<string, boolean>>({});
 
     // Fetch Orders
     const { data: orders, isLoading } = useQuery({
@@ -275,39 +278,104 @@ export default function PackagingOrders() {
                                 <Badge variant="outline" className="text-xs">{fields.length}</Badge>
                             </h3>
 
-                            {fields.map((field, index) => (
-                                <div key={field.id} className="grid grid-cols-12 gap-2 items-end">
-                                    <div className="col-span-7 md:col-span-8">
-                                        <FormField label="المنتج النهائي" className="space-y-1">
-                                            <SearchableSelect
-                                                options={products?.map(p => ({
-                                                    value: p.id.toString(),
-                                                    label: p.name,
-                                                    description: `${p.unit} - رصيد: ${p.quantity}`
-                                                })) || []}
-                                                value={form.watch(`items.${index}.finished_product_id`)}
-                                                onValueChange={(val) => form.setValue(`items.${index}.finished_product_id`, val)}
-                                                placeholder="اختر منتج..."
-                                                searchPlaceholder="ابحث عن منتج..."
+                            {fields.map((field, index) => {
+                                const selectedProductId = form.watch(`items.${index}.finished_product_id`);
+                                const selectedQuantity = form.watch(`items.${index}.quantity`) || 0;
+                                const productRequirements = requirementsData[selectedProductId];
+                                const isLoadingReq = loadingRequirements[selectedProductId];
+
+                                // Fetch requirements when product is selected
+                                const handleProductChange = async (val: string) => {
+                                    form.setValue(`items.${index}.finished_product_id`, val);
+                                    if (val && !requirementsData[val]) {
+                                        setLoadingRequirements(prev => ({ ...prev, [val]: true }));
+                                        try {
+                                            const data = await InventoryService.getFinishedProductRequirementsWithStock(Number(val));
+                                            setRequirementsData(prev => ({ ...prev, [val]: data }));
+                                        } catch (error) {
+                                            console.error('Failed to fetch requirements', error);
+                                        } finally {
+                                            setLoadingRequirements(prev => ({ ...prev, [val]: false }));
+                                        }
+                                    }
+                                };
+
+                                // Calculate required materials based on quantity
+                                const materialItems: MaterialItem[] = (() => {
+                                    if (!productRequirements || selectedQuantity <= 0) return [];
+                                    const items: MaterialItem[] = [];
+
+                                    // Add semi-finished product requirement
+                                    if (productRequirements.semiFinished) {
+                                        items.push({
+                                            id: productRequirements.semiFinished.id,
+                                            name: `نصف مصنع: ${productRequirements.semiFinished.name}`,
+                                            unit: productRequirements.semiFinished.unit,
+                                            requiredQty: Math.round(productRequirements.semiFinished.quantityPerUnit * selectedQuantity * 100) / 100,
+                                            availableQty: productRequirements.semiFinished.availableStock
+                                        });
+                                    }
+
+                                    // Add packaging materials
+                                    productRequirements.packagingMaterials.forEach(pkg => {
+                                        items.push({
+                                            id: pkg.id,
+                                            name: pkg.name,
+                                            unit: pkg.unit,
+                                            requiredQty: Math.round(pkg.quantityPerUnit * selectedQuantity * 100) / 100,
+                                            availableQty: pkg.availableStock
+                                        });
+                                    });
+
+                                    return items;
+                                })();
+
+                                return (
+                                    <div key={field.id} className="space-y-3">
+                                        <div className="grid grid-cols-12 gap-2 items-end">
+                                            <div className="col-span-7 md:col-span-8">
+                                                <FormField label="المنتج النهائي" className="space-y-1">
+                                                    <SearchableSelect
+                                                        options={products?.map(p => ({
+                                                            value: p.id.toString(),
+                                                            label: p.name,
+                                                            description: `${p.unit} - رصيد: ${p.quantity}`
+                                                        })) || []}
+                                                        value={selectedProductId}
+                                                        onValueChange={handleProductChange}
+                                                        placeholder="اختر منتج..."
+                                                        searchPlaceholder="ابحث عن منتج..."
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="col-span-4 md:col-span-3">
+                                                <FormField label="الكمية المطلوبة" className="space-y-1" error={form.formState.errors.items?.[index]?.quantity?.message}>
+                                                    <Input
+                                                        type="number"
+                                                        step="1"
+                                                        {...form.register(`items.${index}.quantity` as const, { valueAsNumber: true, required: "مطلوب" })}
+                                                    />
+                                                </FormField>
+                                            </div>
+                                            <div className="col-span-1 pb-2">
+                                                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
+                                                    <XCircle className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        {/* Material Preview Card */}
+                                        {(selectedProductId && selectedQuantity > 0) && (
+                                            <MaterialPreviewCard
+                                                title={`متطلبات التعبئة (${products?.find(p => p.id.toString() === selectedProductId)?.name || ''})`}
+                                                materials={materialItems}
+                                                isLoading={isLoadingReq}
+                                                className="mr-4"
                                             />
-                                        </FormField>
+                                        )}
                                     </div>
-                                    <div className="col-span-4 md:col-span-3">
-                                        <FormField label="الكمية المطلوبة" className="space-y-1" error={form.formState.errors.items?.[index]?.quantity?.message}>
-                                            <Input
-                                                type="number"
-                                                step="1"
-                                                {...form.register(`items.${index}.quantity` as const, { valueAsNumber: true, required: "مطلوب" })}
-                                            />
-                                        </FormField>
-                                    </div>
-                                    <div className="col-span-1 pb-2">
-                                        <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
-                                            <XCircle className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             <Button type="button" variant="outline" size="sm" onClick={() => append({ finished_product_id: "", quantity: 0 })} className="w-full">
                                 <Plus className="h-4 w-4 mr-1" /> إضافة منتج آخر

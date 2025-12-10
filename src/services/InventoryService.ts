@@ -157,6 +157,75 @@ export const InventoryService = {
         return data;
     },
 
+    // Enhanced: Get ingredients WITH current stock availability
+    getSemiFinishedIngredientsWithStock: async (semiFinishedId: number) => {
+        // Get product batch size
+        const { data: product, error: productError } = await supabase
+            .from('semi_finished_products')
+            .select('recipe_batch_size')
+            .eq('id', semiFinishedId)
+            .single();
+
+        if (productError) throw productError;
+
+        // Get ingredients with full raw material info (including quantity)
+        const { data, error } = await supabase
+            .from('semi_finished_ingredients')
+            .select('*, raw_materials(id, name, unit, unit_cost, quantity)')
+            .eq('semi_finished_id', semiFinishedId);
+
+        if (error) throw error;
+
+        return {
+            batchSize: product?.recipe_batch_size || 100,
+            ingredients: data?.map(ing => ({
+                id: ing.raw_material_id,
+                name: (ing.raw_materials as any)?.name || '',
+                unit: (ing.raw_materials as any)?.unit || '',
+                quantityPerBatch: ing.quantity || 0,
+                percentage: ing.percentage || 0,
+                availableStock: (ing.raw_materials as any)?.quantity || 0
+            })) || []
+        };
+    },
+
+    // Enhanced: Get finished product requirements WITH stock availability
+    getFinishedProductRequirementsWithStock: async (finishedProductId: number) => {
+        // Get finished product details (semi-finished link)
+        const { data: product, error: productError } = await supabase
+            .from('finished_products')
+            .select('semi_finished_id, semi_finished_quantity, semi_finished_products(id, name, unit, quantity)')
+            .eq('id', finishedProductId)
+            .single();
+
+        if (productError) throw productError;
+
+        // Get packaging materials with stock
+        const { data: packaging, error: packagingError } = await supabase
+            .from('finished_product_packaging')
+            .select('*, packaging_materials(id, name, unit, quantity)')
+            .eq('finished_product_id', finishedProductId);
+
+        if (packagingError) throw packagingError;
+
+        return {
+            semiFinished: product?.semi_finished_id ? {
+                id: product.semi_finished_id,
+                name: (product.semi_finished_products as any)?.name || '',
+                unit: (product.semi_finished_products as any)?.unit || '',
+                quantityPerUnit: product.semi_finished_quantity || 0,
+                availableStock: (product.semi_finished_products as any)?.quantity || 0
+            } : null,
+            packagingMaterials: packaging?.map(pkg => ({
+                id: pkg.packaging_material_id,
+                name: (pkg.packaging_materials as any)?.name || '',
+                unit: (pkg.packaging_materials as any)?.unit || '',
+                quantityPerUnit: pkg.quantity || 0,
+                availableStock: (pkg.packaging_materials as any)?.quantity || 0
+            })) || []
+        };
+    },
+
     deleteSemiFinishedProduct: async (id: number) => {
         const { error } = await supabase.from('semi_finished_products').delete().eq('id', id);
         if (error) throw error;

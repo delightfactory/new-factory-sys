@@ -263,9 +263,23 @@ function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
                 <Input {...register('description', { required: "مطلوب" })} placeholder="تفاصيل..." />
             </FormField>
 
-            <Button type="submit" className={`w-full ${type === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`} disabled={createMutation.isPending}>
-                {createMutation.isPending ? "جاري التسجيل..." : "حفظ العملية"}
-            </Button>
+            {/* Check required fields for button disabled state */}
+            {(() => {
+                const treasuryId = watch('treasury_id');
+                const category = watch('category');
+                const amount = watch('amount');
+                const isFormValid = !!treasuryId && !!category && amount > 0;
+
+                return (
+                    <Button
+                        type="submit"
+                        className={`w-full ${type === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'}`}
+                        disabled={createMutation.isPending || !isFormValid}
+                    >
+                        {createMutation.isPending ? "جاري التسجيل..." : !isFormValid ? "أكمل البيانات المطلوبة" : "حفظ العملية"}
+                    </Button>
+                );
+            })()}
         </form>
     );
 }

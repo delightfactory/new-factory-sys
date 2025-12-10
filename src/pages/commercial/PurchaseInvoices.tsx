@@ -181,7 +181,7 @@ export default function PurchaseInvoices() {
                     </DialogHeader>
                     {selectedInvoice && (
                         <div className="space-y-4">
-                            <div className="grid grid-cols-3 gap-4 border-b pb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-b pb-4">
                                 <div>
                                     <Label>المورد</Label>
                                     <div className="font-bold">{selectedInvoice.supplier?.name}</div>
@@ -366,70 +366,72 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                     {/* Items Table */}
                     <div className="border rounded-md p-4 bg-muted/10">
                         <Label className="mb-2 block text-lg font-semibold">الأصناف</Label>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[150px]">النوع</TableHead>
-                                    <TableHead className="w-[250px]">الصنف</TableHead>
-                                    <TableHead className="w-[100px]">الكمية</TableHead>
-                                    <TableHead className="w-[120px]">السعر</TableHead>
-                                    <TableHead className="w-[120px]">الإجمالي</TableHead>
-                                    <TableHead className="w-[50px]"></TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {fields.map((field, index) => {
-                                    const type = watch(`items.${index}.item_type`);
-                                    const list: any[] = inventoryItems ? (inventoryItems as any)[type] : [];
+                        <div className="overflow-x-auto -mx-4 px-4">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="min-w-[120px]">النوع</TableHead>
+                                        <TableHead className="min-w-[180px]">الصنف</TableHead>
+                                        <TableHead className="min-w-[80px]">الكمية</TableHead>
+                                        <TableHead className="min-w-[100px]">السعر</TableHead>
+                                        <TableHead className="min-w-[100px]">الإجمالي</TableHead>
+                                        <TableHead className="w-[50px]"></TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {fields.map((field, index) => {
+                                        const type = watch(`items.${index}.item_type`);
+                                        const list: any[] = inventoryItems ? (inventoryItems as any)[type] : [];
 
-                                    return (
-                                        <TableRow key={field.id}>
-                                            <TableCell>
-                                                <Controller
-                                                    name={`items.${index}.item_type`}
-                                                    control={control}
-                                                    render={({ field }) => (
-                                                        <Select onValueChange={(val) => { field.onChange(val); setValue(`items.${index}.item_id`, ''); }} value={field.value}>
-                                                            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="raw_material">خام</SelectItem>
-                                                                <SelectItem value="packaging_material">تعبئة</SelectItem>
-                                                                <SelectItem value="semi_finished">نصف مصنع</SelectItem>
-                                                                <SelectItem value="finished_product">منتج تام</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                    )}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <SearchableSelect
-                                                    options={list?.map((item: any) => ({
-                                                        value: item.id.toString(),
-                                                        label: item.name
-                                                    })) || []}
-                                                    value={watch(`items.${index}.item_id`)?.toString()}
-                                                    onValueChange={(val) => setValue(`items.${index}.item_id`, val, { shouldValidate: true })}
-                                                    placeholder="اختر الصنف"
-                                                    searchPlaceholder="ابحث..."
-                                                />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Input type="number" step="0.01" className="h-8" {...register(`items.${index}.quantity`, { required: true, min: 0.01 })} />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Input type="number" step="0.01" className="h-8" {...register(`items.${index}.unit_price`, { required: true, min: 0 })} />
-                                            </TableCell>
-                                            <TableCell>
-                                                {((parseFloat(watch(`items.${index}.quantity`) || "0") * parseFloat(watch(`items.${index}.unit_price`) || "0")).toFixed(2))}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Button variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
+                                        return (
+                                            <TableRow key={field.id}>
+                                                <TableCell>
+                                                    <Controller
+                                                        name={`items.${index}.item_type`}
+                                                        control={control}
+                                                        render={({ field }) => (
+                                                            <Select onValueChange={(val) => { field.onChange(val); setValue(`items.${index}.item_id`, ''); }} value={field.value}>
+                                                                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="raw_material">خام</SelectItem>
+                                                                    <SelectItem value="packaging_material">تعبئة</SelectItem>
+                                                                    <SelectItem value="semi_finished">نصف مصنع</SelectItem>
+                                                                    <SelectItem value="finished_product">منتج تام</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        )}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <SearchableSelect
+                                                        options={list?.map((item: any) => ({
+                                                            value: item.id.toString(),
+                                                            label: item.name
+                                                        })) || []}
+                                                        value={watch(`items.${index}.item_id`)?.toString()}
+                                                        onValueChange={(val) => setValue(`items.${index}.item_id`, val, { shouldValidate: true })}
+                                                        placeholder="اختر الصنف"
+                                                        searchPlaceholder="ابحث..."
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input type="number" step="0.01" className="h-8" {...register(`items.${index}.quantity`, { required: true, min: 0.01 })} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Input type="number" step="0.01" className="h-8" {...register(`items.${index}.unit_price`, { required: true, min: 0 })} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    {((parseFloat(watch(`items.${index}.quantity`) || "0") * parseFloat(watch(`items.${index}.unit_price`) || "0")).toFixed(2))}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Button variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
                         <Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => append({ item_type: 'raw_material', quantity: 1, unit_price: 0 })}>
                             <Plus className="w-4 h-4 mr-1" /> إضافة صنف
                         </Button>
@@ -441,33 +443,33 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                             <Label>ملاحظات</Label>
                             <Input {...register('notes')} />
                         </div>
-                        <div className="space-y-2 bg-slate-50 p-4 rounded-lg">
+                        <div className="space-y-2 bg-muted p-4 rounded-lg">
                             <div className="flex justify-between items-center text-sm">
                                 <span>إجمالي الأصناف:</span>
                                 <span>{itemsTotal.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between items-center gap-2">
-                                <Label className="w-24">م. الشحن (+):</Label>
-                                <Input type="number" className="h-8 w-32" step="0.01" {...register('shipping_cost', { valueAsNumber: true })} />
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                                <Label className="text-sm shrink-0">م. الشحن (+):</Label>
+                                <Input type="number" className="h-8 w-full sm:w-32" step="0.01" {...register('shipping_cost', { valueAsNumber: true })} />
                             </div>
-                            <div className="flex justify-between items-center gap-2">
-                                <Label className="w-24">الضريبة (+):</Label>
-                                <Input type="number" className="h-8 w-32" step="0.01" {...register('tax_amount', { valueAsNumber: true })} />
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                                <Label className="text-sm shrink-0">الضريبة (+):</Label>
+                                <Input type="number" className="h-8 w-full sm:w-32" step="0.01" {...register('tax_amount', { valueAsNumber: true })} />
                             </div>
-                            <div className="flex justify-between items-center gap-2">
-                                <Label className="w-24">الخصم (-):</Label>
-                                <Input type="number" className="h-8 w-32" step="0.01" {...register('discount_amount', { valueAsNumber: true })} />
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
+                                <Label className="text-sm shrink-0">الخصم (-):</Label>
+                                <Input type="number" className="h-8 w-full sm:w-32" step="0.01" {...register('discount_amount', { valueAsNumber: true })} />
                             </div>
                             <div className="flex justify-between items-center text-lg font-bold border-t pt-2">
                                 <span>الصافي النهائي:</span>
                                 <span>{finalTotal.toLocaleString()}</span>
                             </div>
 
-                            <div className="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-dashed">
-                                <Label className="w-24 font-bold text-green-700">المدفوع:</Label>
-                                <Input type="number" className="h-10 w-32 font-bold" step="0.01" {...register('paid_amount', { valueAsNumber: true })} />
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 mt-4 pt-4 border-t border-dashed">
+                                <Label className="font-bold text-green-700 dark:text-green-400 shrink-0">المدفوع:</Label>
+                                <Input type="number" className="h-10 w-full sm:w-32 font-bold" step="0.01" {...register('paid_amount', { valueAsNumber: true })} />
                             </div>
-                            <div className="flex justify-between items-center text-sm text-red-600 mt-1">
+                            <div className="flex justify-between items-center text-sm text-red-600 dark:text-red-400 mt-1">
                                 <span>المتبقي (آجل):</span>
                                 <span>{(finalTotal - (watch('paid_amount') || 0)).toFixed(2)}</span>
                             </div>

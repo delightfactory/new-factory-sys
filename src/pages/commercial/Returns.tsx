@@ -76,49 +76,81 @@ function PurchaseReturnsList() {
 
             <Card>
                 <CardHeader><CardTitle>سجل مرتجعات الشراء</CardTitle></CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>رقم المرتجع</TableHead>
-                                <TableHead>المورد</TableHead>
-                                <TableHead>التاريخ</TableHead>
-                                <TableHead>الإجمالي</TableHead>
-                                <TableHead>الحالة</TableHead>
-                                <TableHead>إجراءات</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {returns?.map((ret) => (
-                                <TableRow key={ret.id}>
-                                    <TableCell>{ret.return_number || ret.id}</TableCell>
-                                    <TableCell>{ret.supplier?.name}</TableCell>
-                                    <TableCell>{ret.return_date}</TableCell>
-                                    <TableCell>{ret.total_amount}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
-                                            {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        {ret.status === 'draft' && (
-                                            <Button size="sm" onClick={() => {
-                                                if (confirm("اعتماد المرتجع سيخصم الكميات من المخزون ويحدث رصيد المورد. هل أنت متأكد؟"))
-                                                    processMutation.mutate(ret.id);
-                                            }}>
-                                                <Check className="mr-2 h-4 w-4" /> اعتماد
-                                            </Button>
-                                        )}
-                                    </TableCell>
+                <CardContent className="p-0 sm:p-6">
+                    {/* Mobile Cards */}
+                    <div className="block sm:hidden divide-y">
+                        {returns?.map((ret) => (
+                            <div key={ret.id} className="p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium">#{ret.return_number || ret.id}</span>
+                                    <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
+                                        {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
+                                    </Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground">{ret.supplier?.name}</div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span>{ret.return_date}</span>
+                                    <span className="font-bold">{ret.total_amount?.toLocaleString()} ج.م</span>
+                                </div>
+                                {ret.status === 'draft' && (
+                                    <Button size="sm" className="w-full mt-2" onClick={() => {
+                                        if (confirm("اعتماد المرتجع سيخصم الكميات من المخزون ويحدث رصيد المورد. هل أنت متأكد؟"))
+                                            processMutation.mutate(ret.id);
+                                    }}>
+                                        <Check className="mr-2 h-4 w-4" /> اعتماد
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                        {(!returns || returns.length === 0) && (
+                            <div className="p-4 text-center text-muted-foreground">لا توجد مرتجعات</div>
+                        )}
+                    </div>
+                    {/* Desktop Table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>رقم المرتجع</TableHead>
+                                    <TableHead>المورد</TableHead>
+                                    <TableHead>التاريخ</TableHead>
+                                    <TableHead>الإجمالي</TableHead>
+                                    <TableHead>الحالة</TableHead>
+                                    <TableHead>إجراءات</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {returns?.map((ret) => (
+                                    <TableRow key={ret.id}>
+                                        <TableCell>{ret.return_number || ret.id}</TableCell>
+                                        <TableCell>{ret.supplier?.name}</TableCell>
+                                        <TableCell>{ret.return_date}</TableCell>
+                                        <TableCell>{ret.total_amount}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
+                                                {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {ret.status === 'draft' && (
+                                                <Button size="sm" onClick={() => {
+                                                    if (confirm("اعتماد المرتجع سيخصم الكميات من المخزون ويحدث رصيد المورد. هل أنت متأكد؟"))
+                                                        processMutation.mutate(ret.id);
+                                                }}>
+                                                    <Check className="mr-2 h-4 w-4" /> اعتماد
+                                                </Button>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
 
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>مرتجع شراء جديد</DialogTitle>
                         <DialogDescription>تسجيل مرتجع سلع أو خامات إلى المورد.</DialogDescription>
@@ -158,49 +190,81 @@ function SalesReturnsList() {
 
             <Card>
                 <CardHeader><CardTitle>سجل مرتجعات البيع</CardTitle></CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>رقم المرتجع</TableHead>
-                                <TableHead>العميل</TableHead>
-                                <TableHead>التاريخ</TableHead>
-                                <TableHead>الإجمالي</TableHead>
-                                <TableHead>الحالة</TableHead>
-                                <TableHead>إجراءات</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {returns?.map((ret) => (
-                                <TableRow key={ret.id}>
-                                    <TableCell>{ret.return_number || ret.id}</TableCell>
-                                    <TableCell>{ret.customer?.name}</TableCell>
-                                    <TableCell>{ret.return_date}</TableCell>
-                                    <TableCell>{ret.total_amount}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
-                                            {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        {ret.status === 'draft' && (
-                                            <Button size="sm" onClick={() => {
-                                                if (confirm("اعتماد المرتجع سيضيف الكميات للمخزون ويحدث رصيد العميل. هل أنت متأكد؟"))
-                                                    processMutation.mutate(ret.id);
-                                            }}>
-                                                <Check className="mr-2 h-4 w-4" /> اعتماد
-                                            </Button>
-                                        )}
-                                    </TableCell>
+                <CardContent className="p-0 sm:p-6">
+                    {/* Mobile Cards */}
+                    <div className="block sm:hidden divide-y">
+                        {returns?.map((ret) => (
+                            <div key={ret.id} className="p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-medium">#{ret.return_number || ret.id}</span>
+                                    <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
+                                        {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
+                                    </Badge>
+                                </div>
+                                <div className="text-sm text-muted-foreground">{ret.customer?.name}</div>
+                                <div className="flex items-center justify-between text-sm">
+                                    <span>{ret.return_date}</span>
+                                    <span className="font-bold">{ret.total_amount?.toLocaleString()} ج.م</span>
+                                </div>
+                                {ret.status === 'draft' && (
+                                    <Button size="sm" className="w-full mt-2" onClick={() => {
+                                        if (confirm("اعتماد المرتجع سيضيف الكميات للمخزون ويحدث رصيد العميل. هل أنت متأكد؟"))
+                                            processMutation.mutate(ret.id);
+                                    }}>
+                                        <Check className="mr-2 h-4 w-4" /> اعتماد
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                        {(!returns || returns.length === 0) && (
+                            <div className="p-4 text-center text-muted-foreground">لا توجد مرتجعات</div>
+                        )}
+                    </div>
+                    {/* Desktop Table */}
+                    <div className="hidden sm:block overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>رقم المرتجع</TableHead>
+                                    <TableHead>العميل</TableHead>
+                                    <TableHead>التاريخ</TableHead>
+                                    <TableHead>الإجمالي</TableHead>
+                                    <TableHead>الحالة</TableHead>
+                                    <TableHead>إجراءات</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {returns?.map((ret) => (
+                                    <TableRow key={ret.id}>
+                                        <TableCell>{ret.return_number || ret.id}</TableCell>
+                                        <TableCell>{ret.customer?.name}</TableCell>
+                                        <TableCell>{ret.return_date}</TableCell>
+                                        <TableCell>{ret.total_amount}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
+                                                {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            {ret.status === 'draft' && (
+                                                <Button size="sm" onClick={() => {
+                                                    if (confirm("اعتماد المرتجع سيضيف الكميات للمخزون ويحدث رصيد العميل. هل أنت متأكد؟"))
+                                                        processMutation.mutate(ret.id);
+                                                }}>
+                                                    <Check className="mr-2 h-4 w-4" /> اعتماد
+                                                </Button>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
 
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>مرتجع بيع جديد</DialogTitle>
                         <DialogDescription>تسجيل مرتجع منتجات من عميل.</DialogDescription>
@@ -397,7 +461,7 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                         searchPlaceholder="ابحث عن فاتورة..."
                         disabled={!selectedPartyId || !invoices?.length}
                     />
-                    {selectedInvoiceId && <p className="text-xs text-green-600 mt-1">سيتم جلب الأسعار تلقائياً من الفاتورة عند اختيار الأصناف.</p>}
+                    {selectedInvoiceId && <p className="text-xs text-green-600 dark:text-green-400 mt-1">سيتم جلب الأسعار تلقائياً من الفاتورة عند اختيار الأصناف.</p>}
                 </FormField>
 
                 <FormField label="تاريخ المرتجع" required error={errors.return_date?.message}>
@@ -405,79 +469,160 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                 </FormField>
             </FormGrid>
 
-            <div className="border rounded p-4">
-                <h3 className="text-sm font-medium mb-2">الأصناف المرتجعة</h3>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>النوع</TableHead>
-                            <TableHead>الصنف</TableHead>
-                            <TableHead>الكمية</TableHead>
-                            <TableHead>السعر (للوحدة)</TableHead>
-                            <TableHead></TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {fields.map((field, index) => {
-                            const itemType = watch(`items.${index}.item_type`);
-                            const list = inventoryItems ? (inventoryItems as any)[itemType] : [];
+            <div className="border rounded p-3 sm:p-4 bg-muted/10">
+                <h3 className="text-sm font-medium mb-3">الأصناف المرتجعة</h3>
 
-                            return (
-                                <TableRow key={field.id}>
-                                    <TableCell>
-                                        <Controller
-                                            name={`items.${index}.item_type`}
-                                            control={control}
-                                            render={({ field }) => (
-                                                <Select onValueChange={(val) => { field.onChange(val); setValue(`items.${index}.item_id`, ''); }} value={field.value}>
-                                                    <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
-                                                    <SelectContent>
-                                                        <SelectItem value="finished_product">منتج تام</SelectItem>
-                                                        <SelectItem value="raw_material">خام</SelectItem>
-                                                        <SelectItem value="packaging_material">تعبئة</SelectItem>
-                                                        <SelectItem value="semi_finished">نصف مصنع</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            )}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <SearchableSelect
-                                            options={list?.map((i: any) => ({
-                                                value: i.id.toString(),
-                                                label: i.name
-                                            })) || []}
-                                            value={watch(`items.${index}.item_id`)?.toString()}
-                                            onValueChange={(val) => {
-                                                setValue(`items.${index}.item_id`, val, { shouldValidate: true });
-                                                // Auto-Fetch Price if Invoice is Linked
-                                                if (selectedInvoiceId) {
-                                                    const price = findPriceInInvoice(itemType, val);
-                                                    if (price !== null && price !== undefined) {
-                                                        setValue(`items.${index}.unit_price`, price);
-                                                        toast.info("تم جلب سعر الشراء من الفاتورة");
-                                                    }
+                {/* Mobile Cards */}
+                <div className="block md:hidden space-y-3">
+                    {fields.map((field, index) => {
+                        const itemType = watch(`items.${index}.item_type`);
+                        const list = inventoryItems ? (inventoryItems as any)[itemType] : [];
+
+                        return (
+                            <div key={field.id} className="bg-background border rounded-lg p-4 space-y-3 relative">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute top-2 left-2 h-8 w-8"
+                                    onClick={() => remove(index)}
+                                >
+                                    <Trash2 className="w-4 h-4 text-red-500" />
+                                </Button>
+
+                                <div className="pr-10">
+                                    <label className="text-xs text-muted-foreground mb-1 block">النوع</label>
+                                    <Controller
+                                        name={`items.${index}.item_type`}
+                                        control={control}
+                                        render={({ field }) => (
+                                            <Select onValueChange={(val) => { field.onChange(val); setValue(`items.${index}.item_id`, ''); }} value={field.value}>
+                                                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="finished_product">منتج تام</SelectItem>
+                                                    <SelectItem value="raw_material">خام</SelectItem>
+                                                    <SelectItem value="packaging_material">تعبئة</SelectItem>
+                                                    <SelectItem value="semi_finished">نصف مصنع</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        )}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="text-xs text-muted-foreground mb-1 block">الصنف</label>
+                                    <SearchableSelect
+                                        options={list?.map((i: any) => ({
+                                            value: i.id.toString(),
+                                            label: i.name
+                                        })) || []}
+                                        value={watch(`items.${index}.item_id`)?.toString()}
+                                        onValueChange={(val) => {
+                                            setValue(`items.${index}.item_id`, val, { shouldValidate: true });
+                                            if (selectedInvoiceId) {
+                                                const price = findPriceInInvoice(itemType, val);
+                                                if (price !== null && price !== undefined) {
+                                                    setValue(`items.${index}.unit_price`, price);
+                                                    toast.info("تم جلب سعر الشراء من الفاتورة");
                                                 }
-                                            }}
-                                            placeholder="اختر الصنف"
-                                            searchPlaceholder="ابحث..."
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Input type="number" step="0.01" {...register(`items.${index}.quantity`, { required: true })} placeholder="الكمية" />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Input type="number" step="0.01" {...register(`items.${index}.unit_price`, { required: true })} placeholder="السعر" />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Button variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
-                                    </TableCell>
-                                </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ item_type: 'finished_product', item_id: '', quantity: 1, unit_price: 0 })} className="mt-2">
+                                            }
+                                        }}
+                                        placeholder="اختر الصنف"
+                                        searchPlaceholder="ابحث..."
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs text-muted-foreground mb-1 block">الكمية</label>
+                                        <Input type="number" step="0.01" {...register(`items.${index}.quantity`, { required: true })} placeholder="0" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-muted-foreground mb-1 block">السعر</label>
+                                        <Input type="number" step="0.01" {...register(`items.${index}.unit_price`, { required: true })} placeholder="0.00" />
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {fields.length === 0 && (
+                        <div className="text-center text-muted-foreground py-4 text-sm">لم يتم إضافة أصناف بعد</div>
+                    )}
+                </div>
+
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="min-w-[120px]">النوع</TableHead>
+                                <TableHead className="min-w-[180px]">الصنف</TableHead>
+                                <TableHead className="min-w-[100px]">الكمية</TableHead>
+                                <TableHead className="min-w-[100px]">السعر (للوحدة)</TableHead>
+                                <TableHead className="w-[50px]"></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {fields.map((field, index) => {
+                                const itemType = watch(`items.${index}.item_type`);
+                                const list = inventoryItems ? (inventoryItems as any)[itemType] : [];
+
+                                return (
+                                    <TableRow key={field.id}>
+                                        <TableCell>
+                                            <Controller
+                                                name={`items.${index}.item_type`}
+                                                control={control}
+                                                render={({ field }) => (
+                                                    <Select onValueChange={(val) => { field.onChange(val); setValue(`items.${index}.item_id`, ''); }} value={field.value}>
+                                                        <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="finished_product">منتج تام</SelectItem>
+                                                            <SelectItem value="raw_material">خام</SelectItem>
+                                                            <SelectItem value="packaging_material">تعبئة</SelectItem>
+                                                            <SelectItem value="semi_finished">نصف مصنع</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                )}
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <SearchableSelect
+                                                options={list?.map((i: any) => ({
+                                                    value: i.id.toString(),
+                                                    label: i.name
+                                                })) || []}
+                                                value={watch(`items.${index}.item_id`)?.toString()}
+                                                onValueChange={(val) => {
+                                                    setValue(`items.${index}.item_id`, val, { shouldValidate: true });
+                                                    if (selectedInvoiceId) {
+                                                        const price = findPriceInInvoice(itemType, val);
+                                                        if (price !== null && price !== undefined) {
+                                                            setValue(`items.${index}.unit_price`, price);
+                                                            toast.info("تم جلب سعر الشراء من الفاتورة");
+                                                        }
+                                                    }
+                                                }}
+                                                placeholder="اختر الصنف"
+                                                searchPlaceholder="ابحث..."
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input type="number" step="0.01" {...register(`items.${index}.quantity`, { required: true })} placeholder="الكمية" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Input type="number" step="0.01" {...register(`items.${index}.unit_price`, { required: true })} placeholder="السعر" />
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
+
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ item_type: 'finished_product', item_id: '', quantity: 1, unit_price: 0 })} className="mt-3 w-full sm:w-auto">
                     <Plus className="mr-1 h-4 w-4" /> إضافة صنف
                 </Button>
             </div>
