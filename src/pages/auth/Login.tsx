@@ -52,7 +52,7 @@ export default function Login() {
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4" dir="rtl">
             <Card className="w-full max-w-md shadow-lg border-primary/20">
                 <CardHeader className="text-center space-y-2">
-                    <CardTitle className="text-3xl font-bold text-primary">المصنع الذكي</CardTitle>
+                    <CardTitle className="text-3xl font-bold text-primary">DELIGHT FACTORY</CardTitle>
                     <CardDescription>تسجيل الدخول للنظام</CardDescription>
                 </CardHeader>
                 <CardContent>

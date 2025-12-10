@@ -7,7 +7,6 @@ import {
     Settings,
     ShoppingCart,
     Menu,
-    X,
     ChevronDown,
     ChevronLeft,
     Moon,
@@ -22,9 +21,10 @@ import {
     TrendingUp,
     LogOut,
     UserCog,
-    FileText
+    FileText,
+    Sparkles
 } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -44,44 +44,104 @@ interface MenuItemProps {
 }
 
 const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onToggle, sidebarOpen, onNavigate }: MenuItemProps) => {
+    const itemRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll to center when expanded
+    useEffect(() => {
+        if (expanded && itemRef.current && sidebarOpen) {
+            // Small delay to allow animation to start
+            const timer = setTimeout(() => {
+                itemRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }, 100);
+            return () => clearTimeout(timer);
+        }
+    }, [expanded, sidebarOpen]);
+
     if (children) {
         return (
-            <div className="space-y-1">
+            <div ref={itemRef} className="space-y-1 scroll-mt-20">
                 <button
                     onClick={onToggle}
                     className={cn(
-                        "flex items-center justify-between w-full px-3 py-2 rounded-lg transition-all text-muted-foreground hover:bg-muted hover:text-foreground",
-                        active && "text-primary font-medium"
+                        "relative flex items-center justify-between w-full px-3 py-3 rounded-xl transition-all duration-300 group",
+                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                        active
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     )}
                 >
+                    {/* Active Indicator Bar */}
+                    {active && (
+                        <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-l-full transition-all duration-300" />
+                    )}
+
                     <div className="flex items-center gap-3">
-                        <Icon className="w-5 h-5" />
-                        {sidebarOpen && <span>{label}</span>}
+                        <div className={cn(
+                            "p-2 rounded-xl transition-all duration-300",
+                            active
+                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
+                                : "bg-muted/60 group-hover:bg-accent group-hover:shadow-sm"
+                        )}>
+                            <Icon className="w-4 h-4" />
+                        </div>
+                        {sidebarOpen && (
+                            <span className="text-sm font-medium transition-all duration-200">{label}</span>
+                        )}
                     </div>
                     {sidebarOpen && (
-                        expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />
+                        <ChevronDown className={cn(
+                            "w-4 h-4 transition-transform duration-400 ease-out",
+                            expanded ? "rotate-0" : "-rotate-90"
+                        )} />
                     )}
                 </button>
-                {sidebarOpen && expanded && (
-                    <div className="mr-6 space-y-1 border-r pr-2">
-                        {children.map((child) => (
-                            <Link
-                                key={child.path}
-                                to={child.path}
-                                onClick={onNavigate}
-                                className={cn(
-                                    "flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all block",
-                                    (location.pathname === child.path)
-                                        ? "bg-primary/10 text-primary"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                                )}
-                            >
-                                <child.icon className="w-4 h-4" />
-                                <span>{child.label}</span>
-                            </Link>
-                        ))}
+
+                {/* Submenu with ultra-smooth animation */}
+                <div
+                    className={cn(
+                        "grid transition-all duration-400 ease-out",
+                        sidebarOpen && expanded
+                            ? "grid-rows-[1fr] opacity-100"
+                            : "grid-rows-[0fr] opacity-0"
+                    )}
+                >
+                    <div className="overflow-hidden">
+                        <div className="mr-5 pr-3 border-r-2 border-primary/30 space-y-1.5 py-2">
+                            {children.map((child, index) => (
+                                <Link
+                                    key={child.path}
+                                    to={child.path}
+                                    onClick={onNavigate}
+                                    style={{
+                                        transitionDelay: expanded ? `${index * 50}ms` : '0ms',
+                                        opacity: expanded ? 1 : 0,
+                                        transform: expanded ? 'translateX(0)' : 'translateX(-10px)'
+                                    }}
+                                    className={cn(
+                                        "relative flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all duration-300",
+                                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                                        (location.pathname === child.path)
+                                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 font-semibold"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-accent/70 hover:translate-x-1"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "p-1.5 rounded-lg transition-colors duration-200",
+                                        (location.pathname === child.path)
+                                            ? "bg-white/20"
+                                            : "bg-muted/40"
+                                    )}>
+                                        <child.icon className="w-3.5 h-3.5" />
+                                    </div>
+                                    <span>{child.label}</span>
+                                </Link>
+                            ))}
+                        </div>
                     </div>
-                )}
+                </div>
             </div>
         );
     }
@@ -91,14 +151,28 @@ const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onTo
             to={path!}
             onClick={onNavigate}
             className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg transition-all",
+                "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                "hover:scale-[1.02] active:scale-[0.98]",
                 active
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-gradient-to-l from-primary via-primary/90 to-primary/80 text-primary-foreground shadow-lg shadow-primary/40 font-semibold"
+                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             )}
         >
-            <Icon className="w-5 h-5" />
-            {sidebarOpen && <span>{label}</span>}
+            {/* Active Indicator Bar */}
+            {active && (
+                <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary-foreground/50 rounded-l-full" />
+            )}
+
+            <div className={cn(
+                "p-2 rounded-xl transition-all duration-200",
+                active
+                    ? "bg-white/20 shadow-inner"
+                    : "bg-muted/60 group-hover:bg-accent group-hover:shadow-sm"
+            )}>
+                <Icon className="w-4 h-4" />
+            </div>
+            {sidebarOpen && <span className="text-sm font-medium">{label}</span>}
         </Link>
     );
 };
@@ -136,7 +210,6 @@ export default function Layout() {
 
         menuItems.forEach(item => {
             if (item.children) {
-                // If current path starts with parent path (and isn't just the parent path itself, active child check)
                 const isActiveChild = item.children.some(child => currentPath.startsWith(child.path));
                 if (isActiveChild && !newExpanded[item.path]) {
                     newExpanded[item.path] = true;
@@ -148,7 +221,7 @@ export default function Layout() {
         if (hasChanges) {
             setExpandedMenus(newExpanded);
         }
-    }, [location.pathname]); // Removed menuItems from dependency to avoid loop, it's memoized anyway but safe practice
+    }, [location.pathname]);
 
     const menuItems = useMemo(() => {
         const items = [
@@ -227,10 +300,9 @@ export default function Layout() {
             },
         ];
         return items.filter(item => item.show);
-    }, [profile]); // Re-calculate when profile changes
+    }, [profile]);
 
     const toggleTheme = () => {
-        // Get the effective theme (considering 'system' setting)
         const effectiveTheme = theme === "system"
             ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
             : theme;
@@ -244,7 +316,7 @@ export default function Layout() {
     };
 
     const SidebarContent = ({ isMobile = false, closeSheet }: { isMobile?: boolean, closeSheet?: () => void }) => (
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto min-h-0">
+        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {menuItems.map((item) => (
                 <SidebarItem
                     key={item.label}
@@ -260,14 +332,21 @@ export default function Layout() {
                 />
             ))}
 
+            {/* Divider */}
+            <div className="my-4 border-t border-border/50" />
+
+            {/* Sign Out Button */}
             <button
                 onClick={handleSignOut}
                 className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg transition-all w-full text-red-500 hover:bg-red-50 hover:text-red-600 mt-4",
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 w-full group",
+                    "text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/20"
                 )}
             >
-                <LogOut className="w-5 h-5" />
-                {(isOpen || isMobile) && <span>تسجيل الخروج</span>}
+                <div className="p-1.5 rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors">
+                    <LogOut className="w-4 h-4" />
+                </div>
+                {(isOpen || isMobile) && <span className="text-sm font-medium">تسجيل الخروج</span>}
             </button>
         </nav>
     );
@@ -277,58 +356,158 @@ export default function Layout() {
             {/* Desktop Sidebar */}
             <aside
                 className={cn(
-                    "hidden md:flex h-full border-l bg-card transition-all duration-300 flex-col",
-                    isOpen ? "w-64" : "w-16"
+                    "hidden md:flex h-full border-l transition-all duration-300 flex-col",
+                    "bg-gradient-to-b from-card via-card to-card/95",
+                    "dark:from-slate-900 dark:via-slate-900 dark:to-slate-950",
+                    "shadow-xl shadow-black/5 dark:shadow-black/20",
+                    isOpen ? "w-64" : "w-20"
                 )}
             >
-                <div className="p-4 border-b flex items-center justify-between">
-                    {isOpen && <h1 className="font-bold text-xl text-primary">المصنع الذكي</h1>}
-                    <button onClick={() => setIsOpen(!isOpen)} className="p-1 hover:bg-muted rounded">
-                        {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                {/* Header */}
+                <div className="p-4 border-b border-border/50 flex items-center justify-between">
+                    {isOpen && (
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/30">
+                                <Sparkles className="w-5 h-5 text-primary-foreground" />
+                            </div>
+                            <h1 className="font-bold text-lg bg-gradient-to-l from-primary to-primary/70 bg-clip-text text-transparent">
+                                DELIGHT FACTORY
+                            </h1>
+                        </div>
+                    )}
+                    <button
+                        onClick={() => setIsOpen(!isOpen)}
+                        className={cn(
+                            "p-2 hover:bg-accent rounded-xl transition-all duration-200",
+                            !isOpen && "mx-auto"
+                        )}
+                    >
+                        {isOpen ? <ChevronLeft className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                     </button>
                 </div>
 
-                {/* User Info (Desktop) */}
-                {isOpen && profile && (
-                    <div className="p-4 bg-muted/20 border-b">
-                        <p className="font-medium text-sm truncate">{profile.full_name || "مستخدم"}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{profile.role}</p>
+                {/* User Profile Section */}
+                {profile && (
+                    <div className={cn(
+                        "border-b border-border/50 transition-all duration-300",
+                        isOpen ? "p-4" : "p-2"
+                    )}>
+                        <div className={cn(
+                            "flex items-center gap-3",
+                            !isOpen && "justify-center"
+                        )}>
+                            {/* Avatar */}
+                            <div className={cn(
+                                "rounded-xl bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center font-bold text-primary shrink-0",
+                                isOpen ? "w-10 h-10" : "w-9 h-9 text-sm"
+                            )}>
+                                {profile.full_name?.charAt(0) || "م"}
+                            </div>
+
+                            {isOpen && (
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-sm truncate">{profile.full_name || "مستخدم"}</p>
+                                    <p className="text-xs text-muted-foreground capitalize flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                        {profile.role === 'admin' ? 'مدير النظام' :
+                                            profile.role === 'manager' ? 'مدير' :
+                                                profile.role === 'accountant' ? 'محاسب' :
+                                                    profile.role === 'inventory_officer' ? 'أمين مخزن' :
+                                                        profile.role === 'production_officer' ? 'مسؤول إنتاج' : 'مستخدم'}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 )}
 
                 <SidebarContent />
+
+                {/* Footer */}
+                {isOpen && (
+                    <div className="p-4 border-t border-border/50">
+                        <p className="text-[10px] text-muted-foreground/60 text-center">
+                            نظام إدارة المصانع المتكامل
+                        </p>
+                    </div>
+                )}
             </aside>
 
             {/* Mobile Sidebar & Header */}
             <div className="flex-1 flex flex-col overflow-hidden">
-                <header className="h-16 border-b bg-card flex items-center justify-between px-4 md:px-8">
-                    <div className="flex items-center gap-2 md:hidden">
+                <header className="h-16 border-b bg-card/95 backdrop-blur-sm flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
+                    <div className="flex items-center gap-3 md:hidden">
                         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
                             <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                    <Menu className="h-6 w-6" />
+                                <Button variant="ghost" size="icon" className="rounded-xl">
+                                    <Menu className="h-5 w-5" />
                                 </Button>
                             </SheetTrigger>
-                            <SheetContent side="right" className="w-[80%] sm:w-[300px] p-0 pt-10 flex flex-col h-full">
+                            <SheetContent
+                                side="right"
+                                className="w-[85%] sm:w-[320px] p-0 flex flex-col h-full bg-gradient-to-b from-card via-card to-card/95"
+                            >
                                 <SheetTitle className="sr-only">قائمة التنقل</SheetTitle>
                                 <SheetDescription className="sr-only">قائمة التنقل الرئيسية للتطبيق</SheetDescription>
+
+                                {/* Mobile Header */}
+                                <div className="p-4 border-b border-border/50 flex items-center gap-3">
+                                    <div className="p-2 rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-lg shadow-primary/30">
+                                        <Sparkles className="w-5 h-5 text-primary-foreground" />
+                                    </div>
+                                    <h1 className="font-bold text-lg bg-gradient-to-l from-primary to-primary/70 bg-clip-text text-transparent">
+                                        DELIGHT FACTORY
+                                    </h1>
+                                </div>
+
+                                {/* Mobile User Profile */}
+                                {profile && (
+                                    <div className="p-4 border-b border-border/50 bg-accent/30">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center font-bold text-primary text-lg">
+                                                {profile.full_name?.charAt(0) || "م"}
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold">{profile.full_name || "مستخدم"}</p>
+                                                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                                    متصل الآن
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <SidebarContent isMobile={true} closeSheet={() => setIsMobileOpen(false)} />
                             </SheetContent>
                         </Sheet>
-                        <h1 className="font-bold text-lg text-primary">المصنع الذكي</h1>
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary to-primary/70">
+                                <Sparkles className="w-4 h-4 text-primary-foreground" />
+                            </div>
+                            <h1 className="font-bold text-base">DELIGHT FACTORY</h1>
+                        </div>
                     </div>
                     <div className="flex-1 md:flex-none"></div>
 
                     {/* Right Side Header Items */}
                     <div className="flex items-center gap-2">
-                        {/* User Info (Mobile Header) */}
-                        <div className="hidden md:block text-left mr-4">
-                            <span className="text-sm font-medium text-muted-foreground">
-                                {new Date().toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        {/* Date Display */}
+                        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-accent/50 text-sm text-muted-foreground">
+                            <span>📅</span>
+                            <span>
+                                {new Date().toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}
                             </span>
                         </div>
 
-                        <Button variant="ghost" size="icon" onClick={toggleTheme} title="تغيير المظهر">
+                        {/* Theme Toggle */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={toggleTheme}
+                            title="تغيير المظهر"
+                            className="rounded-xl hover:bg-accent"
+                        >
                             <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                             <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
                             <span className="sr-only">Toggle theme</span>
@@ -337,7 +516,7 @@ export default function Layout() {
                 </header>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-auto bg-slate-50/50 dark:bg-slate-950/50 p-4 md:p-8">
+                <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 via-slate-100/50 to-slate-50 dark:from-slate-950 dark:via-slate-900/50 dark:to-slate-950 p-4 md:p-8">
                     <Outlet />
                 </main>
             </div>
