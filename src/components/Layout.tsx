@@ -22,9 +22,10 @@ import {
     LogOut,
     UserCog,
     FileText,
-    Sparkles
+    Sparkles,
+    Database
 } from "lucide-react";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -44,104 +45,67 @@ interface MenuItemProps {
 }
 
 const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onToggle, sidebarOpen, onNavigate }: MenuItemProps) => {
-    const itemRef = useRef<HTMLDivElement>(null);
-
-    // Auto-scroll to center when expanded
-    useEffect(() => {
-        if (expanded && itemRef.current && sidebarOpen) {
-            // Small delay to allow animation to start
-            const timer = setTimeout(() => {
-                itemRef.current?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'center'
-                });
-            }, 100);
-            return () => clearTimeout(timer);
-        }
-    }, [expanded, sidebarOpen]);
+    // Best Practice: No auto-scroll - let user control their view position
+    // Best Practice: Minimal, non-distracting animations
+    // Best Practice: Clear visual feedback for active/hover states
 
     if (children) {
         return (
-            <div ref={itemRef} className="space-y-1 scroll-mt-20">
+            <div className="space-y-0.5">
                 <button
                     onClick={onToggle}
                     className={cn(
-                        "relative flex items-center justify-between w-full px-3 py-3 rounded-xl transition-all duration-300 group",
-                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                        "relative flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-colors duration-150",
+                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                         active
-                            ? "bg-primary/10 text-primary font-semibold"
-                            : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                            ? "bg-primary/10 text-primary font-medium"
+                            : "text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                 >
-                    {/* Active Indicator Bar */}
+                    {/* Active Indicator */}
                     {active && (
-                        <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-l-full transition-all duration-300" />
+                        <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary rounded-l-full" />
                     )}
 
                     <div className="flex items-center gap-3">
                         <div className={cn(
-                            "p-2 rounded-xl transition-all duration-300",
-                            active
-                                ? "bg-primary text-primary-foreground shadow-md shadow-primary/30"
-                                : "bg-muted/60 group-hover:bg-accent group-hover:shadow-sm"
+                            "p-1.5 rounded-lg",
+                            active ? "bg-primary/20" : "bg-muted/50"
                         )}>
                             <Icon className="w-4 h-4" />
                         </div>
-                        {sidebarOpen && (
-                            <span className="text-sm font-medium transition-all duration-200">{label}</span>
-                        )}
+                        {sidebarOpen && <span className="text-sm">{label}</span>}
                     </div>
                     {sidebarOpen && (
                         <ChevronDown className={cn(
-                            "w-4 h-4 transition-transform duration-400 ease-out",
+                            "w-4 h-4 transition-transform duration-200",
                             expanded ? "rotate-0" : "-rotate-90"
                         )} />
                     )}
                 </button>
 
-                {/* Submenu with ultra-smooth animation */}
-                <div
-                    className={cn(
-                        "grid transition-all duration-400 ease-out",
-                        sidebarOpen && expanded
-                            ? "grid-rows-[1fr] opacity-100"
-                            : "grid-rows-[0fr] opacity-0"
-                    )}
-                >
-                    <div className="overflow-hidden">
-                        <div className="mr-5 pr-3 border-r-2 border-primary/30 space-y-1.5 py-2">
-                            {children.map((child, index) => (
-                                <Link
-                                    key={child.path}
-                                    to={child.path}
-                                    onClick={onNavigate}
-                                    style={{
-                                        transitionDelay: expanded ? `${index * 50}ms` : '0ms',
-                                        opacity: expanded ? 1 : 0,
-                                        transform: expanded ? 'translateX(0)' : 'translateX(-10px)'
-                                    }}
-                                    className={cn(
-                                        "relative flex items-center gap-3 px-3 py-2.5 text-sm rounded-xl transition-all duration-300",
-                                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                                        (location.pathname === child.path)
-                                            ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 font-semibold"
-                                            : "text-muted-foreground hover:text-foreground hover:bg-accent/70 hover:translate-x-1"
-                                    )}
-                                >
-                                    <div className={cn(
-                                        "p-1.5 rounded-lg transition-colors duration-200",
-                                        (location.pathname === child.path)
-                                            ? "bg-white/20"
-                                            : "bg-muted/40"
-                                    )}>
-                                        <child.icon className="w-3.5 h-3.5" />
-                                    </div>
-                                    <span>{child.label}</span>
-                                </Link>
-                            ))}
-                        </div>
+                {/* Submenu - Simple CSS transition, no JS animation */}
+                {sidebarOpen && expanded && (
+                    <div className="mr-4 pr-3 border-r border-muted space-y-0.5 py-1 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+                        {children.map((child) => (
+                            <Link
+                                key={child.path}
+                                to={child.path}
+                                onClick={onNavigate}
+                                className={cn(
+                                    "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors duration-150",
+                                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                                    (location.pathname === child.path)
+                                        ? "bg-primary text-primary-foreground font-medium"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                                )}
+                            >
+                                <child.icon className="w-3.5 h-3.5" />
+                                <span>{child.label}</span>
+                            </Link>
+                        ))}
                     </div>
-                </div>
+                )}
             </div>
         );
     }
@@ -151,28 +115,25 @@ const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onTo
             to={path!}
             onClick={onNavigate}
             className={cn(
-                "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-                "hover:scale-[1.02] active:scale-[0.98]",
+                "relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                 active
-                    ? "bg-gradient-to-l from-primary via-primary/90 to-primary/80 text-primary-foreground shadow-lg shadow-primary/40 font-semibold"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    ? "bg-primary text-primary-foreground font-medium"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
         >
-            {/* Active Indicator Bar */}
-            {active && (
-                <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary-foreground/50 rounded-l-full" />
+            {/* Active Indicator */}
+            {active && !children && (
+                <span className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-primary-foreground/30 rounded-l-full" />
             )}
 
             <div className={cn(
-                "p-2 rounded-xl transition-all duration-200",
-                active
-                    ? "bg-white/20 shadow-inner"
-                    : "bg-muted/60 group-hover:bg-accent group-hover:shadow-sm"
+                "p-1.5 rounded-lg",
+                active ? "bg-white/20" : "bg-muted/50"
             )}>
                 <Icon className="w-4 h-4" />
             </div>
-            {sidebarOpen && <span className="text-sm font-medium">{label}</span>}
+            {sidebarOpen && <span className="text-sm">{label}</span>}
         </Link>
     );
 };
@@ -296,6 +257,7 @@ export default function Layout() {
                 show: isAdmin,
                 children: [
                     { label: "إدارة المستخدمين", path: "/settings/users", icon: UserCog },
+                    { label: "النسخ الاحتياطي", path: "/settings/system", icon: Database },
                 ]
             },
         ];
