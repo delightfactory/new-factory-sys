@@ -43,22 +43,32 @@ export const FinancialService = {
     },
 
     // --- Transactions Management ---
-    getTransactions: async (type?: 'income' | 'expense') => {
-        // Fetch valid categories
-        const { data: categories } = await supabase
-            .from('financial_categories')
-            .select('name'); // fetch all valid categories
-
-        const allowedCategories = categories?.map(c => c.name) || [];
-
+    // --- Transactions Management ---
+    getTransactions: async (options?: {
+        type?: 'income' | 'expense',
+        startDate?: string,
+        endDate?: string,
+        limit?: number
+    }) => {
         let query = supabase
             .from('financial_transactions')
             .select('*, treasury:treasuries(name)')
-            .in('category', allowedCategories) // Only show transactions belonging to our P&L categories
             .order('transaction_date', { ascending: false });
 
-        if (type) {
-            query = query.eq('transaction_type', type);
+        if (options?.type) {
+            query = query.eq('transaction_type', options.type);
+        }
+
+        if (options?.startDate) {
+            query = query.gte('transaction_date', options.startDate);
+        }
+
+        if (options?.endDate) {
+            query = query.lte('transaction_date', options.endDate);
+        }
+
+        if (options?.limit) {
+            query = query.limit(options.limit);
         }
 
         const { data, error } = await query;
@@ -128,7 +138,7 @@ export const FinancialService = {
     },
 
     // Kept for backward compatibility but using new logic
-    getExpenses: async () => { return FinancialService.getTransactions('expense'); },
+    getExpenses: async () => { return FinancialService.getTransactions({ type: 'expense' }); },
     createExpense: async (e: {
         treasury_id: number;
         amount: number;

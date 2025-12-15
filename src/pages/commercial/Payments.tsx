@@ -279,15 +279,78 @@ function TransactionForm({
 }
 
 function RecentTransactions() {
+    const { data: transactions, isLoading } = useQuery({
+        queryKey: ['financial_transactions', 'recent'],
+        queryFn: async () => {
+            // Fetch transactions for the current month
+            const now = new Date();
+            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+
+            // Adjust imports if FinancialService is not imported at top
+            const { FinancialService } = await import("@/services/FinancialService");
+            return FinancialService.getTransactions({
+                startDate: startOfMonth.split('T')[0],
+                endDate: endOfMonth.split('T')[0]
+            });
+        }
+    });
+
     return (
         <Card>
             <CardHeader className="flex flex-row items-center gap-2">
                 <Wallet className="h-5 w-5 text-muted-foreground" />
-                <CardTitle className="text-base sm:text-lg">آخر العمليات</CardTitle>
+                <CardTitle className="text-base sm:text-lg">آخر العمليات (هذا الشهر)</CardTitle>
             </CardHeader>
             <CardContent>
-                <p className="text-muted-foreground text-sm">سيتم عرض سجل العمليات هنا قريباً.</p>
+                {isLoading ? (
+                    <div className="flex justify-center p-4">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                ) : !transactions || transactions.length === 0 ? (
+                    <p className="text-muted-foreground text-sm text-center py-4">لا توجد عمليات مسجلة هذا الشهر.</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-right">
+                            <thead className="bg-muted/50 text-muted-foreground">
+                                <tr>
+                                    <th className="p-3 text-right rounded-r-lg">التاريخ</th>
+                                    <th className="p-3 text-right">النوع</th>
+                                    <th className="p-3 text-right">البند</th>
+                                    <th className="p-3 text-right">المبلغ</th>
+                                    <th className="p-3 text-right">الخزنة</th>
+                                    <th className="p-3 text-right rounded-l-lg">ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {transactions.map((t) => (
+                                    <tr key={t.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
+                                        <td className="p-3">{t.transaction_date}</td>
+                                        <td className="p-3">
+                                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${t.transaction_type === 'income'
+                                                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                                : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                                                }`}>
+                                                {t.transaction_type === 'income' ? 'قبض' : 'صرف'}
+                                            </span>
+                                        </td>
+                                        <td className="p-3">{t.category}</td>
+                                        <td className={`p-3 font-bold ${t.transaction_type === 'income' ? 'text-green-600' : 'text-red-600'
+                                            }`}>
+                                            {t.amount.toLocaleString()} ج.م
+                                        </td>
+                                        <td className="p-3">{t.treasury?.name || '-'}</td>
+                                        <td className="p-3 text-muted-foreground max-w-[200px] truncate" title={t.description || ''}>
+                                            {t.description || '-'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </CardContent>
         </Card>
-    )
+    );
 }
+
