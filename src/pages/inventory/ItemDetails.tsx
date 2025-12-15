@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface ItemData {
     id: number;
@@ -26,6 +27,9 @@ interface ItemData {
     quantity: number;
     unit_cost: number;
     min_stock?: number;
+    // For Finished Products
+    semi_finished_id?: number;
+    semi_finished_quantity?: number;
 }
 
 interface Movement {
@@ -44,6 +48,20 @@ interface Ingredient {
     quantity: number;
     percentage?: number;
     raw_materials?: { name: string; unit: string };
+}
+
+interface PackagingIngredient {
+    id: number;
+    packaging_material_id: number;
+    quantity: number;
+    packaging_materials?: { name: string; unit: string };
+}
+
+interface UsedInItem {
+    id: number;
+    product_name: string;
+    product_code: string;
+    type: 'semi' | 'finished';
 }
 
 // Map URL path to table name
@@ -122,6 +140,78 @@ export default function ItemDetails() {
         enabled: itemTypePath === 'semi-finished' && !!id
     });
 
+    // Fetch Packaging (for finished)
+    const { data: finishedPackaging } = useQuery({
+        queryKey: ['finished-packaging', id],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('finished_product_packaging')
+                .select('*, packaging_materials(name, unit)')
+                .eq('finished_product_id', Number(id));
+            return data as PackagingIngredient[] || [];
+        },
+        enabled: itemTypePath === 'finished' && !!id
+    });
+
+    // Fetch Base Semi-Finished (for finished)
+    const { data: baseSemiFinished } = useQuery({
+        queryKey: ['base-semi', item?.semi_finished_id],
+        queryFn: async () => {
+            if (!item?.semi_finished_id) return null;
+            const { data } = await supabase
+                .from('semi_finished_products')
+                .select('name, unit, code')
+                .eq('id', item.semi_finished_id)
+                .single();
+            return data;
+        },
+        enabled: itemTypePath === 'finished' && !!item?.semi_finished_id
+    });
+
+    // Fetch "Used In" (for Raw or Packaging)
+    const { data: usedIn } = useQuery({
+        queryKey: ['used-in', tableName, id],
+        queryFn: async () => {
+            const list: UsedInItem[] = [];
+
+            if (itemTypePath === 'raw-materials') {
+                const { data } = await supabase
+                    .from('semi_finished_ingredients')
+                    .select('semi_finished_products(id, name, code)')
+                    .eq('raw_material_id', Number(id));
+
+                data?.forEach((d: any) => {
+                    if (d.semi_finished_products) {
+                        list.push({
+                            id: d.semi_finished_products.id,
+                            product_name: d.semi_finished_products.name,
+                            product_code: d.semi_finished_products.code,
+                            type: 'semi'
+                        });
+                    }
+                });
+            } else if (itemTypePath === 'packaging') {
+                const { data } = await supabase
+                    .from('finished_product_packaging')
+                    .select('finished_products(id, name, code)')
+                    .eq('packaging_material_id', Number(id));
+
+                data?.forEach((d: any) => {
+                    if (d.finished_products) {
+                        list.push({
+                            id: d.finished_products.id,
+                            product_name: d.finished_products.name,
+                            product_code: d.finished_products.code,
+                            type: 'finished'
+                        });
+                    }
+                });
+            }
+            return list;
+        },
+        enabled: (itemTypePath === 'raw-materials' || itemTypePath === 'packaging') && !!id
+    });
+
     // Stock status
     const getStockStatus = (item: ItemData) => {
         if (!item.min_stock) return { label: 'طبيعي', variant: 'default' as const };
@@ -185,7 +275,7 @@ export default function ItemDetails() {
                     <CardContent className="p-4">
                         <span className="text-sm text-blue-700 dark:text-blue-300">الكمية الحالية</span>
                         <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
-                            {item.quantity.toLocaleString()} <span className="text-sm font-normal">{item.unit}</span>
+                            {formatNumber(item.quantity)} <span className="text-sm font-normal">{item.unit}</span>
                         </p>
                     </CardContent>
                 </Card>
@@ -194,7 +284,7 @@ export default function ItemDetails() {
                     <CardContent className="p-4">
                         <span className="text-sm text-green-700 dark:text-green-300">سعر الوحدة</span>
                         <p className="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
-                            {item.unit_cost?.toLocaleString() || 0} <span className="text-sm font-normal">ج.م</span>
+                            {formatCurrency(item.unit_cost || 0)}
                         </p>
                     </CardContent>
                 </Card>
@@ -203,7 +293,7 @@ export default function ItemDetails() {
                     <CardContent className="p-4">
                         <span className="text-sm text-purple-700 dark:text-purple-300">القيمة الإجمالية</span>
                         <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mt-1">
-                            {totalValue.toLocaleString()} <span className="text-sm font-normal">ج.م</span>
+                            {formatCurrency(totalValue)}
                         </p>
                     </CardContent>
                 </Card>
@@ -212,7 +302,7 @@ export default function ItemDetails() {
                     <CardContent className="p-4">
                         <span className="text-sm text-amber-700 dark:text-amber-300">الحد الأدنى</span>
                         <p className="text-2xl font-bold text-amber-900 dark:text-amber-100 mt-1">
-                            {item.min_stock || '-'} <span className="text-sm font-normal">{item.unit}</span>
+                            {formatNumber(item.min_stock || 0)} <span className="text-sm font-normal">{item.unit}</span>
                         </p>
                     </CardContent>
                 </Card>
@@ -262,6 +352,99 @@ export default function ItemDetails() {
                 </Card>
             )}
 
+            {/* Recipe (for Finished Products) */}
+            {itemTypePath === 'finished' && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Layers className="h-5 w-5" />
+                            تركيبة المنتج
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        {/* Base Product */}
+                        {baseSemiFinished && (
+                            <div className="bg-muted/30 p-4 rounded-lg border">
+                                <h4 className="text-sm font-bold mb-2 text-primary">المنتج الأساسي (نصف مصنع)</h4>
+                                <div className="flex justify-between items-center">
+                                    <span>{baseSemiFinished.name} <span className="text-xs text-muted-foreground">({baseSemiFinished.code})</span></span>
+                                    <Badge variant="outline">{item.semi_finished_quantity} {baseSemiFinished.unit}</Badge>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Packaging Materials */}
+                        {finishedPackaging && finishedPackaging.length > 0 && (
+                            <div>
+                                <h4 className="text-sm font-bold mb-2">مواد التعبئة</h4>
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>مادة التعبئة</TableHead>
+                                            <TableHead>الكمية</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {finishedPackaging.map(pkg => (
+                                            <TableRow key={pkg.id}>
+                                                <TableCell>{pkg.packaging_materials?.name}</TableCell>
+                                                <TableCell>{pkg.quantity} {pkg.packaging_materials?.unit}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Used In (for Raw/Packaging) */}
+            {(itemTypePath === 'raw-materials' || itemTypePath === 'packaging') && usedIn && usedIn.length > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <ArrowUpRight className="h-5 w-5" />
+                            يدخل في إنتاج
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>المنتج</TableHead>
+                                    <TableHead>الكود</TableHead>
+                                    <TableHead>النوع</TableHead>
+                                    <TableHead></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {usedIn.map((product, idx) => (
+                                    <TableRow key={idx}>
+                                        <TableCell className="font-medium">{product.product_name}</TableCell>
+                                        <TableCell>{product.product_code}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline">
+                                                {product.type === 'semi' ? 'نصف مصنع' : 'منتج نهائي'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => navigate(`/inventory/${product.type === 'semi' ? 'semi-finished' : 'finished'}/${product.id}`)}
+                                            >
+                                                عرض
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Movements History */}
             <Card>
                 <CardHeader>
@@ -297,10 +480,10 @@ export default function ItemDetails() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="font-mono font-bold">
-                                                    {mov.movement_type === 'in' ? '+' : mov.movement_type === 'out' ? '-' : ''}{mov.quantity}
+                                                    {mov.movement_type === 'in' ? '+' : mov.movement_type === 'out' ? '-' : ''}{formatNumber(mov.quantity)}
                                                 </TableCell>
-                                                <TableCell className="font-mono text-muted-foreground">{mov.previous_balance}</TableCell>
-                                                <TableCell className="font-mono font-bold">{mov.new_balance}</TableCell>
+                                                <TableCell className="font-mono text-muted-foreground">{formatNumber(mov.previous_balance)}</TableCell>
+                                                <TableCell className="font-mono font-bold">{formatNumber(mov.new_balance)}</TableCell>
                                                 <TableCell className="text-muted-foreground text-sm">{mov.reason}</TableCell>
                                                 <TableCell className="text-muted-foreground text-sm">{format(new Date(mov.created_at), 'dd/MM HH:mm')}</TableCell>
                                             </TableRow>

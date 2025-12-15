@@ -4,6 +4,7 @@ import { InventoryService } from "@/services/InventoryService";
 import { DataTable } from "@/components/ui/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type RawMaterial } from "@/types";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, RefreshCcw, Package } from "lucide-react";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ export default function RawMaterials() {
             unit: '',
             min_stock: 0,
             unit_cost: 0,
+            sales_price: 0,
             quantity: 0
         }
     });
@@ -121,7 +123,15 @@ export default function RawMaterials() {
     const handlEdit = (item: RawMaterial) => {
         setEditingId(item.id);
         setIsEditMode(true);
-        form.reset(item);
+        // Format numbers for form display
+        const formItem = {
+            ...item,
+            quantity: item.quantity ? Number(Number(item.quantity).toFixed(2)) : 0,
+            unit_cost: item.unit_cost ? Number(Number(item.unit_cost).toFixed(2)) : 0,
+            sales_price: item.sales_price ? Number(Number(item.sales_price).toFixed(2)) : 0,
+            min_stock: item.min_stock ? Number(Number(item.min_stock).toFixed(2)) : 0,
+        };
+        form.reset(formItem);
         setIsOpen(true);
     };
 
@@ -138,6 +148,7 @@ export default function RawMaterials() {
             unit: '',
             min_stock: 0,
             unit_cost: 0,
+            sales_price: 0,
             quantity: 0
         });
         setIsOpen(true);
@@ -146,12 +157,16 @@ export default function RawMaterials() {
     const columns: ColumnDef<RawMaterial>[] = [
         { accessorKey: "code", header: "الكود" },
         { accessorKey: "name", header: "الاسم" },
-        { accessorKey: "quantity", header: "الكمية الحالية" },
+        {
+            accessorKey: "quantity",
+            header: "الكمية الحالية",
+            cell: ({ row }) => <span dir="ltr">{formatNumber(row.getValue("quantity"))}</span>
+        },
         { accessorKey: "unit", header: "الوحدة" },
         {
             accessorKey: "unit_cost",
             header: "سعر الوحدة",
-            cell: ({ row }) => <span>{Number(row.getValue("unit_cost")).toFixed(2)} ج.م</span>
+            cell: ({ row }) => <span>{formatCurrency(row.getValue("unit_cost"))}</span>
         },
         { accessorKey: "min_stock", header: "حد الأمان" },
         {
@@ -161,7 +176,7 @@ export default function RawMaterials() {
                 const item = row.original;
                 return (
                     <div className="flex gap-2 justify-end">
-                        <Button variant="ghost" size="icon" onClick={() => handlEdit(item)}>
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handlEdit(item); }}>
                             <Pencil className="h-4 w-4 text-blue-500" />
                         </Button>
 
@@ -260,8 +275,11 @@ export default function RawMaterials() {
                             <FormField label="حد الأمان" error={errors.min_stock?.message}>
                                 <Input type="number" step="0.01" {...form.register("min_stock", { valueAsNumber: true })} />
                             </FormField>
-                            <FormField label="سعر الوحدة" error={errors.unit_cost?.message}>
+                            <FormField label="سعر الوحدة (التكلفة)" error={errors.unit_cost?.message}>
                                 <Input type="number" step="0.01" {...form.register("unit_cost", { valueAsNumber: true })} />
+                            </FormField>
+                            <FormField label="سعر البيع" error={errors.sales_price?.message}>
+                                <Input type="number" step="0.01" {...form.register("sales_price", { valueAsNumber: true })} />
                             </FormField>
                             <FormField label="الكمية الحالية" error={errors.quantity?.message}>
                                 <Input type="number" step="0.01" {...form.register("quantity", { valueAsNumber: true })} disabled={isEditMode} />

@@ -15,7 +15,7 @@ export interface ReturnItem {
 
 export interface PurchaseReturn {
     id: number;
-    return_number: number;
+    return_number: string;
     original_invoice_id?: number;
     supplier_id: string;
     return_date: string;
@@ -48,10 +48,19 @@ export const PurchaseReturnsService = {
     },
 
     createReturn: async (returnData: Partial<PurchaseReturn>, items: ReturnItem[]) => {
-        // 1. Create Return Header
+        // 1. Generate Return Number
+        const { data: code } = await supabase.rpc('get_next_code', {
+            table_name: 'purchase_returns',
+            prefix: 'PR-'
+        });
+
+        // 2. Create Return Header
         const { data: ret, error: retError } = await supabase
             .from('purchase_returns')
-            .insert(returnData)
+            .insert({
+                ...returnData,
+                return_number: code
+            })
             .select()
             .single();
 

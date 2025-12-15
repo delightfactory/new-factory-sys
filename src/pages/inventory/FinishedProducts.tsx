@@ -4,6 +4,7 @@ import { InventoryService } from "@/services/InventoryService";
 import { DataTable } from "@/components/ui/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type FinishedProduct } from "@/types";
+import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Pencil, RefreshCcw, Package2 } from "lucide-react";
 import { toast } from "sonner";
@@ -248,12 +249,12 @@ export default function FinishedProducts() {
         {
             accessorKey: "unit_cost",
             header: "التكلفة",
-            cell: ({ row }) => <span>{Number(row.getValue("unit_cost")).toFixed(2)} ج.م</span>
+            cell: ({ row }) => <span>{formatCurrency(row.getValue("unit_cost"))}</span>
         },
         {
             accessorKey: "sales_price",
             header: "سعر البيع",
-            cell: ({ row }) => <span>{Number(row.getValue("sales_price")).toFixed(2)} ج.م</span>
+            cell: ({ row }) => <span>{formatCurrency(row.getValue("sales_price"))}</span>
         },
         {
             id: "actions",
@@ -262,7 +263,7 @@ export default function FinishedProducts() {
                 const item = row.original;
                 return (
                     <div className="flex gap-2 justify-end">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEdit(item); }}>
                             <Pencil className="h-4 w-4 text-blue-500" />
                         </Button>
 

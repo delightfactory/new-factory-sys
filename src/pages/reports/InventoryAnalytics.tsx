@@ -17,6 +17,7 @@ import {
     Filter
 } from "lucide-react";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import {
     Select,
     SelectContent,
@@ -199,8 +200,7 @@ export default function InventoryAnalytics() {
 
     const handlePrint = () => window.print();
 
-    const currencyFormat = (value: number) =>
-        new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 0 }).format(value) + ' ج.م';
+    const currencyFormat = (value: number) => formatCurrency(value);
 
     if (isLoading) return <CardGridSkeleton count={4} />;
 
@@ -295,7 +295,7 @@ export default function InventoryAnalytics() {
                                         cx="50%"
                                         cy="50%"
                                         outerRadius={80}
-                                        label={({ name, percent }) => `${name}: ${((percent ?? 0) * 100).toFixed(1)}%`}
+                                        label={({ name, percent }) => `${name}: ${formatNumber((percent ?? 0) * 100)}%`}
                                         labelLine={false}
                                     >
                                         {stats?.byType.map((entry, index) => (
@@ -319,7 +319,7 @@ export default function InventoryAnalytics() {
                         <div className="h-[250px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={stats?.top5 || []} layout="vertical">
-                                    <XAxis type="number" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                                    <XAxis type="number" tickFormatter={(v) => `${formatNumber(v / 1000)}k`} />
                                     <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
                                     <Tooltip formatter={(value) => currencyFormat(value as number)} />
                                     <Bar dataKey="totalValue" fill="#3b82f6" radius={[0, 4, 4, 0]} />
@@ -452,18 +452,18 @@ export default function InventoryAnalytics() {
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground">التكلفة</p>
-                                        <p className="font-mono">{item.unit_cost?.toLocaleString()}</p>
+                                        <p className="font-mono">{formatCurrency(item.unit_cost || 0)}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground">القيمة</p>
                                         <p className="font-mono font-bold text-blue-600">
-                                            {item.totalValue.toLocaleString()}
+                                            {formatCurrency(item.totalValue)}
                                         </p>
                                     </div>
                                     <div className="hidden md:block">
                                         <p className="text-xs text-muted-foreground">هامش الربح</p>
                                         <p className={`font-mono ${item.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {item.profitMargin.toFixed(1)}%
+                                            {formatNumber(item.profitMargin)}%
                                         </p>
                                     </div>
                                 </div>

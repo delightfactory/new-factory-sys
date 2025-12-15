@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { formatCurrency, formatNumber } from "@/lib/utils";
 import { FormField, FormGrid } from "@/components/ui/form-field";
 import {
     Dialog,
@@ -142,7 +143,7 @@ export default function SemiFinishedProducts() {
                 min_stock: data.min_stock,
                 unit_cost: data.unit_cost,
                 quantity: data.quantity,
-                sales_price: 0,
+                sales_price: data.sales_price,
                 recipe_batch_size: data.recipe_batch_size
             };
             const ingredientsData = data.ingredients.map(ing => ({
@@ -171,7 +172,7 @@ export default function SemiFinishedProducts() {
                 min_stock: data.min_stock,
                 unit_cost: data.unit_cost,
                 quantity: data.quantity,
-                sales_price: 0,
+                sales_price: data.sales_price,
                 recipe_batch_size: data.recipe_batch_size
             };
             const ingredientsData = data.ingredients.map(ing => ({
@@ -219,7 +220,7 @@ export default function SemiFinishedProducts() {
             min_stock: item.min_stock || 0,
             unit_cost: item.unit_cost || 0,
             quantity: item.quantity || 0,
-            sales_price: 0,
+            sales_price: item.sales_price || 0,
             recipe_batch_size: item.recipe_batch_size || 100, // Default for old data
             ingredients: [] // Will load below
         });
@@ -268,7 +269,7 @@ export default function SemiFinishedProducts() {
         {
             accessorKey: "unit_cost",
             header: "التكلفة التقريبية",
-            cell: ({ row }) => <span>{Number(row.getValue("unit_cost")).toFixed(2)} ج.م</span>
+            cell: ({ row }) => <span>{formatCurrency(row.getValue("unit_cost"))}</span>
         },
         {
             id: "actions",
@@ -277,7 +278,7 @@ export default function SemiFinishedProducts() {
                 const item = row.original;
                 return (
                     <div className="flex gap-2 justify-end">
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(item)}>
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEdit(item); }}>
                             <Pencil className="h-4 w-4 text-blue-500" />
                         </Button>
 
@@ -378,6 +379,9 @@ export default function SemiFinishedProducts() {
                             <FormField label="حد الأمان" error={form.formState.errors.min_stock?.message}>
                                 <Input type="number" step="0.01" {...form.register("min_stock", { valueAsNumber: true })} />
                             </FormField>
+                            <FormField label="سعر البيع" error={form.formState.errors.sales_price?.message}>
+                                <Input type="number" step="0.01" {...form.register("sales_price", { valueAsNumber: true })} />
+                            </FormField>
                         </FormGrid>
 
                         {/* Batch & Recipe Configuration */}
@@ -399,7 +403,7 @@ export default function SemiFinishedProducts() {
                                 <div className="flex-1 bg-white dark:bg-slate-800 p-3 rounded shadow-sm border">
                                     <div className="text-xs text-muted-foreground mb-1">متوسط تكلفة الوحدة المتوقع</div>
                                     <div className="text-2xl font-bold text-green-600">
-                                        {estimatedUnitCost.toFixed(2)} <span className="text-sm font-normal">ج.م / {form.watch("unit")}</span>
+                                        {formatCurrency(estimatedUnitCost)} <span className="text-sm font-normal">/ {form.watch("unit")}</span>
                                     </div>
                                     <Button
                                         type="button"
@@ -434,7 +438,7 @@ export default function SemiFinishedProducts() {
                                                             options={rawMaterials?.map(rm => ({
                                                                 value: rm.id.toString(),
                                                                 label: rm.name,
-                                                                description: `${rm.unit} - ${Number(rm.sales_price || 0).toFixed(2)} ج.م`
+                                                                description: `${rm.unit} - ${formatCurrency(rm.sales_price || 0)}`
                                                             })) || []}
                                                             value={form.watch(`ingredients.${index}.raw_material_id`)}
                                                             onValueChange={(val) => form.setValue(`ingredients.${index}.raw_material_id`, val, { shouldValidate: true })}
@@ -456,7 +460,7 @@ export default function SemiFinishedProducts() {
                                                     <div className="space-y-1">
                                                         <span className="text-xs text-muted-foreground block">النسبة المئوية</span>
                                                         <div className="h-10 px-3 py-2 bg-muted rounded text-sm flex items-center justify-between border">
-                                                            <span>{percentage.toFixed(2)}%</span>
+                                                            <span>{formatNumber(percentage)}%</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -474,9 +478,9 @@ export default function SemiFinishedProducts() {
                                     <Alert className="bg-blue-50/50 dark:bg-blue-900/10 border-blue-200">
                                         <AlertTitle>ملخص الوصفة</AlertTitle>
                                         <AlertDescription className="text-xs text-muted-foreground">
-                                            إجمالي وزن المكونات: <span className="font-medium text-foreground">{watchedIngredients.reduce((acc, curr) => acc + (curr.quantity || 0), 0).toFixed(2)} {form.watch("unit")}</span>
+                                            إجمالي وزن المكونات: <span className="font-medium text-foreground">{formatNumber(watchedIngredients.reduce((acc, curr) => acc + (curr.quantity || 0), 0))} {form.watch("unit")}</span>
                                             {' '}-{' '}
-                                            إجمالي التكلفة: <span className="font-medium text-foreground">{totalCost.toFixed(2)} ج.م</span>
+                                            إجمالي التكلفة: <span className="font-medium text-foreground">{formatCurrency(totalCost)}</span>
                                         </AlertDescription>
                                     </Alert>
                                 )}

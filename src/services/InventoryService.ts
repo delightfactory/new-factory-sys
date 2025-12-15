@@ -9,36 +9,7 @@ export interface SemiFinishedIngredient {
     raw_material?: RawMaterial; // Joined data
 }
 
-// Item types for inventory movements
-type ItemType = 'raw_materials' | 'packaging_materials' | 'semi_finished_products' | 'finished_products';
 
-// Helper function to log inventory movements
-const logMovement = async (
-    itemId: number,
-    itemType: ItemType,
-    movementType: 'in' | 'out' | 'adjustment',
-    quantity: number,
-    previousBalance: number,
-    newBalance: number,
-    reason: string,
-    referenceId?: string
-) => {
-    try {
-        await supabase.from('inventory_movements').insert({
-            item_id: itemId,
-            item_type: itemType,
-            movement_type: movementType,
-            quantity: quantity,
-            previous_balance: previousBalance,
-            new_balance: newBalance,
-            reason: reason,
-            reference_id: referenceId || null
-        });
-    } catch (error) {
-        console.error('Failed to log movement:', error);
-        // Don't throw - logging failure shouldn't block the operation
-    }
-};
 
 export const InventoryService = {
     // ... (Previous Raw/Packaging methods remain) ...
@@ -438,112 +409,12 @@ export const InventoryService = {
     },
 
     // Special method to Execute Order (Deduct Raw, Add Semi-Finished)
+    // Atomic Execution using RPC
     completeProductionOrder: async (orderId: number) => {
-        // 1. Fetch Order Items
-        const { data: items, error: itemsError } = await supabase
-            .from('production_order_items')
-            .select('*')
-            .eq('production_order_id', orderId);
+        const { error } = await supabase.rpc('complete_production_order_atomic', { p_order_id: orderId });
+        if (error) throw error;
 
-        if (itemsError) throw itemsError;
-        if (!items || items.length === 0) throw new Error("Order has no items");
-
-        // Fetch order code for reference
-        const { data: order } = await supabase
-            .from('production_orders')
-            .select('code')
-            .eq('id', orderId)
-            .single();
-
-        const orderRef = order?.code || `PO-${orderId}`;
-
-        // 2. Validations & Calculations (Client-simulated transaction)
-        for (const item of items) {
-            // Get Recipe
-            const { data: recipeHelpers, error: recipeError } = await supabase
-                .from('semi_finished_products')
-                .select('recipe_batch_size, semi_finished_ingredients(raw_material_id, quantity, percentage)')
-                .eq('id', item.semi_finished_id)
-                .single();
-
-            if (recipeError) throw recipeError;
-
-            const batchSize = recipeHelpers.recipe_batch_size || 100;
-            const ratio = item.quantity / batchSize;
-
-            // 3. Deduct Raw Materials
-            if (recipeHelpers.semi_finished_ingredients) {
-                for (const ing of recipeHelpers.semi_finished_ingredients) {
-                    const qtyNeeded = ing.quantity * ratio;
-
-                    // Get current stock first
-                    const { data: rm } = await supabase
-                        .from('raw_materials')
-                        .select('quantity')
-                        .eq('id', ing.raw_material_id)
-                        .single();
-
-                    const previousBalance = rm?.quantity || 0;
-                    const newBalance = previousBalance - qtyNeeded;
-
-                    // Decrement via RPC
-                    const { error: rawError } = await supabase.rpc('decrement_raw_material', {
-                        row_id: ing.raw_material_id,
-                        amount: qtyNeeded
-                    });
-
-                    // Fallback if RPC doesn't exist
-                    if (rawError && rm) {
-                        await supabase
-                            .from('raw_materials')
-                            .update({ quantity: newBalance })
-                            .eq('id', ing.raw_material_id);
-                    }
-
-                    // Log the movement
-                    await logMovement(
-                        ing.raw_material_id,
-                        'raw_materials',
-                        'out',
-                        qtyNeeded,
-                        previousBalance,
-                        newBalance,
-                        'استهلاك في أمر إنتاج',
-                        orderRef
-                    );
-                }
-            }
-
-            // 4. Add Semi-Finished Stock
-            const { data: sf } = await supabase
-                .from('semi_finished_products')
-                .select('quantity')
-                .eq('id', item.semi_finished_id)
-                .single();
-
-            const sfPreviousBalance = sf?.quantity || 0;
-            const sfNewBalance = sfPreviousBalance + item.quantity;
-
-            await supabase
-                .from('semi_finished_products')
-                .update({ quantity: sfNewBalance })
-                .eq('id', item.semi_finished_id);
-
-            // Log the semi-finished addition
-            await logMovement(
-                item.semi_finished_id,
-                'semi_finished_products',
-                'in',
-                item.quantity,
-                sfPreviousBalance,
-                sfNewBalance,
-                'إنتاج من أمر تشغيل',
-                orderRef
-            );
-        }
-
-        // 5. Update Status
-        return InventoryService.updateProductionOrderStatus(orderId, 'completed');
+        // No manual logging needed, RPC handles it.
     },
 
     // --- Packaging Orders ---
@@ -611,223 +482,19 @@ export const InventoryService = {
         return data;
     },
 
+    // Atomic Execution using RPC
     completePackagingOrder: async (orderId: number) => {
-        // 1. Fetch Items
-        const { data: items, error: itemsError } = await supabase
-            .from('packaging_order_items')
-            .select('*')
-            .eq('packaging_order_id', orderId);
+        const { error } = await supabase.rpc('complete_packaging_order_atomic', { p_order_id: orderId });
+        if (error) throw error;
 
-        if (itemsError) throw itemsError;
-        if (!items || items.length === 0) throw new Error("Order has no items");
-
-        // Fetch order code for reference
-        const { data: order } = await supabase
-            .from('packaging_orders')
-            .select('code')
-            .eq('id', orderId)
-            .single();
-
-        const orderRef = order?.code || `PKG-${orderId}`;
-
-        for (const item of items) {
-            // Get Finished Product Details (Semi-Finished Link + Packaging Materials)
-            const { data: product, error: prodError } = await supabase
-                .from('finished_products')
-                .select('semi_finished_id, semi_finished_quantity, finished_product_packaging(packaging_material_id, quantity)')
-                .eq('id', item.finished_product_id)
-                .single();
-
-            if (prodError) throw prodError;
-
-            const producedQty = item.quantity;
-
-            // 2. Deduct Semi-Finished
-            if (product.semi_finished_id && product.semi_finished_quantity) {
-                const requiredSemi = producedQty * product.semi_finished_quantity;
-
-                // Get current balance
-                const { data: sf } = await supabase
-                    .from('semi_finished_products')
-                    .select('quantity')
-                    .eq('id', product.semi_finished_id)
-                    .single();
-
-                const sfPrevBalance = sf?.quantity || 0;
-                const sfNewBalance = sfPrevBalance - requiredSemi;
-
-                const { error: rpcError } = await supabase.rpc('decrement_semi_finished', {
-                    row_id: product.semi_finished_id,
-                    amount: requiredSemi
-                });
-                if (rpcError) throw rpcError;
-
-                // Log semi-finished deduction
-                await logMovement(
-                    product.semi_finished_id,
-                    'semi_finished_products',
-                    'out',
-                    requiredSemi,
-                    sfPrevBalance,
-                    sfNewBalance,
-                    'استهلاك في أمر تعبئة',
-                    orderRef
-                );
-            }
-
-            // 3. Deduct Packaging Materials
-            if (product.finished_product_packaging) {
-                for (const pkg of product.finished_product_packaging) {
-                    const requiredPkg = producedQty * pkg.quantity;
-
-                    // Get current balance
-                    const { data: pm } = await supabase
-                        .from('packaging_materials')
-                        .select('quantity')
-                        .eq('id', pkg.packaging_material_id)
-                        .single();
-
-                    const pmPrevBalance = pm?.quantity || 0;
-                    const pmNewBalance = pmPrevBalance - requiredPkg;
-
-                    const { error: rpcError } = await supabase.rpc('decrement_packaging_material', {
-                        row_id: pkg.packaging_material_id,
-                        amount: requiredPkg
-                    });
-                    if (rpcError) throw rpcError;
-
-                    // Log packaging material deduction
-                    await logMovement(
-                        pkg.packaging_material_id,
-                        'packaging_materials',
-                        'out',
-                        requiredPkg,
-                        pmPrevBalance,
-                        pmNewBalance,
-                        'استهلاك في أمر تعبئة',
-                        orderRef
-                    );
-                }
-            }
-
-            // 4. Add Finished Product Stock
-            const { data: fp } = await supabase
-                .from('finished_products')
-                .select('quantity')
-                .eq('id', item.finished_product_id)
-                .single();
-
-            const fpPrevBalance = fp?.quantity || 0;
-            const fpNewBalance = fpPrevBalance + producedQty;
-
-            await supabase
-                .from('finished_products')
-                .update({ quantity: fpNewBalance })
-                .eq('id', item.finished_product_id);
-
-            // Log finished product addition
-            await logMovement(
-                item.finished_product_id,
-                'finished_products',
-                'in',
-                producedQty,
-                fpPrevBalance,
-                fpNewBalance,
-                'إنتاج من أمر تعبئة',
-                orderRef
-            );
-        }
-
-        return InventoryService.updatePackagingOrderStatus(orderId, 'completed');
+        // No manual logging needed, RPC handles it.
     },
 
-    // Cancel Production Order (Reverse Operations)
+
+    // Cancel Production Order (Atomic RPC)
     cancelProductionOrder: async (orderId: number) => {
-        // 1. Fetch Order Items
-        const { data: items, error: itemsError } = await supabase
-            .from('production_order_items')
-            .select('*')
-            .eq('production_order_id', orderId);
-
-        if (itemsError) throw itemsError;
-        if (!items) return;
-
-        const { data: order } = await supabase.from('production_orders').select('code').eq('id', orderId).single();
-        const orderRef = `إلغاء أمر إنتاج #${order?.code || orderId}`;
-
-        for (const item of items) {
-            // A. Remove the produced Semi-Finished Stock (Decrement)
-            // Fetch previous balance for logging
-            const { data: sfPrev } = await supabase.from('semi_finished_products').select('quantity').eq('id', item.semi_finished_id).single();
-            const sfCurrent = sfPrev?.quantity || 0;
-            const sfNew = sfCurrent - item.quantity; // We are removing what was produced
-
-            const { error: sfError } = await supabase.rpc('decrement_semi_finished', {
-                row_id: item.semi_finished_id,
-                amount: item.quantity
-            });
-
-            if (sfError) {
-                // Fallback to direct update if RPC fails/missing
-                console.warn("RPC failed, using direct update", sfError);
-                if (sfPrev) {
-                    await supabase.from('semi_finished_products').update({ quantity: sfNew }).eq('id', item.semi_finished_id);
-                }
-            }
-
-            // LOG: Remove Semi-Finished (OUT)
-            await logMovement(
-                item.semi_finished_id,
-                'semi_finished_products',
-                'out', // Reversed from 'in' during completion
-                item.quantity,
-                sfCurrent,
-                sfNew,
-                'إلغاء إنتاج (عكس الحركة)',
-                orderRef
-            );
-
-            // B. Add back the Raw Materials (Increment by using negative Decrement)
-            const { data: recipeHelpers } = await supabase
-                .from('semi_finished_products')
-                .select('recipe_batch_size, semi_finished_ingredients(raw_material_id, quantity)')
-                .eq('id', item.semi_finished_id)
-                .single();
-
-            if (recipeHelpers && recipeHelpers.semi_finished_ingredients) {
-                const batchSize = recipeHelpers.recipe_batch_size || 100;
-                const ratio = item.quantity / batchSize;
-
-                for (const ing of recipeHelpers.semi_finished_ingredients) {
-                    const qtyUsed = ing.quantity * ratio;
-
-                    // Fetch for logging
-                    const { data: rmPrev } = await supabase.from('raw_materials').select('quantity').eq('id', ing.raw_material_id).single();
-                    const rmCurrent = rmPrev?.quantity || 0;
-                    const rmNew = rmCurrent + qtyUsed;
-
-                    // Add back = decrement negative amount
-                    await supabase.rpc('decrement_raw_material', {
-                        row_id: ing.raw_material_id,
-                        amount: -qtyUsed
-                    });
-
-                    // LOG: Add back Raw Material (IN)
-                    await logMovement(
-                        ing.raw_material_id,
-                        'raw_materials',
-                        'in', // Reversed from 'out'
-                        qtyUsed,
-                        rmCurrent,
-                        rmNew,
-                        'استرجاع مواد خام (إلغاء إنتاج)',
-                        orderRef
-                    );
-                }
-            }
-        }
-
-        return InventoryService.updateProductionOrderStatus(orderId, 'cancelled');
+        const { error } = await supabase.rpc('cancel_production_order_atomic', { p_order_id: orderId });
+        if (error) throw error;
     },
 
     createPackagingOrderWithItems: async (
@@ -835,119 +502,10 @@ export const InventoryService = {
         items: { finished_product_id: number; quantity: number }[]
     ) => { return InventoryService.createPackagingOrder(order, items); },
 
-    // Cancel Packaging Order
+    // Cancel Packaging Order (Atomic RPC)
     cancelPackagingOrder: async (orderId: number) => {
-        console.log("Starting cancelPackagingOrder for ID:", orderId);
-        // 1. Fetch Order Items
-        const { data: items, error: itemsError } = await supabase
-            .from('packaging_order_items')
-            .select('*')
-            .eq('packaging_order_id', orderId);
-
-        if (itemsError) throw itemsError;
-        if (!items || items.length === 0) {
-            console.log("No items found for order:", orderId);
-            return;
-        }
-
-        const { data: order } = await supabase.from('packaging_orders').select('code').eq('id', orderId).single();
-        const orderRef = `إلغاء أمر تعبئة #${order?.code || orderId}`;
-
-        for (const item of items) {
-            console.log("Processing item:", item);
-
-            // A. Remove the produced Finished Product (Decrement)
-            const { data: fp } = await supabase.from('finished_products').select('quantity').eq('id', item.finished_product_id).single();
-            if (fp) {
-                console.log("Reversing Finished Product Stock. Current:", fp.quantity, "Subtracting:", item.quantity);
-                const fpNew = (fp.quantity || 0) - item.quantity;
-                await supabase.from('finished_products').update({ quantity: fpNew }).eq('id', item.finished_product_id);
-
-                // LOG: Remove Finished Product (OUT)
-                await logMovement(
-                    item.finished_product_id,
-                    'finished_products',
-                    'out', // Reversed
-                    item.quantity,
-                    fp.quantity,
-                    fpNew,
-                    'إلغاء تعبئة (عكس الحركة)',
-                    orderRef
-                );
-            }
-
-            // B. Add back Raw/Semi Inputs
-            const { data: product } = await supabase
-                .from('finished_products')
-                .select('semi_finished_id, semi_finished_quantity, finished_product_packaging(packaging_material_id, quantity)')
-                .eq('id', item.finished_product_id)
-                .single();
-
-            if (product) {
-                console.log("Found Product Recipe:", product);
-                const producedQty = item.quantity;
-
-                // Add back Semi-Finished
-                if (product.semi_finished_id && product.semi_finished_quantity) {
-                    const usedSemi = producedQty * product.semi_finished_quantity;
-                    console.log("Returning Semi-Finished. Quantity:", usedSemi);
-
-                    // Fetch for logging
-                    const { data: sfPrev } = await supabase.from('semi_finished_products').select('quantity').eq('id', product.semi_finished_id).single();
-                    const sfCurrent = sfPrev?.quantity || 0;
-                    const sfNew = sfCurrent + usedSemi;
-
-                    const { error: rpcError } = await supabase.rpc('decrement_semi_finished', { row_id: product.semi_finished_id, amount: -usedSemi });
-                    if (rpcError) throw rpcError;
-
-                    // LOG: Add back Semi-Finished (IN)
-                    await logMovement(
-                        product.semi_finished_id,
-                        'semi_finished_products',
-                        'in',
-                        usedSemi,
-                        sfCurrent,
-                        sfNew,
-                        'استرجاع نصف مصنع (إلغاء تعبئة)',
-                        orderRef
-                    );
-                }
-
-                // Add back Packaging Materials
-                if (product.finished_product_packaging && product.finished_product_packaging.length > 0) {
-                    for (const pkg of product.finished_product_packaging) {
-                        const usedPkg = producedQty * pkg.quantity;
-                        console.log("Returning Packaging Material ID:", pkg.packaging_material_id, "Quantity:", usedPkg);
-
-                        // Fetch for logging
-                        const { data: pmPrev } = await supabase.from('packaging_materials').select('quantity').eq('id', pkg.packaging_material_id).single();
-                        const pmCurrent = pmPrev?.quantity || 0;
-                        const pmNew = pmCurrent + usedPkg;
-
-                        const { error: rpcError } = await supabase.rpc('decrement_packaging_material', { row_id: pkg.packaging_material_id, amount: -usedPkg });
-                        if (rpcError) throw rpcError;
-
-                        // LOG: Add back Packaging Material (IN)
-                        await logMovement(
-                            pkg.packaging_material_id,
-                            'packaging_materials',
-                            'in',
-                            usedPkg,
-                            pmCurrent,
-                            pmNew,
-                            'استرجاع مواد تعبئة (إلغاء تعبئة)',
-                            orderRef
-                        );
-                    }
-                } else {
-                    console.log("No Packaging Materials found in recipe for product:", item.finished_product_id);
-                }
-            } else {
-                console.warn("Product details not found for ID:", item.finished_product_id);
-            }
-        }
-
-        return InventoryService.updatePackagingOrderStatus(orderId, 'cancelled');
+        const { error } = await supabase.rpc('cancel_packaging_order_atomic', { p_order_id: orderId });
+        if (error) throw error;
     },
 
     // --- SMART AVAILABILITY: Calculate pending demands ---

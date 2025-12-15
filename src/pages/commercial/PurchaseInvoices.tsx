@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { formatCurrency } from "@/lib/utils";
 import { FormField, FormGrid } from "@/components/ui/form-field";
 
 export default function PurchaseInvoices() {
@@ -258,10 +259,10 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
         queryKey: ['all_inventory_items'],
         queryFn: async () => {
             const [raw, pkg, semi, finished] = await Promise.all([
-                supabase.from('raw_materials').select('id, name'),
-                supabase.from('packaging_materials').select('id, name'),
-                supabase.from('semi_finished_products').select('id, name'),
-                supabase.from('finished_products').select('id, name')
+                supabase.from('raw_materials').select('id, name, unit_cost'),
+                supabase.from('packaging_materials').select('id, name, unit_cost'),
+                supabase.from('semi_finished_products').select('id, name, unit_cost'),
+                supabase.from('finished_products').select('id, name, unit_cost')
             ]);
             return {
                 raw_material: raw.data || [],
@@ -325,6 +326,10 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
     const finalTotal = itemsTotal + parseFloat(tax) + parseFloat(shipping) - parseFloat(discount);
 
     const onSubmit = (data: any) => {
+        if (data.paid_amount > 0 && !data.treasury_id) {
+            toast.error("يجب اختيار الخزنة لإتمام عملية الدفع");
+            return;
+        }
         createMutation.mutate({ ...data, final_total: finalTotal });
     };
 
@@ -380,7 +385,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                                 const list: any[] = inventoryItems ? (inventoryItems as any)[type] : [];
                                 const qty = watch(`items.${index}.quantity`) || 0;
                                 const price = watch(`items.${index}.unit_price`) || 0;
-                                const total = (qty * price).toFixed(2);
+                                const total = formatCurrency(qty * price);
 
                                 return (
                                     <div key={field.id} className="bg-background border rounded-lg p-4 space-y-3 relative">
@@ -421,7 +426,12 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                                                     label: item.name
                                                 })) || []}
                                                 value={watch(`items.${index}.item_id`)?.toString()}
-                                                onValueChange={(val) => setValue(`items.${index}.item_id`, val, { shouldValidate: true })}
+                                                onValueChange={(val) => {
+                                                    setValue(`items.${index}.item_id`, val, { shouldValidate: true });
+                                                    // Auto-set Unit Price (Cost)
+                                                    const selected = list?.find((i: any) => i.id.toString() === val);
+                                                    if (selected) setValue(`items.${index}.unit_price`, selected.unit_cost || 0);
+                                                }}
                                                 placeholder="اختر الصنف"
                                                 searchPlaceholder="ابحث..."
                                             />
@@ -468,7 +478,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
 
                                         <div className="flex justify-between items-center pt-2 border-t">
                                             <span className="text-sm text-muted-foreground">الإجمالي</span>
-                                            <span className="font-bold text-primary">{total} ج.م</span>
+                                            <span className="font-bold text-primary">{total}</span>
                                         </div>
                                     </div>
                                 );
@@ -522,7 +532,12 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                                                             label: item.name
                                                         })) || []}
                                                         value={watch(`items.${index}.item_id`)?.toString()}
-                                                        onValueChange={(val) => setValue(`items.${index}.item_id`, val, { shouldValidate: true })}
+                                                        onValueChange={(val) => {
+                                                            setValue(`items.${index}.item_id`, val, { shouldValidate: true });
+                                                            // Auto-set Unit Price (Cost)
+                                                            const selected = list?.find((i: any) => i.id.toString() === val);
+                                                            if (selected) setValue(`items.${index}.unit_price`, selected.unit_cost || 0);
+                                                        }}
                                                         placeholder="اختر الصنف"
                                                         searchPlaceholder="ابحث..."
                                                     />
@@ -534,7 +549,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                                                     <Input type="number" step="0.01" className="h-8" {...register(`items.${index}.unit_price`, { required: true, min: 0, valueAsNumber: true })} />
                                                 </TableCell>
                                                 <TableCell>
-                                                    {((parseFloat(watch(`items.${index}.quantity`) || "0") * parseFloat(watch(`items.${index}.unit_price`) || "0")).toFixed(2))}
+                                                    {formatCurrency((parseFloat(watch(`items.${index}.quantity`) || "0") * parseFloat(watch(`items.${index}.unit_price`) || "0")))}
                                                 </TableCell>
                                                 <TableCell>
                                                     <Button variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
@@ -559,7 +574,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                         <div className="space-y-2 bg-muted p-4 rounded-lg">
                             <div className="flex justify-between items-center text-sm">
                                 <span>إجمالي الأصناف:</span>
-                                <span>{itemsTotal.toFixed(2)}</span>
+                                <span>{formatCurrency(itemsTotal)}</span>
                             </div>
                             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2">
                                 <Label className="text-sm shrink-0">م. الشحن (+):</Label>
@@ -575,7 +590,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                             </div>
                             <div className="flex justify-between items-center text-lg font-bold border-t pt-2">
                                 <span>الصافي النهائي:</span>
-                                <span>{finalTotal.toLocaleString()}</span>
+                                <span>{formatCurrency(finalTotal)}</span>
                             </div>
 
                             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 sm:gap-2 mt-4 pt-4 border-t border-dashed">
@@ -584,7 +599,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                             </div>
                             <div className="flex justify-between items-center text-sm text-red-600 dark:text-red-400 mt-1">
                                 <span>المتبقي (آجل):</span>
-                                <span>{(finalTotal - (watch('paid_amount') || 0)).toFixed(2)}</span>
+                                <span>{formatCurrency(finalTotal - (watch('paid_amount') || 0))}</span>
                             </div>
                         </div>
                     </div>

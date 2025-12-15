@@ -4,6 +4,7 @@ import { InventoryService } from "@/services/InventoryService";
 import { DataTable } from "@/components/ui/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type PackagingMaterial } from "@/types";
+import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, RefreshCcw, Box } from "lucide-react";
 import { toast } from "sonner";
@@ -53,6 +54,7 @@ export default function PackagingMaterials() {
             unit: '',
             min_stock: 0,
             unit_cost: 0,
+            sales_price: 0,
             quantity: 0
         }
     });
@@ -137,6 +139,7 @@ export default function PackagingMaterials() {
             unit: '',
             min_stock: 0,
             unit_cost: 0,
+            sales_price: 0,
             quantity: 0
         });
         setIsOpen(true);
@@ -150,7 +153,7 @@ export default function PackagingMaterials() {
         {
             accessorKey: "unit_cost",
             header: "سعر الوحدة",
-            cell: ({ row }) => <span>{Number(row.getValue("unit_cost")).toFixed(2)} ج.م</span>
+            cell: ({ row }) => <span>{formatCurrency(row.getValue("unit_cost"))}</span>
         },
         { accessorKey: "min_stock", header: "حد الأمان" },
         {
@@ -160,7 +163,7 @@ export default function PackagingMaterials() {
                 const item = row.original;
                 return (
                     <div className="flex gap-2 justify-end">
-                        <Button variant="ghost" size="icon" onClick={() => handlEdit(item)}>
+                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handlEdit(item); }}>
                             <Pencil className="h-4 w-4 text-blue-500" />
                         </Button>
 
@@ -259,8 +262,11 @@ export default function PackagingMaterials() {
                             <FormField label="حد الأمان" error={errors.min_stock?.message}>
                                 <Input type="number" step="0.01" {...form.register("min_stock", { valueAsNumber: true })} />
                             </FormField>
-                            <FormField label="سعر الوحدة" error={errors.unit_cost?.message}>
+                            <FormField label="سعر الوحدة (التكلفة)" error={errors.unit_cost?.message}>
                                 <Input type="number" step="0.01" {...form.register("unit_cost", { valueAsNumber: true })} />
+                            </FormField>
+                            <FormField label="سعر البيع" error={errors.sales_price?.message}>
+                                <Input type="number" step="0.01" {...form.register("sales_price", { valueAsNumber: true })} />
                             </FormField>
                             <FormField label="الكمية الحالية" error={errors.quantity?.message}>
                                 <Input type="number" step="0.01" {...form.register("quantity", { valueAsNumber: true })} disabled={isEditMode} />

@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
 import { Progress } from '@/components/ui/progress';
+import { formatCurrency, formatNumber } from '@/lib/utils';
 
 interface ProductionOrder {
     id: number;
@@ -174,7 +175,7 @@ export default function ProductionOrderDetails() {
                             <Beaker className="h-4 w-4 text-muted-foreground" />
                             <div>
                                 <span className="text-xs text-muted-foreground block">إجمالي الكميات</span>
-                                <span className="font-medium">{totalItems.toLocaleString()}</span>
+                                <span className="font-medium">{formatNumber(totalItems)}</span>
                             </div>
                         </div>
                     </div>
@@ -205,7 +206,7 @@ export default function ProductionOrderDetails() {
                             <Beaker className="h-4 w-4 text-green-600 dark:text-green-400" />
                             <span className="text-sm text-green-700 dark:text-green-300">إجمالي الإنتاج</span>
                         </div>
-                        <p className="text-xl font-bold text-green-900 dark:text-green-100">{totalItems.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-green-900 dark:text-green-100">{formatNumber(totalItems)}</p>
                     </CardContent>
                 </Card>
 
@@ -215,7 +216,7 @@ export default function ProductionOrderDetails() {
                             <Factory className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                             <span className="text-sm text-purple-700 dark:text-purple-300">إجمالي التكلفة</span>
                         </div>
-                        <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{totalCost.toLocaleString()} ج.م</p>
+                        <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{formatCurrency(totalCost)}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -247,10 +248,10 @@ export default function ProductionOrderDetails() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                {item.quantity.toLocaleString()} {item.semi_finished?.unit || ''}
+                                                {formatNumber(item.quantity)} {item.semi_finished?.unit || ''}
                                             </TableCell>
-                                            <TableCell>{(item.unit_cost || 0).toLocaleString()} ج.م</TableCell>
-                                            <TableCell className="font-bold">{(item.total_cost || 0).toLocaleString()} ج.م</TableCell>
+                                            <TableCell>{formatCurrency(item.unit_cost || 0)}</TableCell>
+                                            <TableCell className="font-bold">{formatCurrency(item.total_cost || 0)}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

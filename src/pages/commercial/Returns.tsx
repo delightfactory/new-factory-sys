@@ -393,7 +393,10 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
             // Currently schema doesn't seem to have 'invoice_id' in returns table. 
             // We'll append it to notes for reference or just use it for price fetching.
             if (data.invoice_id) {
-                returnData.notes = (returnData.notes || "") + ` [Linked to Invoice #${data.invoice_id}]`;
+                // Official link
+                (returnData as any).original_invoice_id = parseInt(data.invoice_id);
+                // Optional: still mention in notes for visibility if desired, but not required if UI shows it.
+                // Keeping it clean for now as per requirement.
             }
 
             const itemsData = data.items.map((item: any) => {

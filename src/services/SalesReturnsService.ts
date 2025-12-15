@@ -15,7 +15,7 @@ export interface SalesReturnItem {
 
 export interface SalesReturn {
     id: number;
-    return_number: number;
+    return_number: string;
     original_invoice_id?: number;
     customer_id: string;
     return_date: string;
@@ -48,9 +48,18 @@ export const SalesReturnsService = {
     },
 
     createReturn: async (returnData: Partial<SalesReturn>, items: SalesReturnItem[]) => {
+        // Generate Return Number
+        const { data: code } = await supabase.rpc('get_next_code', {
+            table_name: 'sales_returns',
+            prefix: 'SR-'
+        });
+
         const { data: ret, error: retError } = await supabase
             .from('sales_returns')
-            .insert(returnData)
+            .insert({
+                ...returnData,
+                return_number: code
+            })
             .select()
             .single();
 

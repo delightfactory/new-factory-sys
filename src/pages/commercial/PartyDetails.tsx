@@ -96,17 +96,32 @@ export default function PartyDetails() {
         enabled: !!party
     });
 
-    // Fetch ledger entries (transactions)
+    // Fetch financial transactions (payments)
     const { data: payments } = useQuery({
-        queryKey: ['party-ledger', id],
+        queryKey: ['party-transactions', id],
         queryFn: async () => {
+            // Fetch from financial_transactions where party_id matches
             const { data } = await supabase
-                .from('ledger_entries')
-                .select('id, transaction_date, description, debit, credit, reference_type')
+                .from('financial_transactions')
+                .select('*')
                 .eq('party_id', id)
                 .order('transaction_date', { ascending: false })
-                .limit(20);
-            return data as Payment[] || [];
+                .limit(50);
+
+            // Map to Payment interface expected by the UI
+            return (data || []).map((t: any) => ({
+                id: t.id,
+                transaction_date: t.transaction_date,
+                description: t.description,
+                reference_type: t.reference_type || (t.transaction_type === 'income' ? 'payment' : 'bill'),
+                // For Customer: Income (Payment from them) is Credit. Expense (Refund to them) is Debit.
+                // For Supplier: Expense (Payment to them) is Debit. Income (Refund from them) is Credit.
+                // Simplified:
+                // Income (Money IN) -> Credit for Party (They gave us money)
+                // Expense (Money OUT) -> Debit for Party (We gave them money)
+                debit: t.transaction_type === 'expense' ? t.amount : 0,
+                credit: t.transaction_type === 'income' ? t.amount : 0,
+            })) as Payment[];
         },
         enabled: !!id
     });
@@ -115,7 +130,7 @@ export default function PartyDetails() {
     const totalInvoices = invoices?.reduce((s, i) => s + (i.total_amount || 0), 0) || 0;
     const totalPaid = invoices?.reduce((s, i) => s + (i.paid_amount || 0), 0) || 0;
     const totalRemaining = totalInvoices - totalPaid;
-    const totalPayments = payments?.reduce((s, p) => s + (p.credit || 0), 0) || 0;
+    const totalPayments = payments?.reduce((s, p) => s + (p.credit + p.debit || 0), 0) || 0;
 
     if (partyLoading) {
         return (

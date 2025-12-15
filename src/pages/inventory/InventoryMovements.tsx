@@ -21,6 +21,7 @@ import {
     Filter
 } from "lucide-react";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
+import { formatNumber } from "@/lib/utils";
 import { format } from "date-fns";
 
 type ItemType = 'raw_materials' | 'packaging_materials' | 'semi_finished_products' | 'finished_products' | 'all';
@@ -77,20 +78,39 @@ export default function InventoryMovements() {
             const { data, error } = await query;
             if (error) throw error;
 
-            // Enrich with item names
-            const enriched = await Promise.all((data || []).map(async (mov) => {
-                const tableName = mov.item_type;
-                const { data: item } = await supabase
-                    .from(tableName)
-                    .select('name')
-                    .eq('id', mov.item_id)
-                    .single();
+            // optimized: Batch fetch item names
+            const itemIdsByType: Record<string, Set<number>> = {};
+            (data || []).forEach((mov: InventoryMovement) => {
+                if (!itemIdsByType[mov.item_type]) {
+                    itemIdsByType[mov.item_type] = new Set();
+                }
+                itemIdsByType[mov.item_type].add(mov.item_id);
+            });
 
+            const itemNames: Record<string, Record<number, string>> = {};
+
+            await Promise.all(Object.entries(itemIdsByType).map(async ([type, ids]) => {
+                const { data: items } = await supabase
+                    .from(type)
+                    .select('id, name')
+                    .in('id', Array.from(ids));
+
+                if (items) {
+                    itemNames[type] = {};
+                    items.forEach((item: any) => {
+                        itemNames[type][item.id] = item.name;
+                    });
+                }
+            }));
+
+            // Enrich with map
+            const enriched = (data || []).map((mov) => {
+                const name = itemNames[mov.item_type]?.[mov.item_id] || `#${mov.item_id}`;
                 return {
                     ...mov,
-                    item_name: item?.name || `#${mov.item_id}`
+                    item_name: name
                 };
-            }));
+            });
 
             return enriched as InventoryMovement[];
         }
@@ -238,16 +258,16 @@ export default function InventoryMovements() {
                                             <div className="text-center">
                                                 <p className="text-xs text-muted-foreground">الكمية</p>
                                                 <p className={`font-mono font-bold ${mov.movement_type === 'in' ? 'text-green-600' : mov.movement_type === 'out' ? 'text-red-600' : ''}`}>
-                                                    {mov.movement_type === 'in' ? '+' : mov.movement_type === 'out' ? '-' : ''}{mov.quantity}
+                                                    {mov.movement_type === 'in' ? '+' : mov.movement_type === 'out' ? '-' : ''}{formatNumber(mov.quantity)}
                                                 </p>
                                             </div>
                                             <div className="text-center hidden sm:block">
                                                 <p className="text-xs text-muted-foreground">قبل</p>
-                                                <p className="font-mono">{mov.previous_balance}</p>
+                                                <p className="font-mono">{formatNumber(mov.previous_balance)}</p>
                                             </div>
                                             <div className="text-center hidden sm:block">
                                                 <p className="text-xs text-muted-foreground">بعد</p>
-                                                <p className="font-mono font-bold">{mov.new_balance}</p>
+                                                <p className="font-mono font-bold">{formatNumber(mov.new_balance)}</p>
                                             </div>
                                             <div className="text-left">
                                                 <p className="text-xs text-muted-foreground">

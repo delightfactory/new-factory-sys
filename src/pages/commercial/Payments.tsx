@@ -121,6 +121,13 @@ function TransactionForm({
             return;
         }
 
+        // Validate Party for specific categories
+        const partyRequiredCategories = ['payment', 'purchase', 'receipt', 'refund'];
+        if (partyRequiredCategories.includes(data.category) && !data.party_id) {
+            toast.error("يرجى اختيار الجهة (العميل/المورد) لهذا البند");
+            return;
+        }
+
         mutation.mutate({
             treasury_id: parseInt(data.treasury_id),
             amount: parseFloat(data.amount),
