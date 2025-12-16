@@ -1,5 +1,7 @@
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,10 +16,13 @@ import {
     Banknote,
     CheckCircle,
     Clock,
-    XCircle
+    XCircle,
+    Printer
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
+import InvoicePrintTemplate from '@/components/print/templates/InvoicePrintTemplate';
+import type { InvoiceData } from '@/components/print/templates/InvoicePrintTemplate';
 
 interface Invoice {
     id: number;
@@ -42,6 +47,14 @@ interface InvoiceItem {
     unit_price: number;
     total_price: number;
     item_name?: string;
+    finished_product_id?: number;
+    semi_finished_product_id?: number;
+    raw_material_id?: number;
+    packaging_material_id?: number;
+    finished_products?: { name: string };
+    semi_finished_products?: { name: string };
+    raw_materials?: { name: string };
+    packaging_materials?: { name: string };
 }
 
 interface Party {
@@ -99,17 +112,30 @@ export default function InvoiceDetails() {
         enabled: !!invoice
     });
 
-    // Fetch invoice items
+    // Fetch invoice items with product name joins
     const { data: items } = useQuery({
         queryKey: ['invoice-items', itemsTable, id],
         queryFn: async () => {
             const { data } = await supabase
                 .from(itemsTable)
-                .select('*')
+                .select(`
+                    *,
+                    finished_products:finished_product_id(name),
+                    semi_finished_products:semi_finished_product_id(name),
+                    raw_materials:raw_material_id(name),
+                    packaging_materials:packaging_material_id(name)
+                `)
                 .eq('invoice_id', Number(id));
             return data as InvoiceItem[] || [];
         },
         enabled: !!id
+    });
+
+    // Print setup - MUST be before any conditional returns
+    const printRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: invoice ? `Invoice-${invoice.invoice_number}` : 'Invoice',
     });
 
     if (isLoading) {
@@ -137,6 +163,36 @@ export default function InvoiceDetails() {
     const remaining = invoice.total_amount - invoice.paid_amount;
     const paymentProgress = invoice.total_amount > 0 ? (invoice.paid_amount / invoice.total_amount) * 100 : 0;
 
+    // Prepare print data
+    const printData: InvoiceData = {
+        invoice_number: invoice.invoice_number,
+        transaction_date: invoice.transaction_date,
+        party_name: party?.name || 'غير محدد',
+        items: (items || []).map(item => {
+            // Get item name from the appropriate joined table
+            const itemName = item.finished_products?.name
+                || item.semi_finished_products?.name
+                || item.raw_materials?.name
+                || item.packaging_materials?.name
+                || item.item_name
+                || '-';
+            return {
+                item_name: itemName,
+                quantity: item.quantity,
+                unit_price: item.unit_price,
+                total_price: item.total_price,
+                item_type: item.item_type
+            };
+        }),
+        total_amount: invoice.total_amount,
+        discount_amount: invoice.discount_amount,
+        tax_amount: invoice.tax_amount,
+        shipping_cost: invoice.shipping_cost,
+        paid_amount: invoice.paid_amount,
+        notes: invoice.notes,
+        type: isSales ? 'sales' : 'purchase'
+    };
+
     return (
         <div className="p-4 sm:p-6 space-y-6">
             {/* Header */}
@@ -159,6 +215,15 @@ export default function InvoiceDetails() {
                     <StatusIcon className="h-5 w-5" />
                     <span className="font-medium">{statusConfig.label}</span>
                 </div>
+                <Button variant="outline" size="sm" onClick={() => handlePrint()} className="gap-2">
+                    <Printer className="h-4 w-4" />
+                    طباعة الفاتورة
+                </Button>
+            </div>
+
+            {/* Hidden Print Template */}
+            <div style={{ display: 'none' }}>
+                <InvoicePrintTemplate ref={printRef} data={printData} />
             </div>
 
             {/* Info Cards */}

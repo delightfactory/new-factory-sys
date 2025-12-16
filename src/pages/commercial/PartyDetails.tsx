@@ -1,5 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,10 +18,13 @@ import {
     Banknote,
     TrendingUp,
     TrendingDown,
-    Calendar
+    Calendar,
+    Printer
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
+import StatementPrintTemplate from '@/components/print/templates/StatementPrintTemplate';
+import type { StatementData } from '@/components/print/templates/StatementPrintTemplate';
 
 interface Party {
     id: string;
@@ -248,12 +253,27 @@ export default function PartyDetails() {
                 </Card>
             </div>
 
-            {/* Tabs: Invoices & Payments */}
-            <Tabs defaultValue="invoices" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+            {/* Tabs: Invoices, Payments, Statement of Account */}
+            <Tabs defaultValue="soa" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
+                    <TabsTrigger value="soa">كشف الحساب</TabsTrigger>
                     <TabsTrigger value="invoices">الفواتير ({invoices?.length || 0})</TabsTrigger>
                     <TabsTrigger value="payments">المدفوعات ({payments?.length || 0})</TabsTrigger>
                 </TabsList>
+
+                {/* New Statement of Account Tab */}
+                <TabsContent value="soa" className="mt-4">
+                    <StatementOfAccountWithPrint
+                        partyId={party.id}
+                        party={{
+                            name: party.name,
+                            type: party.type,
+                            phone: party.phone || undefined,
+                            address: party.address || undefined,
+                            balance: party.balance
+                        }}
+                    />
+                </TabsContent>
 
                 <TabsContent value="invoices" className="mt-4">
                     <Card>
@@ -354,4 +374,253 @@ export default function PartyDetails() {
             </div>
         </div>
     );
+}
+
+// Statement of Account with Print functionality
+interface PartyInfoForPrint {
+    name: string;
+    type: 'customer' | 'supplier';
+    phone?: string;
+    address?: string;
+    balance: number;
+}
+
+function StatementOfAccountWithPrint({ partyId, party }: { partyId: string; party: PartyInfoForPrint }) {
+    const printRef = useRef<HTMLDivElement>(null);
+
+    const { data: entries, isLoading } = useQuery({
+        queryKey: ['ledger_entries', partyId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('ledger_entries')
+                .select('*')
+                .eq('party_id', partyId)
+                .order('transaction_date', { ascending: true })
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+            return data as LedgerEntry[];
+        }
+    });
+
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: `Statement-${party.name}`,
+    });
+
+    // Prepare print data
+    const printData: StatementData = {
+        party: {
+            name: party.name,
+            type: party.type,
+            phone: party.phone,
+            address: party.address,
+            balance: party.balance
+        },
+        entries: (entries || []).map(e => ({
+            id: e.id,
+            transaction_date: e.transaction_date,
+            reference_type: e.reference_type,
+            description: e.description,
+            debit: e.debit,
+            credit: e.credit
+        }))
+    };
+
+    if (isLoading) {
+        return <div className="p-8 text-center"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div></div>;
+    }
+
+    if (!entries || entries.length === 0) {
+        return (
+            <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p>لا توجد حركات مسجلة في كشف الحساب</p>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    // Calculate Running Balance
+    let balance = 0;
+    const entriesWithBalance = entries.map(entry => {
+        balance = balance + (entry.debit || 0) - (entry.credit || 0);
+        return { ...entry, balance };
+    });
+
+    // Reverse for display (Newest first)
+    const reversedEntries = [...entriesWithBalance].reverse();
+
+    return (
+        <>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-lg flex items-center justify-between">
+                        <span>كشف حساب تفصيلي</span>
+                        <Button variant="outline" size="sm" onClick={() => handlePrint()} className="gap-2">
+                            <Printer className="h-4 w-4" />
+                            طباعة الكشف
+                        </Button>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>التاريخ</TableHead>
+                                    <TableHead>نوع الحركة</TableHead>
+                                    <TableHead>البيان / الوصف</TableHead>
+                                    <TableHead className="text-left">مدين</TableHead>
+                                    <TableHead className="text-left">دائن</TableHead>
+                                    <TableHead className="text-left">الرصيد</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {reversedEntries.map((entry) => (
+                                    <TableRow key={entry.id}>
+                                        <TableCell className="font-mono text-xs">{format(new Date(entry.transaction_date), 'yyyy-MM-dd')}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="text-[10px] font-normal">
+                                                {getRefLabel(entry.reference_type)}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="max-w-[200px] truncate" title={entry.description || ''}>
+                                            {entry.description}
+                                        </TableCell>
+                                        <TableCell className="text-left font-mono text-red-600 dark:text-red-400">
+                                            {entry.debit > 0 ? entry.debit.toLocaleString() : '-'}
+                                        </TableCell>
+                                        <TableCell className="text-left font-mono text-green-600 dark:text-green-400">
+                                            {entry.credit > 0 ? entry.credit.toLocaleString() : '-'}
+                                        </TableCell>
+                                        <TableCell className={`text-left font-mono font-bold ${entry.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                            {Math.abs(entry.balance).toLocaleString()} {entry.balance < 0 ? '(مستحق)' : ''}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Hidden Print Template */}
+            <div style={{ display: 'none' }}>
+                <StatementPrintTemplate ref={printRef} data={printData} />
+            </div>
+        </>
+    );
+}
+
+function StatementOfAccount({ partyId }: { partyId: string }) {
+    const { data: entries, isLoading } = useQuery({
+        queryKey: ['ledger_entries', partyId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('ledger_entries')
+                .select('*')
+                .eq('party_id', partyId)
+                .order('transaction_date', { ascending: true }) // Ascending for running balance
+                .order('created_at', { ascending: true }); // Secondary sort
+
+            if (error) throw error;
+            return data as LedgerEntry[];
+        }
+    });
+
+    if (isLoading) {
+        return <div className="p-8 text-center"><div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mx-auto"></div></div>;
+    }
+
+    if (!entries || entries.length === 0) {
+        return (
+            <div className="p-8 text-center text-muted-foreground">
+                <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                <p>لا توجد حركات مسجلة في كشف الحساب</p>
+            </div>
+        );
+    }
+
+    // Calculate Running Balance
+    let balance = 0;
+    const entriesWithBalance = entries.map(entry => {
+        // Logic:
+        // Purchase Invoice (Credit) -> Should decrease balance (Liability increases negatively)
+        // Payment (Debit) -> Should increase balance (Liability decreases towards zero)
+
+        balance = balance + (entry.debit || 0) - (entry.credit || 0);
+        return { ...entry, balance };
+    });
+
+    // Reverse for display (Newest first)
+    const reversedEntries = [...entriesWithBalance].reverse();
+
+    return (
+        <div className="overflow-x-auto">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>التاريخ</TableHead>
+                        <TableHead>نوع الحركة</TableHead>
+                        <TableHead>البيان / الوصف</TableHead>
+                        <TableHead className="text-left">مدين</TableHead>
+                        <TableHead className="text-left">دائن</TableHead>
+                        <TableHead className="text-left">الرصيد</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {reversedEntries.map((entry) => (
+                        <TableRow key={entry.id}>
+                            <TableCell className="font-mono text-xs">{format(new Date(entry.transaction_date), 'yyyy-MM-dd')}</TableCell>
+                            <TableCell>
+                                <Badge variant="outline" className="text-[10px] font-normal">
+                                    {getRefLabel(entry.reference_type)}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate" title={entry.description || ''}>
+                                {entry.description}
+                            </TableCell>
+                            <TableCell className="text-left font-mono text-red-600 dark:text-red-400">
+                                {entry.debit > 0 ? entry.debit.toLocaleString() : '-'}
+                            </TableCell>
+                            <TableCell className="text-left font-mono text-green-600 dark:text-green-400">
+                                {entry.credit > 0 ? entry.credit.toLocaleString() : '-'}
+                            </TableCell>
+                            <TableCell className={`text-left font-mono font-bold ${entry.balance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                {Math.abs(entry.balance).toLocaleString()} {entry.balance < 0 ? '(مستحق)' : ''}
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+function getRefLabel(type: string) {
+    const map: Record<string, string> = {
+        'sales_invoice': 'فاتورة بيع',
+        'purchase_invoice': 'فاتورة شراء',
+        'sales_return': 'مرتجع بيع',
+        'purchase_return': 'مرتجع شراء',
+        'payment': 'سند صرف',
+        'receipt': 'سند قبض',
+        'manual_transaction': 'تسوية يدوية'
+    };
+    return map[type] || type;
+}
+
+interface LedgerEntry {
+    id: string;
+    transaction_date: string;
+    amount: number;
+    type: string;
+    reference_type: string;
+    reference_id: string;
+    description: string;
+    debit: number;
+    credit: number;
+    created_at: string;
 }

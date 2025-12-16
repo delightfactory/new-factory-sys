@@ -1,0 +1,339 @@
+/* ==========================================================================
+   Professional Print Styles
+   Factory Management System
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Base Print Rules
+   -------------------------------------------------------------------------- */
+@media print {
+    /* Reset page margins */
+    @page {
+        size: A4;
+        margin: 15mm 10mm;
+    }
+
+    /* Force background colors and images to print */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Base document styles */
+    html, body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0;
+        padding: 0;
+        font-size: 11pt;
+        line-height: 1.4;
+        direction: rtl;
+        background: white !important;
+        color: black !important;
+    }
+
+    /* --------------------------------------------------------------------------
+       2. Hide UI Elements (Not for Print)
+       -------------------------------------------------------------------------- */
+    /* Navigation and sidebars */
+    nav,
+    aside,
+    header:not(.print-header),
+    footer:not(.print-footer),
+    .sidebar,
+    .navigation,
+    [data-sidebar],
+    [role="navigation"] {
+        display: none !important;
+    }
+
+    /* Interactive elements */
+    button:not(.print-only),
+    .btn:not(.print-only),
+    input:not([type="hidden"]):not(.print-only),
+    select:not(.print-only),
+    textarea:not(.print-only),
+    [role="button"]:not(.print-only) {
+        display: none !important;
+    }
+
+    /* Utility classes for hiding */
+    .no-print,
+    .print-hidden,
+    [data-no-print],
+    .tabs-list,
+    .tab-trigger,
+    [role="tablist"] {
+        display: none !important;
+    }
+
+    /* Dialogs and modals */
+    [role="dialog"],
+    .dialog,
+    .modal,
+    .toast,
+    .popover {
+        display: none !important;
+    }
+
+    /* --------------------------------------------------------------------------
+       3. Show Print-Only Elements
+       -------------------------------------------------------------------------- */
+    .print-only,
+    .print-visible,
+    [data-print-only] {
+        display: block !important;
+    }
+
+    .print-inline {
+        display: inline !important;
+    }
+
+    .print-flex {
+        display: flex !important;
+    }
+
+    /* --------------------------------------------------------------------------
+       4. Typography for Print
+       -------------------------------------------------------------------------- */
+    h1, h2, h3, h4, h5, h6 {
+        page-break-after: avoid;
+        break-after: avoid;
+        color: black !important;
+    }
+
+    h1 { font-size: 18pt; }
+    h2 { font-size: 14pt; }
+    h3 { font-size: 12pt; }
+
+    p, li, td, th {
+        orphans: 3;
+        widows: 3;
+    }
+
+    /* --------------------------------------------------------------------------
+       5. Table Styles for Print
+       -------------------------------------------------------------------------- */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        page-break-inside: auto;
+    }
+
+    thead {
+        display: table-header-group;
+    }
+
+    tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    th, td {
+        border: 1px solid #333 !important;
+        padding: 6px 8px !important;
+        text-align: right !important;
+        font-size: 10pt;
+        background: white !important;
+        color: black !important;
+    }
+
+    th {
+        background: #f0f0f0 !important;
+        font-weight: bold;
+    }
+
+    /* Alternate row colors for readability */
+    tbody tr:nth-child(even) td {
+        background: #fafafa !important;
+    }
+
+    /* Highlight totals row */
+    .print-total-row td,
+    tfoot td {
+        background: #e8e8e8 !important;
+        font-weight: bold;
+        border-top: 2px solid #000 !important;
+    }
+
+    /* --------------------------------------------------------------------------
+       6. Card and Container Styles
+       -------------------------------------------------------------------------- */
+    .card,
+    [data-card] {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* --------------------------------------------------------------------------
+       7. Print Header and Footer
+       -------------------------------------------------------------------------- */
+    .print-header {
+        display: flex !important;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 2px solid #000;
+        padding-bottom: 10mm;
+        margin-bottom: 8mm;
+    }
+
+    .print-header .company-logo {
+        max-height: 20mm;
+        max-width: 40mm;
+    }
+
+    .print-header .company-info {
+        text-align: left;
+        font-size: 9pt;
+    }
+
+    .print-header .document-title {
+        text-align: center;
+        flex: 1;
+    }
+
+    .print-header .document-title h1 {
+        margin: 0;
+        font-size: 16pt;
+    }
+
+    .print-footer {
+        display: block !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        border-top: 1px solid #ccc;
+        padding-top: 5mm;
+        font-size: 8pt;
+        text-align: center;
+        color: #666;
+    }
+
+    /* --------------------------------------------------------------------------
+       8. Document Sections
+       -------------------------------------------------------------------------- */
+    .print-section {
+        margin-bottom: 8mm;
+    }
+
+    .print-section-title {
+        font-size: 12pt;
+        font-weight: bold;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 2mm;
+        margin-bottom: 4mm;
+    }
+
+    .print-info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4mm;
+        margin-bottom: 6mm;
+    }
+
+    .print-info-item {
+        display: flex;
+        gap: 2mm;
+    }
+
+    .print-info-label {
+        font-weight: bold;
+        color: #333;
+        min-width: 25mm;
+    }
+
+    .print-info-value {
+        color: #000;
+    }
+
+    /* --------------------------------------------------------------------------
+       9. Signature Section
+       -------------------------------------------------------------------------- */
+    .print-signatures {
+        display: flex !important;
+        justify-content: space-between;
+        margin-top: 15mm;
+        page-break-inside: avoid;
+    }
+
+    .print-signature-box {
+        width: 30%;
+        text-align: center;
+    }
+
+    .print-signature-line {
+        border-top: 1px solid #000;
+        margin-top: 15mm;
+        padding-top: 3mm;
+    }
+
+    /* --------------------------------------------------------------------------
+       10. Colors Override for Print
+       -------------------------------------------------------------------------- */
+    .text-green-600, .text-green-500, .text-green-400,
+    .dark\\:text-green-400, .dark\\:text-green-300 {
+        color: #008000 !important;
+    }
+
+    .text-red-600, .text-red-500, .text-red-400,
+    .dark\\:text-red-400, .dark\\:text-red-300 {
+        color: #cc0000 !important;
+    }
+
+    .text-muted-foreground {
+        color: #666 !important;
+    }
+
+    /* Status badges */
+    .badge,
+    [class*="Badge"] {
+        border: 1px solid #333 !important;
+        padding: 1px 6px !important;
+        font-size: 9pt !important;
+        background: white !important;
+        color: black !important;
+    }
+
+    /* --------------------------------------------------------------------------
+       11. Page Breaks
+       -------------------------------------------------------------------------- */
+    .print-page-break {
+        page-break-before: always;
+        break-before: always;
+    }
+
+    .print-no-break {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* --------------------------------------------------------------------------
+       12. Links
+       -------------------------------------------------------------------------- */
+    a {
+        color: black !important;
+        text-decoration: none !important;
+    }
+
+    /* Don't show URL after links */
+    a[href]::after {
+        content: none !important;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Hidden Elements (Always Hidden on Screen, Shown on Print)
+   -------------------------------------------------------------------------- */
+.print-only {
+    display: none;
+}
+
+@media print {
+    .print-only {
+        display: block !important;
+    }
+}

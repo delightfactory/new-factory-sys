@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Package, Download, Printer, ArrowRight } from "lucide-react";
+import { Package, Download, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
+import { PrintButton } from "@/components/print/PrintLayout";
 
 const TYPE_COLORS: Record<string, string> = {
     raw: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400',
@@ -47,9 +48,7 @@ export default function InventoryReport() {
 
     const totalValuation = items?.reduce((sum, item) => sum + item.totalValue, 0) || 0;
 
-    const handlePrint = () => {
-        window.print();
-    };
+
 
     return (
         <div className="space-y-6 print:space-y-2">
@@ -66,10 +65,7 @@ export default function InventoryReport() {
                     />
                 </div>
                 <div className="flex gap-2 mr-auto sm:mr-0">
-                    <Button variant="outline" onClick={handlePrint} size="sm">
-                        <Printer className="w-4 h-4 ml-2" />
-                        طباعة
-                    </Button>
+                    <PrintButton />
                     <Button size="sm">
                         <Download className="w-4 h-4 ml-2" />
                         تصدير

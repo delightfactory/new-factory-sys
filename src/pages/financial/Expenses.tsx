@@ -25,7 +25,7 @@ export default function FinancialLog() {
 
     const { data: transactions, isLoading } = useQuery({
         queryKey: ['financial_transactions', typeFilter],
-        queryFn: () => FinancialService.getTransactions(typeFilter === 'all' ? undefined : typeFilter)
+        queryFn: () => FinancialService.getTransactions(typeFilter === 'all' ? undefined : { type: typeFilter })
     });
 
     const deleteMutation = useMutation({

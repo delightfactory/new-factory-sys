@@ -5,10 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Factory, Printer, ArrowRight, CheckCircle2, Clock } from "lucide-react";
+import { Factory, ArrowRight, CheckCircle2, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
 import { format } from "date-fns";
+import { PrintButton } from "@/components/print/PrintLayout";
 
 export default function ProductionReport() {
 
@@ -46,9 +47,7 @@ export default function ProductionReport() {
         }
     });
 
-    const handlePrint = () => {
-        window.print();
-    };
+
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -74,10 +73,7 @@ export default function ProductionReport() {
                     />
                 </div>
                 <div className="flex gap-2 mr-auto sm:mr-0">
-                    <Button variant="outline" onClick={handlePrint} size="sm">
-                        <Printer className="w-4 h-4 ml-2" />
-                        طباعة
-                    </Button>
+                    <PrintButton />
                 </div>
             </div>
 

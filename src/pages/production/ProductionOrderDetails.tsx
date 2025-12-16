@@ -1,5 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,12 +15,15 @@ import {
     CheckCircle,
     Clock,
     XCircle,
-    Beaker
+    Beaker,
+    Printer
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
 import { Progress } from '@/components/ui/progress';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import ProductionOrderPrintTemplate from '@/components/print/templates/ProductionOrderPrintTemplate';
+import type { ProductionOrderData } from '@/components/print/templates/ProductionOrderPrintTemplate';
 
 interface ProductionOrder {
     id: number;
@@ -97,6 +102,13 @@ export default function ProductionOrderDetails() {
         }
     };
 
+    // Print setup - MUST be before any conditional returns
+    const printRef = useRef<HTMLDivElement>(null);
+    const handlePrint = useReactToPrint({
+        contentRef: printRef,
+        documentTitle: order ? `ProductionOrder-${order.code}` : 'ProductionOrder',
+    });
+
     if (orderLoading) {
         return (
             <div className="p-6 space-y-6">
@@ -116,6 +128,23 @@ export default function ProductionOrderDetails() {
             </div>
         );
     }
+
+    // Prepare print data (using existing totalCost from line 92)
+    const printData: ProductionOrderData = {
+        code: order.code,
+        date: order.date,
+        status: order.status,
+        notes: order.notes,
+        totalCost: totalCost,
+        type: 'production',
+        items: (items || []).map(item => ({
+            name: item.semi_finished?.name || '-',
+            quantity: item.quantity,
+            unit: item.semi_finished?.unit || '',
+            unit_cost: item.unit_cost,
+            total_cost: item.total_cost
+        }))
+    };
 
     return (
         <div className="p-4 sm:p-6 space-y-6">
@@ -137,6 +166,15 @@ export default function ProductionOrderDetails() {
                         </div>
                     </div>
                 </div>
+                <Button variant="outline" size="sm" onClick={() => handlePrint()} className="gap-2">
+                    <Printer className="h-4 w-4" />
+                    طباعة الأمر
+                </Button>
+            </div>
+
+            {/* Hidden Print Template */}
+            <div style={{ display: 'none' }}>
+                <ProductionOrderPrintTemplate ref={printRef} data={printData} />
             </div>
 
             {/* Progress Bar */}

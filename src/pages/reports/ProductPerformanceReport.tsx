@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Printer, ArrowRight, Package } from "lucide-react";
+import { TrendingUp, ArrowRight, Package } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
+import { PrintButton } from "@/components/print/PrintLayout";
 
 export default function ProductPerformanceReport() {
 
@@ -29,9 +30,7 @@ export default function ProductPerformanceReport() {
         }
     });
 
-    const handlePrint = () => {
-        window.print();
-    };
+
 
     return (
         <div className="space-y-6 print:space-y-2">
@@ -47,10 +46,7 @@ export default function ProductPerformanceReport() {
                     />
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handlePrint}>
-                        <Printer className="w-4 h-4 mr-2" />
-                        طباعة
-                    </Button>
+                    <PrintButton />
                 </div>
             </div>
 

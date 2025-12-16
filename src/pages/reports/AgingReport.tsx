@@ -17,11 +17,11 @@ import {
     AlertTriangle,
     TrendingUp,
     Users,
-    Download,
-    Printer
+    Download
 } from "lucide-react";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
 import { differenceInDays, format } from "date-fns";
+import { PrintButton } from "@/components/print/PrintLayout";
 
 type PartyType = 'customer' | 'supplier' | 'all';
 type SortBy = 'amount' | 'days' | 'name';
@@ -154,7 +154,7 @@ export default function AgingReport() {
         }
     });
 
-    const handlePrint = () => window.print();
+
 
     const currencyFormat = (value: number) =>
         new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 0 }).format(value) + ' ج.م';
@@ -171,10 +171,7 @@ export default function AgingReport() {
                     icon={Clock}
                 />
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handlePrint} size="sm">
-                        <Printer className="w-4 h-4 ml-2" />
-                        طباعة
-                    </Button>
+                    <PrintButton />
                     <Button size="sm">
                         <Download className="w-4 h-4 ml-2" />
                         تصدير

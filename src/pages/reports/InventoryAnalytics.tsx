@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
     Download,
-    Printer,
     ArrowUpDown,
     TrendingUp,
     TrendingDown,
@@ -18,6 +17,7 @@ import {
 } from "lucide-react";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { PrintButton } from "@/components/print/PrintLayout";
 import {
     Select,
     SelectContent,
@@ -198,7 +198,7 @@ export default function InventoryAnalytics() {
         };
     }, [items]);
 
-    const handlePrint = () => window.print();
+
 
     const currencyFormat = (value: number) => formatCurrency(value);
 
@@ -214,10 +214,7 @@ export default function InventoryAnalytics() {
                     icon={BarChart3}
                 />
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handlePrint}>
-                        <Printer className="w-4 h-4 ml-2" />
-                        طباعة
-                    </Button>
+                    <PrintButton />
                     <Button>
                         <Download className="w-4 h-4 ml-2" />
                         تصدير

@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
 import { Progress } from '@/components/ui/progress';
 import { formatCurrency, formatNumber } from '@/lib/utils';
+import { PrintButton } from '@/components/print/PrintLayout';
 
 interface PackagingOrder {
     id: number;
@@ -137,6 +138,7 @@ export default function PackagingOrderDetails() {
                         </div>
                     </div>
                 </div>
+                <PrintButton label="طباعة الأمر" />
             </div>
 
             {/* Progress Bar */}

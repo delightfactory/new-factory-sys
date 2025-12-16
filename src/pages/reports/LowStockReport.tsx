@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Printer, ArrowRight, ShoppingCart } from "lucide-react";
+import { AlertTriangle, ArrowRight, ShoppingCart } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
+import { PrintButton } from "@/components/print/PrintLayout";
 
 export default function LowStockReport() {
 
@@ -22,9 +23,7 @@ export default function LowStockReport() {
         }
     });
 
-    const handlePrint = () => {
-        window.print();
-    };
+
 
     return (
         <div className="space-y-6 print:space-y-2">
@@ -41,10 +40,7 @@ export default function LowStockReport() {
                     />
                 </div>
                 <div className="flex gap-2 mr-auto sm:mr-0">
-                    <Button variant="outline" onClick={handlePrint} size="sm">
-                        <Printer className="w-4 h-4 ml-2" />
-                        طباعة
-                    </Button>
+                    <PrintButton />
                 </div>
             </div>
 

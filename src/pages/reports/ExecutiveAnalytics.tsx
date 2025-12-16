@@ -4,10 +4,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Activity, TrendingUp, AlertCircle, Award, Target, Printer, ArrowRight, DollarSign } from "lucide-react";
+import { Activity, TrendingUp, AlertCircle, Award, Target, ArrowRight, DollarSign } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
 import { Progress } from "@/components/ui/progress";
+import { PrintButton } from "@/components/print/PrintLayout";
 
 export default function ExecutiveAnalytics() {
 
@@ -59,9 +60,7 @@ export default function ExecutiveAnalytics() {
         }
     });
 
-    const handlePrint = () => {
-        window.print();
-    };
+
 
     return (
         <div className="space-y-6 print:space-y-4">
@@ -77,10 +76,7 @@ export default function ExecutiveAnalytics() {
                     />
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handlePrint}>
-                        <Printer className="w-4 h-4 mr-2" />
-                        طباعة التقرير
-                    </Button>
+                    <PrintButton label="طباعة التقرير" />
                 </div>
             </div>
 

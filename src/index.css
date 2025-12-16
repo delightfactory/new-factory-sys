@@ -152,3 +152,6 @@
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
+
+/* Import Print Styles */
+@import './styles/print.css';
