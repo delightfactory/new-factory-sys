@@ -26,13 +26,19 @@ import {
     Database,
     ArrowRightLeft
 } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { GlobalSearch } from "@/components/ui/global-search";
+
+// Constants for localStorage keys
+const STORAGE_KEYS = {
+    SIDEBAR_OPEN: "sidebarOpen",
+    EXPANDED_MENUS: "expandedMenus"
+} as const;
 
 interface MenuItemProps {
     icon: any;
@@ -86,26 +92,35 @@ const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onTo
                     )}
                 </button>
 
-                {/* Submenu - Simple CSS transition, no JS animation */}
-                {sidebarOpen && expanded && (
-                    <div className="mr-4 pr-3 border-r border-muted space-y-0.5 py-1 animate-in fade-in-0 slide-in-from-top-1 duration-200">
-                        {children.map((child) => (
-                            <Link
-                                key={child.path}
-                                to={child.path}
-                                onClick={onNavigate}
-                                className={cn(
-                                    "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors duration-150",
-                                    "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                                    (location.pathname === child.path)
-                                        ? "bg-primary text-primary-foreground font-medium"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-accent"
-                                )}
-                            >
-                                <child.icon className="w-3.5 h-3.5" />
-                                <span>{child.label}</span>
-                            </Link>
-                        ))}
+                {/* Submenu with Smooth Height Transition */}
+                {sidebarOpen && (
+                    <div
+                        className={cn(
+                            "mr-4 pr-3 border-r border-muted overflow-hidden transition-all duration-300 ease-in-out",
+                            expanded
+                                ? "max-h-[500px] opacity-100 py-1"
+                                : "max-h-0 opacity-0 py-0"
+                        )}
+                    >
+                        <div className="space-y-0.5">
+                            {children.map((child) => (
+                                <Link
+                                    key={child.path}
+                                    to={child.path}
+                                    onClick={onNavigate}
+                                    className={cn(
+                                        "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors duration-150",
+                                        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                                        (location.pathname === child.path)
+                                            ? "bg-primary text-primary-foreground font-medium"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                                    )}
+                                >
+                                    <child.icon className="w-3.5 h-3.5" />
+                                    <span>{child.label}</span>
+                                </Link>
+                            ))}
+                        </div>
                     </div>
                 )}
             </div>
@@ -154,37 +169,89 @@ export default function Layout() {
     const { theme, setTheme } = useTheme();
     const { hasRole, isAdmin, signOut, profile } = useAuth();
 
-    const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
+    // Load expanded menus from localStorage
+    const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEYS.EXPANDED_MENUS);
+            return saved ? JSON.parse(saved) : {};
+        } catch {
+            return {};
+        }
+    });
+
+    // Track if auto-expand has been done for current path
+    const autoExpandedPathRef = useRef<string | null>(null);
 
     // Save sidebar state
     useEffect(() => {
-        localStorage.setItem("sidebarOpen", JSON.stringify(isOpen));
+        localStorage.setItem(STORAGE_KEYS.SIDEBAR_OPEN, JSON.stringify(isOpen));
     }, [isOpen]);
 
-    const toggleMenu = (path: string) => {
-        setExpandedMenus(prev => ({ ...prev, [path]: !prev[path] }));
-    };
+    // Save expanded menus state
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEYS.EXPANDED_MENUS, JSON.stringify(expandedMenus));
+    }, [expandedMenus]);
 
-    // Auto-expand based on active route
+    // Accordion Toggle: Only one menu open at a time
+    const toggleMenu = useCallback((path: string) => {
+        setExpandedMenus(prev => {
+            // If clicking on already open menu, just close it
+            if (prev[path]) {
+                return { ...prev, [path]: false };
+            }
+            // Close all other menus and open the clicked one (Accordion behavior)
+            const newState: Record<string, boolean> = {};
+            Object.keys(prev).forEach(key => {
+                newState[key] = false;
+            });
+            newState[path] = true;
+            return newState;
+        });
+    }, []);
+
+    // Smart Auto-expand: Only on initial load or direct navigation
+    // Note: We define menuItems inline here to avoid dependency issues
     useEffect(() => {
         const currentPath = location.pathname;
-        const newExpanded: Record<string, boolean> = { ...expandedMenus };
-        let hasChanges = false;
 
-        menuItems.forEach(item => {
-            if (item.children) {
-                const isActiveChild = item.children.some(child => currentPath.startsWith(child.path));
-                if (isActiveChild && !newExpanded[item.path]) {
-                    newExpanded[item.path] = true;
-                    hasChanges = true;
-                }
+        // Skip if we already auto-expanded for this exact path
+        if (autoExpandedPathRef.current === currentPath) {
+            return;
+        }
+
+        // Define menu paths with children for auto-expand logic
+        const menuPaths = [
+            { path: '/inventory', childPaths: ['/inventory/raw-materials', '/inventory/packaging', '/inventory/semi-finished', '/inventory/finished', '/inventory/stocktaking', '/inventory/movements'] },
+            { path: '/production', childPaths: ['/production/orders'] },
+            { path: '/commercial', childPaths: ['/commercial/parties', '/commercial/treasuries', '/commercial/payments', '/commercial/buying', '/commercial/selling', '/commercial/returns'] },
+            { path: '/financial', childPaths: ['/financial/expenses', '/financial/reports'] },
+            { path: '/settings', childPaths: ['/settings/users', '/settings/system'] },
+        ];
+
+        // Find parent menu that contains the active child
+        let parentPath: string | null = null;
+        menuPaths.forEach(menu => {
+            const isActiveChild = menu.childPaths.some(childPath =>
+                currentPath === childPath || currentPath.startsWith(childPath + '/')
+            );
+            if (isActiveChild) {
+                parentPath = menu.path;
             }
         });
 
-        if (hasChanges) {
-            setExpandedMenus(newExpanded);
+        // If found and not already expanded, expand it (accordion style)
+        if (parentPath && !expandedMenus[parentPath]) {
+            const newState: Record<string, boolean> = {};
+            Object.keys(expandedMenus).forEach(key => {
+                newState[key] = false;
+            });
+            newState[parentPath] = true;
+            setExpandedMenus(newState);
         }
-    }, [location.pathname]);
+
+        // Mark this path as handled
+        autoExpandedPathRef.current = currentPath;
+    }, [location.pathname, expandedMenus]);
 
     const menuItems = useMemo(() => {
         const items = [

@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import Print Styles - must be at top of file */
+@import './styles/print.css';
+
 @layer base {
     :root {
         /* Black Identity - Light Mode */
@@ -152,6 +155,3 @@
 .no-scrollbar::-webkit-scrollbar {
     display: none;
 }
-
-/* Import Print Styles */
-@import './styles/print.css';

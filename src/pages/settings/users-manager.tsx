@@ -71,7 +71,7 @@ export default function UsersManager() {
         e.preventDefault();
         if (!selectedUser) return;
         setIsSaving(true);
-        
+
         try {
             const promises = [];
 
@@ -148,14 +148,37 @@ export default function UsersManager() {
         setIsAddingUser(true);
 
         try {
-            const { error } = await supabase.rpc('create_user_by_admin', {
-                new_email: newUserEmail,
-                new_password: newUserPassword,
-                new_name: newUserName,
-                new_role: newUserRole
-            });
+            // Get current session for auth token
+            const { data: { session } } = await supabase.auth.getSession();
 
-            if (error) throw error;
+            if (!session) {
+                throw new Error("يجب تسجيل الدخول أولاً");
+            }
+
+            // Call Edge Function instead of RPC
+            const response = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${session.access_token}`,
+                        "apikey": import.meta.env.VITE_SUPABASE_ANON_KEY,
+                    },
+                    body: JSON.stringify({
+                        email: newUserEmail,
+                        password: newUserPassword,
+                        full_name: newUserName,
+                        role: newUserRole,
+                    }),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || "فشل إنشاء المستخدم");
+            }
 
             toast.success("تم إنشاء المستخدم بنجاح");
             setIsAddUserOpen(false);
@@ -244,30 +267,30 @@ export default function UsersManager() {
                             <form onSubmit={handleAddUser} className="space-y-4 py-4">
                                 <div className="space-y-2">
                                     <Label>الاسم الكامل</Label>
-                                    <Input 
-                                        required 
-                                        value={newUserName} 
-                                        onChange={e => setNewUserName(e.target.value)} 
+                                    <Input
+                                        required
+                                        value={newUserName}
+                                        onChange={e => setNewUserName(e.target.value)}
                                         placeholder="مثال: أحمد محمد"
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>البريد الإلكتروني</Label>
-                                    <Input 
-                                        required 
-                                        type="email" 
-                                        value={newUserEmail} 
+                                    <Input
+                                        required
+                                        type="email"
+                                        value={newUserEmail}
                                         onChange={e => setNewUserEmail(e.target.value)}
                                         placeholder="name@example.com"
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <Label>كلمة المرور</Label>
-                                    <Input 
-                                        required 
+                                    <Input
+                                        required
                                         type="password"
                                         minLength={6}
-                                        value={newUserPassword} 
+                                        value={newUserPassword}
                                         onChange={e => setNewUserPassword(e.target.value)}
                                         placeholder="******"
                                     />
@@ -363,9 +386,9 @@ export default function UsersManager() {
                                                     <form onSubmit={handleUpdateUser} className="space-y-4 py-4">
                                                         <div className="space-y-2">
                                                             <Label>الاسم الكامل</Label>
-                                                            <Input 
-                                                                value={editName} 
-                                                                onChange={e => setEditName(e.target.value)} 
+                                                            <Input
+                                                                value={editName}
+                                                                onChange={e => setEditName(e.target.value)}
                                                             />
                                                         </div>
                                                         <div className="space-y-2">
@@ -386,11 +409,11 @@ export default function UsersManager() {
                                                         </div>
                                                         <div className="space-y-2 pt-2 border-t">
                                                             <Label className="text-destructive">إعادة تعيين كلمة المرور (اختياري)</Label>
-                                                            <Input 
+                                                            <Input
                                                                 type="password"
                                                                 minLength={6}
                                                                 placeholder="اتركه فارغاً إذا لم ترد التغيير"
-                                                                value={resetPassword} 
+                                                                value={resetPassword}
                                                                 onChange={e => setResetPassword(e.target.value)}
                                                             />
                                                             <p className="text-xs text-muted-foreground">أدخل كلمة مرور جديدة فقط إذا طلب المستخدم ذلك.</p>

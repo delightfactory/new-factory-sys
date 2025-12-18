@@ -46,6 +46,12 @@ const TABLE_EXPORT_ORDER = [
 // Tables that use UUID as primary key (not BIGINT)
 const UUID_TABLES = ['parties'];
 
+// Generated columns that cannot be inserted (computed by database)
+// These columns are automatically calculated and must be excluded during restore
+const GENERATED_COLUMNS: Record<string, string[]> = {
+    'inventory_count_items': ['difference'], // difference = counted_quantity - system_quantity
+};
+
 // Tables to reset (reverse order for FK compliance)
 const TABLE_RESET_ORDER = [...TABLE_EXPORT_ORDER].reverse();
 
@@ -256,11 +262,20 @@ export const BackupService = {
                 for (let j = 0; j < tableData.length; j += batchSize) {
                     const batch = tableData.slice(j, j + batchSize);
 
-                    // Remove auto-generated timestamps but keep IDs
+                    // Remove auto-generated timestamps and generated columns (computed by DB)
                     const cleanedBatch = batch.map((row: any) => {
                         const cleaned = { ...row };
                         delete cleaned.created_at;
                         delete cleaned.updated_at;
+
+                        // Remove generated columns for this table
+                        const generatedCols = GENERATED_COLUMNS[tableName];
+                        if (generatedCols) {
+                            for (const col of generatedCols) {
+                                delete cleaned[col];
+                            }
+                        }
+
                         return cleaned;
                     });
 
