@@ -72,6 +72,15 @@ export const SalesInvoicesService = {
     },
 
     createInvoice: async (invoice: Partial<SalesInvoice>, items: SalesInvoiceItem[]) => {
+        // 0. Auto-generate invoice_number if not provided
+        if (!invoice.invoice_number) {
+            const { data: code } = await supabase.rpc('get_next_code', {
+                table_name: 'sales_invoices',
+                prefix: 'SI'
+            });
+            invoice.invoice_number = code;
+        }
+
         // 1. Create Header
         const { data: header, error: headerError } = await supabase
             .from('sales_invoices')

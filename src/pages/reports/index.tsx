@@ -9,6 +9,7 @@ import ExecutiveAnalytics from "./ExecutiveAnalytics";
 import AgingReport from "./AgingReport";
 import InventoryTurnoverReport from "./InventoryTurnoverReport";
 import PartyAnalysisReport from "./PartyAnalysisReport";
+import FinancialBalanceSheet from "./FinancialBalanceSheet";
 
 export default function ReportsRoutes() {
     return (
@@ -23,6 +24,8 @@ export default function ReportsRoutes() {
             <Route path="aging" element={<AgingReport />} />
             <Route path="turnover" element={<InventoryTurnoverReport />} />
             <Route path="party-analysis" element={<PartyAnalysisReport />} />
+            <Route path="balance-sheet" element={<FinancialBalanceSheet />} />
         </Routes>
     );
 }
+

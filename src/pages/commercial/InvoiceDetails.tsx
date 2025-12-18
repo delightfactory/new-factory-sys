@@ -332,21 +332,30 @@ export default function InvoiceDetails() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {items.map((item, index) => (
-                                        <TableRow key={item.id}>
-                                            <TableCell>{index + 1}</TableCell>
-                                            <TableCell className="font-medium">{item.item_name || '-'}</TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline" className="text-xs">
-                                                    {item.item_type === 'finished_product' ? 'منتج' :
-                                                        item.item_type === 'raw_material' ? 'خامة' : item.item_type}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>{item.quantity}</TableCell>
-                                            <TableCell>{item.unit_price.toLocaleString()}</TableCell>
-                                            <TableCell className="font-bold">{item.total_price.toLocaleString()}</TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {items.map((item, index) => {
+                                        // Get item name from the appropriate joined table
+                                        const itemName = item.finished_products?.name
+                                            || item.semi_finished_products?.name
+                                            || item.raw_materials?.name
+                                            || item.packaging_materials?.name
+                                            || item.item_name
+                                            || '-';
+                                        return (
+                                            <TableRow key={item.id}>
+                                                <TableCell>{index + 1}</TableCell>
+                                                <TableCell className="font-medium">{itemName}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {item.item_type === 'finished_product' ? 'منتج' :
+                                                            item.item_type === 'raw_material' ? 'خامة' : item.item_type}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>{item.quantity}</TableCell>
+                                                <TableCell>{item.unit_price.toLocaleString()}</TableCell>
+                                                <TableCell className="font-bold">{item.total_price.toLocaleString()}</TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
                         </div>

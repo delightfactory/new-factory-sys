@@ -13,7 +13,8 @@ import {
     BarChart3,
     Clock,
     RotateCw,
-    Users
+    Users,
+    Scale
 } from "lucide-react";
 
 export default function ReportsHub() {
@@ -25,6 +26,14 @@ export default function ReportsHub() {
             color: "text-indigo-600",
             path: "/reports/executive",
             bg: "bg-indigo-50 dark:bg-indigo-900/20"
+        },
+        {
+            title: "الميزان المالي",
+            description: "صافي المركز المالي: قيمة المخزون + السيولة + مستحقات العملاء - ديون الموردين.",
+            icon: Scale,
+            color: "text-emerald-600",
+            path: "/reports/balance-sheet",
+            bg: "bg-emerald-50 dark:bg-emerald-900/20"
         },
         {
             title: "أعمار الديون",
