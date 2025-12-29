@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { InventoryService } from "@/services/InventoryService";
 import { DataTable } from "@/components/ui/data-table";
@@ -47,6 +47,8 @@ export default function ProductionOrders() {
     const [pendingDemands, setPendingDemands] = useState<Map<number, number>>(new Map());
     const [viewOrderId, setViewOrderId] = useState<number | null>(null);
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+
 
     // Fetch order details when viewing
     const { data: orderDetails, isLoading: isLoadingDetails } = useQuery({
@@ -81,6 +83,15 @@ export default function ProductionOrders() {
         control: form.control,
         name: "items"
     });
+
+    // Auto-open create dialog if action=create in URL (must be after form init)
+    useEffect(() => {
+        if (searchParams.get('action') === 'create') {
+            form.reset();
+            setIsOpen(true);
+            setSearchParams({}, { replace: true });
+        }
+    }, [searchParams, setSearchParams, form]);
 
     // Fetch Next Code
     const fetchNextCode = async () => {

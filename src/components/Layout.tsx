@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { GlobalSearch } from "@/components/ui/global-search";
+import { BottomNav } from "@/components/layout/BottomNav";
 
 // Constants for localStorage keys
 const STORAGE_KEYS = {
@@ -551,9 +552,12 @@ export default function Layout() {
                 </header>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 via-slate-100/50 to-slate-50 dark:from-slate-950 dark:via-slate-900/50 dark:to-slate-950 p-4 md:p-8">
+                <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 via-slate-100/50 to-slate-50 dark:from-slate-950 dark:via-slate-900/50 dark:to-slate-950 p-4 md:p-8 pb-20 md:pb-8">
                     <Outlet />
                 </main>
+
+                {/* Mobile Bottom Navigation */}
+                <BottomNav onOpenSidebar={() => setIsMobileOpen(true)} />
             </div>
         </div>
     );

@@ -1,0 +1,729 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "createdAt": "2025-12-18T17:36:12.653Z",
+    "tableCount": 23,
+    "recordCount": 55,
+    "appName": "المصنع الذكي"
+  },
+  "tables": {
+    "treasuries": [
+      {
+        "id": 7,
+        "name": "الخزنة الرئيسية",
+        "type": "cash",
+        "balance": 500,
+        "currency": "EGP",
+        "account_number": "",
+        "description": "",
+        "created_at": "2025-12-18T12:40:48.69974+00:00",
+        "updated_at": "2025-12-18T12:40:48.69974+00:00"
+      },
+      {
+        "id": 8,
+        "name": "حساب البنك",
+        "type": "bank",
+        "balance": 4400,
+        "currency": "EGP",
+        "account_number": "",
+        "description": "",
+        "created_at": "2025-12-18T12:40:48.69974+00:00",
+        "updated_at": "2025-12-18T12:40:48.69974+00:00"
+      }
+    ],
+    "raw_materials": [
+      {
+        "id": 4,
+        "code": "RM-002",
+        "name": "سيليكون",
+        "unit": "k.g",
+        "quantity": 183.06931034482758,
+        "min_stock": 100,
+        "unit_cost": 380.2,
+        "importance": 0,
+        "sales_price": 500,
+        "created_at": "2025-12-18T12:40:48.864315+00:00",
+        "updated_at": "2025-12-18T12:40:48.864315+00:00",
+        "price_per_unit": 0
+      },
+      {
+        "id": 3,
+        "code": "RM-001",
+        "name": "توين 80",
+        "unit": "k.g",
+        "quantity": 195.94137931034481,
+        "min_stock": 50,
+        "unit_cost": 260.91,
+        "importance": 0,
+        "sales_price": 0,
+        "created_at": "2025-12-18T12:40:48.864315+00:00",
+        "updated_at": "2025-12-18T12:40:48.864315+00:00",
+        "price_per_unit": 0
+      }
+    ],
+    "packaging_materials": [
+      {
+        "id": 4,
+        "code": "PM-001",
+        "name": "جركن 1 لتر اسود",
+        "unit": "قطعة",
+        "quantity": 859,
+        "min_stock": 500,
+        "unit_cost": 5,
+        "sales_price": 0,
+        "created_at": "2025-12-18T12:40:48.999186+00:00",
+        "updated_at": "2025-12-18T12:40:48.999186+00:00",
+        "price_per_unit": 0
+      },
+      {
+        "id": 5,
+        "code": "PM-002",
+        "name": "كرتونة 1 لتر كريستال",
+        "unit": "كرتونة",
+        "quantity": 964.75,
+        "min_stock": 100,
+        "unit_cost": 20,
+        "sales_price": 25,
+        "created_at": "2025-12-18T12:40:48.999186+00:00",
+        "updated_at": "2025-12-18T12:40:48.999186+00:00",
+        "price_per_unit": 0
+      }
+    ],
+    "parties": [
+      {
+        "id": "fec62627-ae33-41db-b6f9-52204eec97c6",
+        "name": "ديلايت",
+        "type": "customer",
+        "phone": "01211668511",
+        "address": "طنطا السريع بجوار الاسعاف",
+        "email": "",
+        "balance": 6000,
+        "created_at": "2025-12-18T12:40:49.185343+00:00",
+        "updated_at": "2025-12-18T12:40:49.185343+00:00",
+        "tax_number": "",
+        "commercial_record": "",
+        "credit_limit": 0
+      },
+      {
+        "id": "653d0ddb-8304-4c55-be3c-fdc794e8b2c1",
+        "name": "نيرول",
+        "type": "supplier",
+        "phone": "01211668511",
+        "address": "Omar Al Qzafy Street, Ramadan Moustafa, Tanta, Western, 31521, Egypt",
+        "email": "assalama962@gmail.com",
+        "balance": -70500,
+        "created_at": "2025-12-18T12:40:49.185343+00:00",
+        "updated_at": "2025-12-18T12:40:49.185343+00:00",
+        "tax_number": "",
+        "commercial_record": "",
+        "credit_limit": 0
+      }
+    ],
+    "semi_finished_products": [
+      {
+        "id": 4,
+        "code": "SF-001",
+        "name": "ملمع تابلو",
+        "unit": "k.g",
+        "quantity": 10,
+        "min_stock": 0,
+        "unit_cost": 49.35629310344827,
+        "sales_price": 0,
+        "created_at": "2025-12-18T12:40:49.31997+00:00",
+        "updated_at": "2025-12-18T12:40:49.31997+00:00",
+        "recipe_batch_size": 116,
+        "price_per_unit": 0
+      }
+    ],
+    "semi_finished_ingredients": [
+      {
+        "id": 13,
+        "semi_finished_id": 4,
+        "raw_material_id": 4,
+        "percentage": 11.206896551724139,
+        "created_at": "2025-12-18T12:40:49.456382+00:00",
+        "quantity": 13
+      },
+      {
+        "id": 14,
+        "semi_finished_id": 4,
+        "raw_material_id": 3,
+        "percentage": 2.586206896551724,
+        "created_at": "2025-12-18T12:40:49.456382+00:00",
+        "quantity": 3
+      }
+    ],
+    "finished_products": [
+      {
+        "id": 4,
+        "code": "FP-001",
+        "name": "شامبو واكس ليميتد",
+        "unit": "قطعة",
+        "quantity": 0,
+        "min_stock": 0,
+        "unit_cost": 59.35629310344827,
+        "sales_price": 100,
+        "semi_finished_id": 4,
+        "semi_finished_quantity": 1,
+        "created_at": "2025-12-18T12:40:49.676294+00:00",
+        "updated_at": "2025-12-18T12:40:49.676294+00:00",
+        "price_per_unit": 0
+      }
+    ],
+    "finished_product_packaging": [
+      {
+        "id": 7,
+        "finished_product_id": 4,
+        "packaging_material_id": 5,
+        "quantity": 0.25,
+        "created_at": "2025-12-18T12:40:49.881342+00:00"
+      },
+      {
+        "id": 8,
+        "finished_product_id": 4,
+        "packaging_material_id": 4,
+        "quantity": 1,
+        "created_at": "2025-12-18T12:40:49.881342+00:00"
+      }
+    ],
+    "production_orders": [
+      {
+        "id": 8,
+        "code": "PO-001",
+        "date": "2025-12-10",
+        "status": "completed",
+        "notes": "",
+        "total_cost": 0,
+        "created_at": "2025-12-18T12:40:50.109921+00:00",
+        "updated_at": "2025-12-18T12:40:50.109921+00:00"
+      },
+      {
+        "id": 9,
+        "code": "PO-002",
+        "date": "2025-12-10",
+        "status": "completed",
+        "notes": "",
+        "total_cost": 1233.95,
+        "created_at": "2025-12-18T12:40:50.109921+00:00",
+        "updated_at": "2025-12-18T12:40:50.109921+00:00"
+      },
+      {
+        "id": 10,
+        "code": "PO0010",
+        "date": "2025-12-15",
+        "status": "cancelled",
+        "notes": "",
+        "total_cost": 4935.79,
+        "created_at": "2025-12-18T12:40:50.109921+00:00",
+        "updated_at": "2025-12-18T12:40:50.109921+00:00"
+      },
+      {
+        "id": 11,
+        "code": "PO0011",
+        "date": "2025-12-15",
+        "status": "completed",
+        "notes": "",
+        "total_cost": 493.56,
+        "created_at": "2025-12-18T12:40:50.109921+00:00",
+        "updated_at": "2025-12-18T12:40:50.109921+00:00"
+      }
+    ],
+    "packaging_orders": [
+      {
+        "id": 7,
+        "code": "PK-001",
+        "date": "2025-12-10",
+        "status": "completed",
+        "notes": "",
+        "total_cost": 0,
+        "created_at": "2025-12-18T12:40:50.321937+00:00",
+        "updated_at": "2025-12-18T12:40:50.321937+00:00"
+      },
+      {
+        "id": 8,
+        "code": "PK-002",
+        "date": "2025-12-10",
+        "status": "completed",
+        "notes": "",
+        "total_cost": 593.58,
+        "created_at": "2025-12-18T12:40:50.321937+00:00",
+        "updated_at": "2025-12-18T12:40:50.321937+00:00"
+      },
+      {
+        "id": 9,
+        "code": "PK0009",
+        "date": "2025-12-15",
+        "status": "completed",
+        "notes": "",
+        "total_cost": 890.37,
+        "created_at": "2025-12-18T12:40:50.321937+00:00",
+        "updated_at": "2025-12-18T12:40:50.321937+00:00"
+      }
+    ],
+    "production_order_items": [
+      {
+        "id": 10,
+        "production_order_id": 8,
+        "semi_finished_id": 4,
+        "quantity": 116,
+        "unit_cost": 0,
+        "total_cost": 0,
+        "created_at": "2025-12-18T12:40:50.468306+00:00"
+      },
+      {
+        "id": 11,
+        "production_order_id": 9,
+        "semi_finished_id": 4,
+        "quantity": 25,
+        "unit_cost": 49.36,
+        "total_cost": 1233.95,
+        "created_at": "2025-12-18T12:40:50.468306+00:00"
+      },
+      {
+        "id": 12,
+        "production_order_id": 10,
+        "semi_finished_id": 4,
+        "quantity": 100,
+        "unit_cost": 49.36,
+        "total_cost": 4935.79,
+        "created_at": "2025-12-18T12:40:50.468306+00:00"
+      },
+      {
+        "id": 13,
+        "production_order_id": 11,
+        "semi_finished_id": 4,
+        "quantity": 10,
+        "unit_cost": 49.36,
+        "total_cost": 493.56,
+        "created_at": "2025-12-18T12:40:50.468306+00:00"
+      }
+    ],
+    "packaging_order_items": [
+      {
+        "id": 10,
+        "packaging_order_id": 7,
+        "finished_product_id": 4,
+        "quantity": 116,
+        "unit_cost": 0,
+        "total_cost": 0,
+        "created_at": "2025-12-18T12:40:50.67017+00:00"
+      },
+      {
+        "id": 11,
+        "packaging_order_id": 8,
+        "finished_product_id": 4,
+        "quantity": 10,
+        "unit_cost": 59.36,
+        "total_cost": 593.58,
+        "created_at": "2025-12-18T12:40:50.67017+00:00"
+      },
+      {
+        "id": 12,
+        "packaging_order_id": 9,
+        "finished_product_id": 4,
+        "quantity": 15,
+        "unit_cost": 59.36,
+        "total_cost": 890.37,
+        "created_at": "2025-12-18T12:40:50.67017+00:00"
+      }
+    ],
+    "purchase_invoices": [
+      {
+        "id": 10,
+        "invoice_number": "",
+        "supplier_id": "653d0ddb-8304-4c55-be3c-fdc794e8b2c1",
+        "treasury_id": null,
+        "transaction_date": "2025-12-10",
+        "total_amount": 77000,
+        "paid_amount": 5000,
+        "tax_amount": 0,
+        "discount_amount": 0,
+        "shipping_cost": 0,
+        "status": "posted",
+        "notes": null,
+        "created_at": "2025-12-18T12:40:50.880024+00:00",
+        "updated_at": "2025-12-18T12:40:50.880024+00:00"
+      }
+    ],
+    "sales_invoices": [
+      {
+        "id": 7,
+        "invoice_number": "",
+        "customer_id": "fec62627-ae33-41db-b6f9-52204eec97c6",
+        "treasury_id": null,
+        "transaction_date": "2025-12-10",
+        "total_amount": 1400,
+        "paid_amount": 1400,
+        "tax_amount": 0,
+        "discount_amount": 100,
+        "shipping_cost": 0,
+        "status": "posted",
+        "notes": null,
+        "created_at": "2025-12-18T12:40:51.089551+00:00",
+        "updated_at": "2025-12-18T12:40:51.089551+00:00"
+      },
+      {
+        "id": 6,
+        "invoice_number": "",
+        "customer_id": "fec62627-ae33-41db-b6f9-52204eec97c6",
+        "treasury_id": null,
+        "transaction_date": "2025-12-10",
+        "total_amount": 10000,
+        "paid_amount": 10000,
+        "tax_amount": 0,
+        "discount_amount": 0,
+        "shipping_cost": 0,
+        "status": "posted",
+        "notes": null,
+        "created_at": "2025-12-18T12:40:51.089551+00:00",
+        "updated_at": "2025-12-18T12:40:51.089551+00:00"
+      },
+      {
+        "id": 8,
+        "invoice_number": "",
+        "customer_id": "fec62627-ae33-41db-b6f9-52204eec97c6",
+        "treasury_id": null,
+        "transaction_date": "2025-12-15",
+        "total_amount": 250,
+        "paid_amount": 0,
+        "tax_amount": 0,
+        "discount_amount": 0,
+        "shipping_cost": 0,
+        "status": "draft",
+        "notes": null,
+        "created_at": "2025-12-18T12:40:51.089551+00:00",
+        "updated_at": "2025-12-18T12:40:51.089551+00:00"
+      },
+      {
+        "id": 9,
+        "invoice_number": "",
+        "customer_id": "fec62627-ae33-41db-b6f9-52204eec97c6",
+        "treasury_id": null,
+        "transaction_date": "2025-12-15",
+        "total_amount": 6000,
+        "paid_amount": 0,
+        "tax_amount": 0,
+        "discount_amount": 0,
+        "shipping_cost": 0,
+        "status": "posted",
+        "notes": null,
+        "created_at": "2025-12-18T12:40:51.089551+00:00",
+        "updated_at": "2025-12-18T12:40:51.089551+00:00"
+      }
+    ],
+    "purchase_invoice_items": [
+      {
+        "id": 11,
+        "invoice_id": 10,
+        "item_type": "raw_material",
+        "raw_material_id": 4,
+        "packaging_material_id": null,
+        "finished_product_id": null,
+        "semi_finished_product_id": null,
+        "quantity": 100,
+        "unit_price": 450,
+        "total_price": 45000
+      },
+      {
+        "id": 12,
+        "invoice_id": 10,
+        "item_type": "raw_material",
+        "raw_material_id": 3,
+        "packaging_material_id": null,
+        "finished_product_id": null,
+        "semi_finished_product_id": null,
+        "quantity": 100,
+        "unit_price": 320,
+        "total_price": 32000
+      }
+    ],
+    "sales_invoice_items": [
+      {
+        "id": 6,
+        "invoice_id": 6,
+        "item_type": "finished_product",
+        "finished_product_id": 4,
+        "raw_material_id": null,
+        "packaging_material_id": null,
+        "semi_finished_product_id": null,
+        "quantity": 100,
+        "unit_price": 100,
+        "total_price": 10000,
+        "unit_cost_at_sale": 59.357947115641124
+      },
+      {
+        "id": 7,
+        "invoice_id": 7,
+        "item_type": "finished_product",
+        "finished_product_id": 4,
+        "raw_material_id": null,
+        "packaging_material_id": null,
+        "semi_finished_product_id": null,
+        "quantity": 10,
+        "unit_price": 150,
+        "total_price": 1500,
+        "unit_cost_at_sale": 59.357947115641124
+      },
+      {
+        "id": 8,
+        "invoice_id": 8,
+        "item_type": "finished_product",
+        "finished_product_id": 4,
+        "raw_material_id": null,
+        "packaging_material_id": null,
+        "semi_finished_product_id": null,
+        "quantity": 1,
+        "unit_price": 250,
+        "total_price": 250,
+        "unit_cost_at_sale": 0
+      },
+      {
+        "id": 9,
+        "invoice_id": 9,
+        "item_type": "finished_product",
+        "finished_product_id": 4,
+        "raw_material_id": null,
+        "packaging_material_id": null,
+        "semi_finished_product_id": null,
+        "quantity": 30,
+        "unit_price": 200,
+        "total_price": 6000,
+        "unit_cost_at_sale": 0
+      }
+    ],
+    "purchase_returns": [
+      {
+        "id": 7,
+        "return_number": "PR-0001",
+        "original_invoice_id": null,
+        "supplier_id": "653d0ddb-8304-4c55-be3c-fdc794e8b2c1",
+        "return_date": "2025-12-16",
+        "total_amount": 1500,
+        "status": "posted",
+        "notes": "",
+        "created_at": "2025-12-18T12:40:51.639573+00:00",
+        "updated_at": "2025-12-18T12:40:51.639573+00:00"
+      }
+    ],
+    "sales_returns": [],
+    "purchase_return_items": [
+      {
+        "id": 7,
+        "return_id": 7,
+        "item_type": "finished_product",
+        "raw_material_id": null,
+        "packaging_material_id": null,
+        "finished_product_id": 4,
+        "semi_finished_product_id": null,
+        "quantity": 10,
+        "unit_price": 150,
+        "total_price": 1500,
+        "created_at": "2025-12-18T12:40:51.800828+00:00"
+      }
+    ],
+    "sales_return_items": [],
+    "financial_transactions": [
+      {
+        "id": 37,
+        "treasury_id": 8,
+        "party_id": "fec62627-ae33-41db-b6f9-52204eec97c6",
+        "amount": 1400,
+        "transaction_type": "income",
+        "category": "receipt",
+        "description": "",
+        "reference_type": null,
+        "reference_id": null,
+        "transaction_date": "2025-12-11",
+        "created_at": "2025-12-18T12:40:52.010206+00:00",
+        "invoice_id": 7,
+        "invoice_type": "sales"
+      },
+      {
+        "id": 38,
+        "treasury_id": 7,
+        "party_id": "fec62627-ae33-41db-b6f9-52204eec97c6",
+        "amount": 4000,
+        "transaction_type": "income",
+        "category": "sales",
+        "description": "",
+        "reference_type": null,
+        "reference_id": null,
+        "transaction_date": "2025-12-11",
+        "created_at": "2025-12-18T12:40:52.010206+00:00",
+        "invoice_id": 6,
+        "invoice_type": "sales"
+      },
+      {
+        "id": 39,
+        "treasury_id": 7,
+        "party_id": "653d0ddb-8304-4c55-be3c-fdc794e8b2c1",
+        "amount": 5000,
+        "transaction_type": "expense",
+        "category": "payment",
+        "description": "",
+        "reference_type": null,
+        "reference_id": null,
+        "transaction_date": "2025-12-15",
+        "created_at": "2025-12-18T12:40:52.010206+00:00",
+        "invoice_id": 10,
+        "invoice_type": "purchase"
+      },
+      {
+        "id": 40,
+        "treasury_id": 7,
+        "party_id": null,
+        "amount": 3000,
+        "transaction_type": "expense",
+        "category": "transfer_out",
+        "description": "Transfer TO Treasury #8: ",
+        "reference_type": null,
+        "reference_id": null,
+        "transaction_date": "2025-12-15",
+        "created_at": "2025-12-18T12:40:52.010206+00:00",
+        "invoice_id": null,
+        "invoice_type": null
+      },
+      {
+        "id": 41,
+        "treasury_id": 8,
+        "party_id": null,
+        "amount": 3000,
+        "transaction_type": "income",
+        "category": "transfer_in",
+        "description": "Transfer FROM Treasury #7: ",
+        "reference_type": null,
+        "reference_id": null,
+        "transaction_date": "2025-12-15",
+        "created_at": "2025-12-18T12:40:52.010206+00:00",
+        "invoice_id": null,
+        "invoice_type": null
+      },
+      {
+        "id": 33,
+        "treasury_id": 7,
+        "party_id": "fec62627-ae33-41db-b6f9-52204eec97c6",
+        "amount": 5000,
+        "transaction_type": "income",
+        "category": "receipt",
+        "description": "",
+        "reference_type": null,
+        "reference_id": null,
+        "transaction_date": "2025-12-10",
+        "created_at": "2025-12-18T12:40:52.010206+00:00",
+        "invoice_id": 6,
+        "invoice_type": "sales"
+      },
+      {
+        "id": 34,
+        "treasury_id": 7,
+        "party_id": null,
+        "amount": 1000,
+        "transaction_type": "expense",
+        "category": "ايجار",
+        "description": "المخزن",
+        "reference_type": null,
+        "reference_id": null,
+        "transaction_date": "2025-12-10",
+        "created_at": "2025-12-18T12:40:52.010206+00:00",
+        "invoice_id": null,
+        "invoice_type": null
+      },
+      {
+        "id": 35,
+        "treasury_id": 7,
+        "party_id": "fec62627-ae33-41db-b6f9-52204eec97c6",
+        "amount": 1000,
+        "transaction_type": "income",
+        "category": "receipt",
+        "description": "",
+        "reference_type": null,
+        "reference_id": null,
+        "transaction_date": "2025-12-10",
+        "created_at": "2025-12-18T12:40:52.010206+00:00",
+        "invoice_id": 6,
+        "invoice_type": "sales"
+      },
+      {
+        "id": 36,
+        "treasury_id": 7,
+        "party_id": null,
+        "amount": 500,
+        "transaction_type": "expense",
+        "category": "مرتبات",
+        "description": "احمد",
+        "reference_type": null,
+        "reference_id": null,
+        "transaction_date": "2025-12-10",
+        "created_at": "2025-12-18T12:40:52.010206+00:00",
+        "invoice_id": null,
+        "invoice_type": null
+      }
+    ],
+    "inventory_count_sessions": [
+      {
+        "id": 8,
+        "code": "ST0001",
+        "date": "2025-12-15",
+        "type": "partial",
+        "status": "completed",
+        "notes": null,
+        "created_at": "2025-12-18T12:40:52.220072+00:00",
+        "updated_at": "2025-12-18T12:40:52.220072+00:00"
+      },
+      {
+        "id": 9,
+        "code": "ST0009",
+        "date": "2025-12-16",
+        "type": "partial",
+        "status": "completed",
+        "notes": null,
+        "created_at": "2025-12-18T12:40:52.220072+00:00",
+        "updated_at": "2025-12-18T12:40:52.220072+00:00"
+      }
+    ],
+    "inventory_count_items": [
+      {
+        "id": 55,
+        "session_id": 9,
+        "item_type": "finished_product",
+        "item_id": 4,
+        "product_name": "شامبو واكس ليميتد",
+        "unit": "قطعة",
+        "system_quantity": -9,
+        "counted_quantity": 0,
+        "difference": 9,
+        "unit_cost": 59.35629310344827,
+        "cost_impact": 0,
+        "created_at": "2025-12-18T12:40:52.510891+00:00"
+      },
+      {
+        "id": 54,
+        "session_id": 8,
+        "item_type": "raw_material",
+        "item_id": 3,
+        "product_name": "توين 80",
+        "unit": "k.g",
+        "system_quantity": 196.35344827586206,
+        "counted_quantity": 196.2,
+        "difference": -0.15344827586206,
+        "unit_cost": 260.91,
+        "cost_impact": 0,
+        "created_at": "2025-12-18T12:40:52.510891+00:00"
+      },
+      {
+        "id": 53,
+        "session_id": 8,
+        "item_type": "raw_material",
+        "item_id": 4,
+        "product_name": "سيليكون",
+        "unit": "k.g",
+        "system_quantity": 184.19827586206895,
+        "counted_quantity": 184.19,
+        "difference": -0.00827586206895,
+        "unit_cost": 380.2,
+        "cost_impact": 0,
+        "created_at": "2025-12-18T12:40:52.510891+00:00"
+      }
+    ]
+  }
+}

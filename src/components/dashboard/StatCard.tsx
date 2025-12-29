@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface StatCardProps {
     title: string;
@@ -9,16 +10,37 @@ interface StatCardProps {
     icon: LucideIcon;
     trend?: "up" | "down" | "neutral";
     trendValue?: string;
-    className?: string; // Additional classes for customization
-    iconColor?: string; // Class for icon color, e.g. "text-blue-500"
+    className?: string;
+    iconColor?: string;
+    /** Navigation destination when card is clicked */
+    href?: string;
 }
 
-export function StatCard({ title, value, description, icon: Icon, trend, trendValue, className, iconColor }: StatCardProps) {
-    return (
-        <Card className={cn("hover:shadow-md transition-shadow", className)}>
+export function StatCard({
+    title,
+    value,
+    description,
+    icon: Icon,
+    trend,
+    trendValue,
+    className,
+    iconColor,
+    href
+}: StatCardProps) {
+    const cardContent = (
+        <Card className={cn(
+            "transition-all duration-200",
+            href && "cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]",
+            className
+        )}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                <Icon className={cn("h-4 w-4 text-muted-foreground", iconColor)} />
+                <div className={cn(
+                    "p-2 rounded-lg transition-colors",
+                    href ? "bg-primary/10" : "bg-muted/50"
+                )}>
+                    <Icon className={cn("h-4 w-4", iconColor || "text-muted-foreground")} />
+                </div>
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold">{value}</div>
@@ -37,4 +59,14 @@ export function StatCard({ title, value, description, icon: Icon, trend, trendVa
             </CardContent>
         </Card>
     );
+
+    if (href) {
+        return (
+            <Link to={href} className="block">
+                {cardContent}
+            </Link>
+        );
+    }
+
+    return cardContent;
 }

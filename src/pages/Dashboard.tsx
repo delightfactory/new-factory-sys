@@ -76,6 +76,7 @@ export default function Dashboard() {
                             icon={TrendingUp}
                             iconColor="text-green-500"
                             description="مبيعات الفواتير المعتمدة اليوم"
+                            href="/commercial/selling"
                         />
                         <StatCard
                             title="رصيد الخزائن"
@@ -83,6 +84,7 @@ export default function Dashboard() {
                             icon={Wallet}
                             iconColor="text-emerald-500"
                             description="السيولة النقدية الحالية"
+                            href="/commercial/treasuries"
                         />
                         <StatCard
                             title="أوامر نشطة"
@@ -90,6 +92,7 @@ export default function Dashboard() {
                             icon={Factory}
                             iconColor="text-blue-500"
                             description="تحت التشغيل (إنتاج وتعبئة)"
+                            href="/production/orders"
                         />
                         <StatCard
                             title="تنبيهات المخزون"
@@ -98,6 +101,7 @@ export default function Dashboard() {
                             iconColor="text-amber-500"
                             description="مواد وصلت للحد الأدنى"
                             className={stats?.low_stock_count ? "border-amber-500/50 bg-amber-50/10" : ""}
+                            href="/reports"
                         />
                     </div>
 

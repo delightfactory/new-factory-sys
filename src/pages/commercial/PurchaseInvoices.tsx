@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PurchaseInvoicesService, type PurchaseInvoice, type PurchaseInvoiceItem } from "@/services/PurchaseInvoicesService";
 import { PartiesService } from "@/services/PartiesService";
@@ -30,10 +30,19 @@ import { formatCurrency } from "@/lib/utils";
 import { FormField, FormGrid } from "@/components/ui/form-field";
 
 export default function PurchaseInvoices() {
+    const [searchParams, setSearchParams] = useSearchParams();
     const [activeTab, setActiveTab] = useState("list");
     const [selectedInvoice, setSelectedInvoice] = useState<PurchaseInvoice | null>(null);
     const queryClient = useQueryClient();
     const navigate = useNavigate();
+
+    // Auto-open create tab if action=create in URL
+    useEffect(() => {
+        if (searchParams.get('action') === 'create') {
+            setActiveTab('create');
+            setSearchParams({}, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
 
     const { data: invoices } = useQuery({
         queryKey: ['purchase_invoices'],
