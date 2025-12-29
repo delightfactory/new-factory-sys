@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 // ===== FRESH START CONFIGURATION =====
 // This script creates a clean slate with inventory, parties, and treasuries only
 // NO orders, NO invoices, NO transaction history
-const OLD_BACKUP_PATH = path.join(__dirname, '..', 'backup_2025-12-18_19-34-04.json');
+const OLD_BACKUP_PATH = path.join(__dirname, '..', 'backup_2025-12-29_13-37-59.json');
 const OUTPUT_PATH = path.join(__dirname, '..', 'fresh-start-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json');
 
 // ID Mapping - to convert old IDs to new sequential IDs

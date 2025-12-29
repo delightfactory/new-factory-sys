@@ -155,23 +155,26 @@ export default function RawMaterials() {
     };
 
     const columns: ColumnDef<RawMaterial>[] = [
-        { accessorKey: "code", header: "الكود" },
-        { accessorKey: "name", header: "الاسم" },
+        { accessorKey: "code", header: "الكود", enableSorting: true },
+        { accessorKey: "name", header: "الاسم", enableSorting: true },
         {
             accessorKey: "quantity",
             header: "الكمية الحالية",
+            enableSorting: true,
             cell: ({ row }) => <span dir="ltr">{formatNumber(row.getValue("quantity"))}</span>
         },
-        { accessorKey: "unit", header: "الوحدة" },
+        { accessorKey: "unit", header: "الوحدة", enableSorting: true },
         {
             accessorKey: "unit_cost",
             header: "سعر الوحدة",
+            enableSorting: true,
             cell: ({ row }) => <span>{formatCurrency(row.getValue("unit_cost"))}</span>
         },
-        { accessorKey: "min_stock", header: "حد الأمان" },
+        { accessorKey: "min_stock", header: "حد الأمان", enableSorting: true },
         {
             id: "actions",
             header: "إجراءات",
+            enableSorting: false,
             cell: ({ row }) => {
                 const item = row.original;
                 return (

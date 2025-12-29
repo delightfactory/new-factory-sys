@@ -242,23 +242,26 @@ export default function FinishedProducts() {
     };
 
     const columns: ColumnDef<FinishedProduct>[] = [
-        { accessorKey: "code", header: "الكود" },
-        { accessorKey: "name", header: "الاسم" },
-        { accessorKey: "quantity", header: "الكمية" },
-        { accessorKey: "unit", header: "الوحدة" },
+        { accessorKey: "code", header: "الكود", enableSorting: true },
+        { accessorKey: "name", header: "الاسم", enableSorting: true },
+        { accessorKey: "quantity", header: "الكمية", enableSorting: true },
+        { accessorKey: "unit", header: "الوحدة", enableSorting: true },
         {
             accessorKey: "unit_cost",
             header: "التكلفة",
+            enableSorting: true,
             cell: ({ row }) => <span>{formatCurrency(row.getValue("unit_cost"))}</span>
         },
         {
             accessorKey: "sales_price",
             header: "سعر البيع",
+            enableSorting: true,
             cell: ({ row }) => <span>{formatCurrency(row.getValue("sales_price"))}</span>
         },
         {
             id: "actions",
             header: "إجراءات",
+            enableSorting: false,
             cell: ({ row }) => {
                 const item = row.original;
                 return (

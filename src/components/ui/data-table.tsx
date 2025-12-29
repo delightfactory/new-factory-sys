@@ -3,7 +3,6 @@ import {
     flexRender,
     getCoreRowModel,
     useReactTable,
-    getPaginationRowModel,
     getSortedRowModel,
     getFilteredRowModel,
     type SortingState,
@@ -17,10 +16,10 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { useState } from "react"
-import { ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
+import { Search, ArrowUp, ArrowDown, ArrowUpDown, Loader2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 interface DataTableProps<TData, TValue> {
     columns: ColumnDef<TData, TValue>[]
@@ -28,6 +27,45 @@ interface DataTableProps<TData, TValue> {
     searchPlaceholder?: string
     searchable?: boolean
     onRowClick?: (row: TData) => void
+    /** Initial sorting state, defaults to sorting by 'code' ascending */
+    initialSorting?: SortingState
+    /** Number of rows to load per batch for infinite scroll */
+    pageSize?: number
+}
+
+// Sortable Header Component
+function SortableHeader({
+    column,
+    children,
+}: {
+    column: any
+    children: React.ReactNode
+}) {
+    const sorted = column.getIsSorted()
+    const canSort = column.getCanSort()
+
+    if (!canSort) {
+        return <>{children}</>
+    }
+
+    return (
+        <div
+            className={cn(
+                "flex items-center gap-1 cursor-pointer select-none",
+                "hover:text-foreground transition-colors"
+            )}
+            onClick={() => column.toggleSorting(sorted === "asc")}
+        >
+            {children}
+            {sorted === "asc" ? (
+                <ArrowUp className="h-3.5 w-3.5 text-primary" />
+            ) : sorted === "desc" ? (
+                <ArrowDown className="h-3.5 w-3.5 text-primary" />
+            ) : (
+                <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
+            )}
+        </div>
+    )
 }
 
 export function DataTable<TData, TValue>({
@@ -36,15 +74,30 @@ export function DataTable<TData, TValue>({
     searchPlaceholder = "بحث...",
     searchable = true,
     onRowClick,
+    initialSorting,
+    pageSize = 30,
 }: DataTableProps<TData, TValue>) {
-    const [sorting, setSorting] = useState<SortingState>([])
+    // Determine default sorting - use 'code' if column exists, otherwise empty
+    const defaultSorting = useMemo(() => {
+        if (initialSorting) return initialSorting
+        const hasCodeColumn = columns.some(
+            (col) => 'accessorKey' in col && col.accessorKey === 'code'
+        )
+        return hasCodeColumn ? [{ id: 'code', desc: false }] : []
+    }, [columns, initialSorting])
+
+    const [sorting, setSorting] = useState<SortingState>(defaultSorting)
     const [globalFilter, setGlobalFilter] = useState("")
+
+    // Infinite scroll state
+    const [displayCount, setDisplayCount] = useState(pageSize)
+    const loaderRef = useRef<HTMLDivElement>(null)
+    const containerRef = useRef<HTMLDivElement>(null)
 
     const table = useReactTable({
         data,
         columns,
         getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
         onSortingChange: setSorting,
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
@@ -54,6 +107,46 @@ export function DataTable<TData, TValue>({
             globalFilter,
         },
     })
+
+    // Get all filtered rows
+    const allRows = table.getRowModel().rows
+    const totalRows = allRows.length
+
+    // Get visible rows based on display count
+    const visibleRows = useMemo(() => {
+        return allRows.slice(0, displayCount)
+    }, [allRows, displayCount])
+
+    const hasMore = displayCount < totalRows
+
+    // Reset display count when filter changes
+    useEffect(() => {
+        setDisplayCount(pageSize)
+    }, [globalFilter, pageSize])
+
+    // Intersection Observer for infinite scroll
+    const loadMore = useCallback(() => {
+        if (hasMore) {
+            setDisplayCount((prev) => Math.min(prev + pageSize, totalRows))
+        }
+    }, [hasMore, pageSize, totalRows])
+
+    useEffect(() => {
+        const loader = loaderRef.current
+        if (!loader) return
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries[0].isIntersecting && hasMore) {
+                    loadMore()
+                }
+            },
+            { threshold: 0.1, rootMargin: '100px' }
+        )
+
+        observer.observe(loader)
+        return () => observer.disconnect()
+    }, [hasMore, loadMore])
 
     return (
         <div className="space-y-4">
@@ -68,20 +161,33 @@ export function DataTable<TData, TValue>({
                     />
                 </div>
             )}
-            <div className="rounded-md border bg-card">
+
+            <div
+                ref={containerRef}
+                className="rounded-md border bg-card max-h-[70vh] overflow-auto"
+            >
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => {
+                                    const canSort = header.column.getCanSort()
                                     return (
-                                        <TableHead key={header.id} className="text-right">
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext()
-                                                )}
+                                        <TableHead
+                                            key={header.id}
+                                            className={cn(
+                                                "text-right",
+                                                canSort && "hover:bg-muted/50 transition-colors"
+                                            )}
+                                        >
+                                            {header.isPlaceholder ? null : (
+                                                <SortableHeader column={header.column}>
+                                                    {flexRender(
+                                                        header.column.columnDef.header,
+                                                        header.getContext()
+                                                    )}
+                                                </SortableHeader>
+                                            )}
                                         </TableHead>
                                     )
                                 })}
@@ -89,8 +195,8 @@ export function DataTable<TData, TValue>({
                         ))}
                     </TableHeader>
                     <TableBody>
-                        {table.getRowModel().rows?.length ? (
-                            table.getRowModel().rows.map((row) => (
+                        {visibleRows.length ? (
+                            visibleRows.map((row) => (
                                 <TableRow
                                     key={row.id}
                                     data-state={row.getIsSelected() && "selected"}
@@ -113,31 +219,34 @@ export function DataTable<TData, TValue>({
                         )}
                     </TableBody>
                 </Table>
+
+                {/* Infinite scroll loader */}
+                {hasMore && (
+                    <div
+                        ref={loaderRef}
+                        className="flex items-center justify-center py-4 text-muted-foreground"
+                    >
+                        <Loader2 className="h-5 w-5 animate-spin ml-2" />
+                        <span className="text-sm">جاري تحميل المزيد...</span>
+                    </div>
+                )}
             </div>
-            <div className="flex items-center justify-between py-4">
-                <span className="text-sm text-muted-foreground">
-                    {table.getFilteredRowModel().rows.length} نتيجة
+
+            {/* Results count */}
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>
+                    عرض {visibleRows.length} من {totalRows} نتيجة
                 </span>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                    >
-                        <ChevronRight className="h-4 w-4" />
-                        السابق
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                    >
-                        التالي
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                </div>
+                {sorting.length > 0 && (
+                    <span className="flex items-center gap-1">
+                        مرتب حسب: {sorting[0].id === 'code' ? 'الكود' : sorting[0].id}
+                        {sorting[0].desc ? (
+                            <ArrowDown className="h-3 w-3" />
+                        ) : (
+                            <ArrowUp className="h-3 w-3" />
+                        )}
+                    </span>
+                )}
             </div>
         </div>
     )
