@@ -45,10 +45,12 @@ export const FinancialService = {
     // --- Transactions Management ---
     // --- Transactions Management ---
     getTransactions: async (options?: {
-        type?: 'income' | 'expense',
+        type?: 'income' | 'expense' | 'transfer',
         startDate?: string,
         endDate?: string,
-        limit?: number
+        limit?: number,
+        excludeTransfers?: boolean,
+        partyRelatedOnly?: boolean
     }) => {
         let query = supabase
             .from('financial_transactions')
@@ -56,7 +58,26 @@ export const FinancialService = {
             .order('transaction_date', { ascending: false });
 
         if (options?.type) {
-            query = query.eq('transaction_type', options.type);
+            if (options.type === 'transfer') {
+                // For transfers, filter by category containing 'transfer' or type 'transfer'
+                query = query.or('category.ilike.%transfer%,transaction_type.eq.transfer');
+            } else {
+                // For income/expense, exclude transfers
+                query = query.eq('transaction_type', options.type)
+                    .not('category', 'ilike', '%transfer%');
+            }
+        }
+
+        // Exclude transfers when explicitly requested
+        if (options?.excludeTransfers) {
+            query = query.not('category', 'ilike', '%transfer%')
+                .neq('transaction_type', 'transfer');
+        }
+
+        // Filter to only party-related transactions (receipts, payments, etc.)
+        if (options?.partyRelatedOnly) {
+            // Only show transactions with party_id OR with commercial categories
+            query = query.or('party_id.not.is.null,category.in.(receipt,payment,purchase,sales,refund,purchase_payment)');
         }
 
         if (options?.startDate) {

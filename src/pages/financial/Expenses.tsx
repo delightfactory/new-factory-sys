@@ -20,7 +20,7 @@ import { TableSkeleton } from "@/components/ui/loading-skeleton";
 
 export default function FinancialLog() {
     const [isOpen, setIsOpen] = useState(false);
-    const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+    const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
     const queryClient = useQueryClient();
 
     const { data: transactions, isLoading } = useQuery({
@@ -38,9 +38,9 @@ export default function FinancialLog() {
         onError: (e) => toast.error(e.message)
     });
 
-    // Calculate totals
-    const totalExpenses = transactions?.filter((t: any) => t.transaction_type === 'expense').reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
-    const totalIncome = transactions?.filter((t: any) => t.transaction_type === 'income').reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
+    // Calculate totals (excluding transfers from expense totals)
+    const totalExpenses = transactions?.filter((t: any) => t.transaction_type === 'expense' && !t.category?.includes('transfer')).reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
+    const totalIncome = transactions?.filter((t: any) => t.transaction_type === 'income' && !t.category?.includes('transfer')).reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
 
     return (
         <div className="space-y-6">
@@ -96,6 +96,7 @@ export default function FinancialLog() {
                             <Button variant={typeFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setTypeFilter('all')}>الكل</Button>
                             <Button variant={typeFilter === 'expense' ? 'default' : 'outline'} size="sm" onClick={() => setTypeFilter('expense')}>مصروفات</Button>
                             <Button variant={typeFilter === 'income' ? 'default' : 'outline'} size="sm" onClick={() => setTypeFilter('income')}>إيرادات</Button>
+                            <Button variant={typeFilter === 'transfer' ? 'default' : 'outline'} size="sm" onClick={() => setTypeFilter('transfer')}>تحويلات</Button>
                         </div>
                     </div>
                 </CardHeader>
@@ -120,14 +121,28 @@ export default function FinancialLog() {
                                     <TableRow key={trx.id} className="hover:bg-muted/50">
                                         <TableCell>{format(new Date(trx.transaction_date), 'yyyy-MM-dd')}</TableCell>
                                         <TableCell>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${trx.transaction_type === 'income' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                                                {trx.transaction_type === 'income' ? 'إيراد' : 'مصروف'}
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${trx.transaction_type === 'income'
+                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                                    : trx.transaction_type === 'transfer' || trx.category?.includes('transfer')
+                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                        : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                }`}>
+                                                {trx.transaction_type === 'income' && !trx.category?.includes('transfer')
+                                                    ? 'إيراد'
+                                                    : trx.transaction_type === 'transfer' || trx.category?.includes('transfer')
+                                                        ? 'تحويل'
+                                                        : 'مصروف'}
                                             </span>
                                         </TableCell>
                                         <TableCell className="font-medium">{trx.category}</TableCell>
                                         <TableCell className="text-muted-foreground max-w-[200px] truncate">{trx.description}</TableCell>
-                                        <TableCell className={`font-bold ${trx.transaction_type === 'income' ? 'text-emerald-600' : 'text-red-600'}`}>
-                                            {trx.transaction_type === 'income' ? '+' : '-'}{trx.amount.toLocaleString()} ج.م
+                                        <TableCell className={`font-bold ${trx.transaction_type === 'income' && !trx.category?.includes('transfer')
+                                                ? 'text-emerald-600'
+                                                : trx.transaction_type === 'transfer' || trx.category?.includes('transfer')
+                                                    ? 'text-blue-600'
+                                                    : 'text-red-600'
+                                            }`}>
+                                            {trx.transaction_type === 'income' ? '+' : trx.category?.includes('transfer') ? '↔' : '-'}{trx.amount.toLocaleString()} ج.م
                                         </TableCell>
                                         <TableCell>{trx.treasury?.name}</TableCell>
                                         <TableCell>

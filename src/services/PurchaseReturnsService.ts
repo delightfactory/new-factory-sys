@@ -89,5 +89,12 @@ export const PurchaseReturnsService = {
     deleteReturn: async (id: number) => {
         const { error } = await supabase.from('purchase_returns').delete().eq('id', id);
         if (error) throw error;
+    },
+
+    // Void a posted purchase return (reverses inventory and balance)
+    voidReturn: async (id: number) => {
+        const { data, error } = await supabase.rpc('void_purchase_return', { p_return_id: id });
+        if (error) throw error;
+        if (data && !data.success) throw new Error(data.message);
     }
 };

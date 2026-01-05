@@ -298,7 +298,9 @@ function RecentTransactions() {
             const { FinancialService } = await import("@/services/FinancialService");
             return FinancialService.getTransactions({
                 startDate: startOfMonth.split('T')[0],
-                endDate: endOfMonth.split('T')[0]
+                endDate: endOfMonth.split('T')[0],
+                excludeTransfers: true,
+                partyRelatedOnly: true
             });
         }
     });
