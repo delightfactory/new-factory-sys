@@ -400,7 +400,7 @@ export default function PackagingOrders() {
             )}
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader>
                         <DialogTitle>إنشاء أمر تعبئة جديد</DialogTitle>
                         <DialogDescription>أدخل تفاصيل أمر التعبئة الجديد.</DialogDescription>
@@ -510,8 +510,8 @@ export default function PackagingOrders() {
 
                                 return (
                                     <div key={field.id} className="space-y-3">
-                                        <div className="grid grid-cols-12 gap-2 items-end">
-                                            <div className="col-span-7 md:col-span-8">
+                                        <div className="flex flex-col sm:grid sm:grid-cols-12 gap-2 sm:items-end">
+                                            <div className="w-full sm:col-span-7 md:col-span-8">
                                                 <FormField label="المنتج النهائي" className="space-y-1">
                                                     <SearchableSelect
                                                         options={products?.map(p => ({
@@ -526,19 +526,21 @@ export default function PackagingOrders() {
                                                     />
                                                 </FormField>
                                             </div>
-                                            <div className="col-span-4 md:col-span-3">
-                                                <FormField label="الكمية المطلوبة" className="space-y-1" error={form.formState.errors.items?.[index]?.quantity?.message}>
-                                                    <Input
-                                                        type="number"
-                                                        step="1"
-                                                        {...form.register(`items.${index}.quantity` as const, { valueAsNumber: true, required: "مطلوب" })}
-                                                    />
-                                                </FormField>
-                                            </div>
-                                            <div className="col-span-1 pb-2">
-                                                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
-                                                    <XCircle className="h-4 w-4" />
-                                                </Button>
+                                            <div className="flex gap-2 items-end">
+                                                <div className="flex-1 sm:col-span-4 md:col-span-3">
+                                                    <FormField label="الكمية المطلوبة" className="space-y-1" error={form.formState.errors.items?.[index]?.quantity?.message}>
+                                                        <Input
+                                                            type="number"
+                                                            step="1"
+                                                            {...form.register(`items.${index}.quantity` as const, { valueAsNumber: true, required: "مطلوب" })}
+                                                        />
+                                                    </FormField>
+                                                </div>
+                                                <div className="pb-2 sm:col-span-1">
+                                                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
+                                                        <XCircle className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -572,7 +574,7 @@ export default function PackagingOrders() {
 
             {/* Order Details Dialog - Enhanced */}
             <Dialog open={!!viewOrderId} onOpenChange={(open) => !open && setViewOrderId(null)}>
-                <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
                     <DialogHeader className="pb-4 border-b">
                         <div className="flex items-center justify-between">
                             <div>
