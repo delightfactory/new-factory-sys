@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { BackupService } from "@/services/BackupService";
 import type { BackupProgress, BackupData } from "@/services/BackupService";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -30,7 +31,10 @@ import {
     FileJson,
     Trash2,
     Clock,
-    Cloud
+    Cloud,
+    CloudDownload,
+    RefreshCw,
+    XCircle
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -48,6 +52,20 @@ export default function SystemSettings() {
     const [confirmText, setConfirmText] = useState("");
     const [resetStep, setResetStep] = useState(1);
 
+    // Cloud Backup State
+    interface BackupLog {
+        id: number;
+        filename: string;
+        size_bytes: number | null;
+        record_count: number | null;
+        status: string;
+        created_at: string;
+    }
+    const [cloudBackups, setCloudBackups] = useState<BackupLog[]>([]);
+    const [loadingCloud, setLoadingCloud] = useState(false);
+    const [lastBackup, setLastBackup] = useState<BackupLog | null>(null);
+    const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+
     // Redirect non-admins
     useEffect(() => {
         if (!isAdmin) {
@@ -59,6 +77,7 @@ export default function SystemSettings() {
     // Load stats on mount
     useEffect(() => {
         loadStats();
+        loadCloudBackups();
     }, []);
 
     const loadStats = async () => {
@@ -70,6 +89,62 @@ export default function SystemSettings() {
             console.error("Failed to load stats:", e);
         }
         setLoadingStats(false);
+    };
+
+    // Load cloud backups from backup_logs table
+    const loadCloudBackups = async () => {
+        setLoadingCloud(true);
+        try {
+            const { data, error } = await supabase
+                .from('backup_logs')
+                .select('*')
+                .eq('status', 'success')
+                .is('deleted_at', null)
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (error) {
+                console.error("Failed to load cloud backups:", error);
+            } else {
+                setCloudBackups(data || []);
+                if (data && data.length > 0) {
+                    setLastBackup(data[0]);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load cloud backups:", e);
+        }
+        setLoadingCloud(false);
+    };
+
+    // Download cloud backup from storage
+    const downloadCloudBackup = async (filename: string) => {
+        setDownloadingFile(filename);
+        try {
+            const { data, error } = await supabase.storage
+                .from('backups')
+                .download(filename);
+
+            if (error) {
+                toast.error("فشل تحميل النسخة: " + error.message);
+                return;
+            }
+
+            // Create download link
+            const url = URL.createObjectURL(data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            toast.success("تم تحميل النسخة بنجاح");
+        } catch (e: any) {
+            toast.error("حدث خطأ: " + e.message);
+        }
+        setDownloadingFile(null);
     };
 
     const totalRecords = stats ? Object.values(stats).reduce((a, b) => a + b, 0) : 0;
@@ -228,41 +303,113 @@ export default function SystemSettings() {
             {/* Automatic Backup Status */}
             <Card className="border-purple-500/20">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-purple-600">
-                        <Cloud className="w-5 h-5" />
-                        النسخ الاحتياطي التلقائي
-                    </CardTitle>
-                    <CardDescription>
-                        يتم إنشاء نسخة احتياطية تلقائية يومياً في الساعة 3 صباحاً وحفظها في السحابة
-                    </CardDescription>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="flex items-center gap-2 text-purple-600">
+                                <Cloud className="w-5 h-5" />
+                                النسخ الاحتياطي التلقائي
+                            </CardTitle>
+                            <CardDescription>
+                                يتم إنشاء نسخة احتياطية تلقائية يومياً في الساعة 3 صباحاً وحفظها في السحابة
+                            </CardDescription>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={loadCloudBackups}
+                            disabled={loadingCloud}
+                        >
+                            {loadingCloud ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                                <RefreshCw className="w-4 h-4" />
+                            )}
+                        </Button>
+                    </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10">
-                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        <div className={`flex items-center gap-3 p-3 rounded-lg ${lastBackup ? 'bg-green-500/10' : 'bg-yellow-500/10'}`}>
+                            {lastBackup ? (
+                                <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            ) : (
+                                <XCircle className="w-5 h-5 text-yellow-600" />
+                            )}
                             <div>
                                 <p className="text-sm font-medium">الحالة</p>
-                                <p className="text-xs text-muted-foreground">مُفعّل</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {lastBackup ? 'مُفعّل' : 'لا يوجد نسخ بعد'}
+                                </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                             <Clock className="w-5 h-5 text-muted-foreground" />
                             <div>
-                                <p className="text-sm font-medium">الجدولة</p>
-                                <p className="text-xs text-muted-foreground">يومياً - 3:00 ص</p>
+                                <p className="text-sm font-medium">آخر نسخة</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {lastBackup ? new Date(lastBackup.created_at).toLocaleString('ar-EG') : 'لا يوجد'}
+                                </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
                             <Database className="w-5 h-5 text-muted-foreground" />
                             <div>
-                                <p className="text-sm font-medium">الاحتفاظ</p>
-                                <p className="text-xs text-muted-foreground">آخر 7 نسخ</p>
+                                <p className="text-sm font-medium">عدد النسخ</p>
+                                <p className="text-xs text-muted-foreground">{cloudBackups.length} نسخة</p>
                             </div>
                         </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-4">
-                        💡 النسخ التلقائية تُحفظ في Supabase Storage ويمكن استعادتها من لوحة التحكم
-                    </p>
+
+                    {/* Cloud Backups List */}
+                    {cloudBackups.length > 0 && (
+                        <div className="border rounded-lg overflow-hidden">
+                            <div className="bg-muted/50 px-4 py-2 border-b">
+                                <p className="text-sm font-medium">النسخ المحفوظة في السحابة</p>
+                            </div>
+                            <div className="divide-y max-h-60 overflow-y-auto">
+                                {cloudBackups.map((backup) => (
+                                    <div key={backup.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30">
+                                        <div className="flex items-center gap-3">
+                                            <FileJson className="w-4 h-4 text-blue-500" />
+                                            <div>
+                                                <p className="text-sm font-medium">{backup.filename}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {new Date(backup.created_at).toLocaleString('ar-EG')}
+                                                    {backup.size_bytes && ` • ${(backup.size_bytes / 1024).toFixed(0)} KB`}
+                                                    {backup.record_count && ` • ${backup.record_count} سجل`}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => downloadCloudBackup(backup.filename)}
+                                            disabled={downloadingFile === backup.filename}
+                                        >
+                                            {downloadingFile === backup.filename ? (
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                            ) : (
+                                                <CloudDownload className="w-4 h-4" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {loadingCloud && cloudBackups.length === 0 && (
+                        <div className="flex items-center justify-center py-4 text-muted-foreground">
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            جاري تحميل النسخ السحابية...
+                        </div>
+                    )}
+
+                    {!loadingCloud && cloudBackups.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                            لا توجد نسخ سحابية حتى الآن. ستظهر هنا بعد تشغيل النسخ التلقائي.
+                        </p>
+                    )}
                 </CardContent>
             </Card>
             {/* Progress */}
