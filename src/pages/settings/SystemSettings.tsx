@@ -28,7 +28,9 @@ import {
     Shield,
     Database,
     FileJson,
-    Trash2
+    Trash2,
+    Clock,
+    Cloud
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -223,6 +225,46 @@ export default function SystemSettings() {
                 </CardContent>
             </Card>
 
+            {/* Automatic Backup Status */}
+            <Card className="border-purple-500/20">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-purple-600">
+                        <Cloud className="w-5 h-5" />
+                        النسخ الاحتياطي التلقائي
+                    </CardTitle>
+                    <CardDescription>
+                        يتم إنشاء نسخة احتياطية تلقائية يومياً في الساعة 3 صباحاً وحفظها في السحابة
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-green-500/10">
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            <div>
+                                <p className="text-sm font-medium">الحالة</p>
+                                <p className="text-xs text-muted-foreground">مُفعّل</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                            <Clock className="w-5 h-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm font-medium">الجدولة</p>
+                                <p className="text-xs text-muted-foreground">يومياً - 3:00 ص</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+                            <Database className="w-5 h-5 text-muted-foreground" />
+                            <div>
+                                <p className="text-sm font-medium">الاحتفاظ</p>
+                                <p className="text-xs text-muted-foreground">آخر 7 نسخ</p>
+                            </div>
+                        </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-4">
+                        💡 النسخ التلقائية تُحفظ في Supabase Storage ويمكن استعادتها من لوحة التحكم
+                    </p>
+                </CardContent>
+            </Card>
             {/* Progress */}
             {progress && (
                 <Alert className="border-primary/30 bg-primary/5">

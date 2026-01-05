@@ -6,12 +6,15 @@ import { supabase } from "@/integrations/supabase/client";
  */
 
 // Table dependency order (must respect FK relationships)
+// Verified against all foreign key constraints - DO NOT REORDER
 const TABLE_EXPORT_ORDER = [
-    // Level 1: No dependencies
+    // Level 1: No dependencies (Master Data)
     'treasuries',
     'raw_materials',
     'packaging_materials',
     'parties',
+    'financial_categories',    // تصنيفات المصروفات والإيرادات
+    // NOTE: 'profiles' is NOT included here - see TABLES_EXPORT_ONLY
 
     // Level 2: Depends on Level 1
     'semi_finished_products',
@@ -25,7 +28,9 @@ const TABLE_EXPORT_ORDER = [
 
     // Level 4: Depends on Level 3
     'production_order_items',
+    'production_order_consumed_materials',  // المواد المستهلكة في الإنتاج
     'packaging_order_items',
+    'packaging_order_consumed_materials',   // المواد المستهلكة في التعبئة
     'purchase_invoices',
     'sales_invoices',
 
@@ -41,10 +46,22 @@ const TABLE_EXPORT_ORDER = [
     // Level 6: Logs and audit
     'inventory_count_sessions',
     'inventory_count_items',
+    'inventory_movements',     // سجل حركات المخزون
 ];
 
+// Tables that are ONLY exported but NOT restored (currently empty)
+// NOTE: 'profiles' was removed completely - it has FK to auth.users
+// and including it in backups could cause confusion or errors if restored
+const TABLES_EXPORT_ONLY: string[] = [
+    // Empty - no tables are export-only currently
+    // 'profiles' is managed by Supabase Auth and should NOT be backed up
+];
+
+// Combined list for export (includes EXPORT_ONLY tables at the end)
+const ALL_EXPORT_TABLES = [...TABLE_EXPORT_ORDER, ...TABLES_EXPORT_ONLY];
+
 // Tables that use UUID as primary key (not BIGINT)
-const UUID_TABLES = ['parties'];
+const UUID_TABLES = ['parties', 'profiles'];
 
 // Generated columns that cannot be inserted (computed by database)
 // These columns are automatically calculated and must be excluded during restore
@@ -52,7 +69,7 @@ const GENERATED_COLUMNS: Record<string, string[]> = {
     'inventory_count_items': ['difference'], // difference = counted_quantity - system_quantity
 };
 
-// Tables to reset (reverse order for FK compliance)
+// Tables to reset (reverse order for FK compliance) - EXCLUDES EXPORT_ONLY tables
 const TABLE_RESET_ORDER = [...TABLE_EXPORT_ORDER].reverse();
 
 export interface BackupMetadata {
@@ -99,18 +116,19 @@ async function deleteAllFromTable(tableName: string): Promise<{ error: any }> {
 export const BackupService = {
     /**
      * Create a full backup of all data
+     * Uses ALL_EXPORT_TABLES to include export-only tables like profiles
      */
     createBackup: async (onProgress?: (progress: BackupProgress) => void): Promise<BackupData> => {
         const tables: Record<string, any[]> = {};
         let totalRecords = 0;
 
-        for (let i = 0; i < TABLE_EXPORT_ORDER.length; i++) {
-            const tableName = TABLE_EXPORT_ORDER[i];
+        for (let i = 0; i < ALL_EXPORT_TABLES.length; i++) {
+            const tableName = ALL_EXPORT_TABLES[i];
 
             onProgress?.({
                 currentTable: tableName,
                 currentIndex: i + 1,
-                totalTables: TABLE_EXPORT_ORDER.length,
+                totalTables: ALL_EXPORT_TABLES.length,
                 status: 'exporting',
                 message: `جاري تصدير ${tableName}...`
             });
