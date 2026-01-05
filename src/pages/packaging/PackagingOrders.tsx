@@ -27,6 +27,7 @@ import { Badge } from "../../components/ui/badge";
 import { format } from "date-fns";
 import { MaterialPreviewCard, type MaterialItem } from "@/components/ui/material-preview-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ShortageAnalysisDialog, type ShortageAnalysisResult } from "@/components/packaging/ShortageAnalysisDialog";
 
 // Types for the form
 type OrderFormValues = {
@@ -46,6 +47,12 @@ export default function PackagingOrders() {
     const [loadingRequirements, setLoadingRequirements] = useState<Record<string, boolean>>({});
     const [pendingDemands, setPendingDemands] = useState<{ packagingDemand: Map<number, number>; semiFinishedDemand: Map<number, number> }>({ packagingDemand: new Map(), semiFinishedDemand: new Map() });
     const [viewOrderId, setViewOrderId] = useState<number | null>(null);
+    // Smart Cascade State
+    const [shortageDialogOpen, setShortageDialogOpen] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState<ShortageAnalysisResult | null>(null);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [pendingCompleteOrderId, setPendingCompleteOrderId] = useState<number | null>(null);
+    const [isCreatingProductionOrder, setIsCreatingProductionOrder] = useState(false);
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -197,9 +204,85 @@ export default function PackagingOrders() {
         createMutation.mutate(data);
     };
 
-    const handleComplete = (id: number) => {
-        if (confirm("هل أنت متأكد من إتمام هذا الأمر؟ سيتم خصم المكونات وإضافة المنتج النهائي للمخزون.")) {
-            completeMutation.mutate(id);
+    const handleComplete = async (id: number) => {
+        // Set pending order and start analysis
+        setPendingCompleteOrderId(id);
+        setIsAnalyzing(true);
+        setShortageDialogOpen(true);
+        setAnalysisResult(null);
+
+        try {
+            const result = await InventoryService.analyzePackagingRequirements(id);
+            setAnalysisResult(result);
+        } catch (error: any) {
+            toast.error("فشل تحليل المتطلبات: " + error.message);
+            setShortageDialogOpen(false);
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    // Proceed with packaging order completion
+    const handleProceedAnyway = () => {
+        if (pendingCompleteOrderId) {
+            completeMutation.mutate(pendingCompleteOrderId);
+            setShortageDialogOpen(false);
+            setPendingCompleteOrderId(null);
+            setAnalysisResult(null);
+        }
+    };
+
+    // Create production order and optionally execute it
+    const handleCreateProductionOrder = async (items: { semi_finished_id: number; quantity: number }[]) => {
+        setIsCreatingProductionOrder(true);
+        try {
+            // Create production order
+            const order = await InventoryService.createQuickProductionOrder(items);
+            toast.success(`تم إنشاء أمر الإنتاج ${order.code}`);
+
+            // Ask user if they want to execute it immediately
+            const shouldExecute = window.confirm(
+                `تم إنشاء أمر الإنتاج ${order.code}\n\n` +
+                `هل تريد تنفيذه الآن لتوفير المنتجات النصف مصنعة؟`
+            );
+
+            if (shouldExecute) {
+                await InventoryService.completeProductionOrderById(order.id);
+                toast.success("تم تنفيذ أمر الإنتاج بنجاح");
+
+                // Invalidate production orders queries
+                queryClient.invalidateQueries({ queryKey: ['productionOrders'] });
+                queryClient.invalidateQueries({ queryKey: ['semiFinishedProducts'] });
+
+                // Ask if user wants to complete packaging order now
+                if (pendingCompleteOrderId) {
+                    const shouldCompletePackaging = window.confirm(
+                        `تم توفير المنتجات النصف مصنعة.\n\n` +
+                        `هل تريد إكمال أمر التعبئة الآن؟`
+                    );
+
+                    if (shouldCompletePackaging) {
+                        await InventoryService.completePackagingOrder(pendingCompleteOrderId);
+                        toast.success("تم إكمال أمر التعبئة بنجاح");
+                        queryClient.invalidateQueries({ queryKey: ['packagingOrders'] });
+                        queryClient.invalidateQueries({ queryKey: ['finishedProducts'] });
+                    } else {
+                        toast.info("يمكنك إكمال أمر التعبئة لاحقاً من القائمة");
+                    }
+                }
+            } else {
+                // Just invalidate and notify user
+                queryClient.invalidateQueries({ queryKey: ['productionOrders'] });
+                toast.info(`يمكنك تنفيذ أمر الإنتاج ${order.code} من صفحة أوامر الإنتاج`);
+            }
+
+            setShortageDialogOpen(false);
+            setPendingCompleteOrderId(null);
+            setAnalysisResult(null);
+        } catch (error: any) {
+            toast.error("فشل العملية: " + error.message);
+        } finally {
+            setIsCreatingProductionOrder(false);
         }
     };
 
@@ -248,22 +331,22 @@ export default function PackagingOrders() {
             cell: ({ row }) => {
                 const item = row.original;
                 return (
-                    <div className="flex gap-2 justify-end">
-                        <Button size="sm" variant="outline" onClick={() => setViewOrderId(item.id)}>
+                    <div className="flex gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
+                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setViewOrderId(item.id); }}>
                             <Eye className="w-4 h-4" />
                         </Button>
                         {item.status === 'pending' && (
                             <>
-                                <Button size="sm" onClick={() => handleComplete(item.id)} className="bg-green-600 hover:bg-green-700">
+                                <Button size="sm" onClick={(e) => { e.stopPropagation(); handleComplete(item.id); }} className="bg-green-600 hover:bg-green-700">
                                     <CheckCircle className="w-4 h-4 mr-1" /> إتمام
                                 </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleCancel(item.id, 'pending')}>
+                                <Button size="sm" variant="destructive" onClick={(e) => { e.stopPropagation(); handleCancel(item.id, 'pending'); }}>
                                     <XCircle className="w-4 h-4" />
                                 </Button>
                             </>
                         )}
                         {item.status === 'completed' && (
-                            <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10 border-destructive" onClick={() => handleCancel(item.id, 'completed')}>
+                            <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10 border-destructive" onClick={(e) => { e.stopPropagation(); handleCancel(item.id, 'completed'); }}>
                                 <XCircle className="w-4 h-4 mr-1" /> إلغاء وعكس
                             </Button>
                         )}
@@ -595,6 +678,21 @@ export default function PackagingOrders() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Smart Cascade - Shortage Analysis Dialog */}
+            <ShortageAnalysisDialog
+                isOpen={shortageDialogOpen}
+                onClose={() => {
+                    setShortageDialogOpen(false);
+                    setPendingCompleteOrderId(null);
+                    setAnalysisResult(null);
+                }}
+                analysisResult={analysisResult}
+                isLoading={isAnalyzing}
+                onProceedAnyway={handleProceedAnyway}
+                onCreateProductionOrder={handleCreateProductionOrder}
+                isCreatingOrder={isCreatingProductionOrder}
+            />
         </div>
     );
 }

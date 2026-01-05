@@ -508,6 +508,92 @@ export const InventoryService = {
         if (error) throw error;
     },
 
+    // --- SMART CASCADE: Analyze and Auto-Create Production ---
+
+    /**
+     * Analyze packaging order requirements to identify shortages
+     * Returns analysis with suggested production quantities
+     */
+    analyzePackagingRequirements: async (orderId: number) => {
+        const { data, error } = await supabase.rpc('analyze_packaging_requirements', { p_order_id: orderId });
+        if (error) throw error;
+        return data as {
+            success: boolean;
+            can_complete: boolean;
+            order_id: number;
+            shortages: Array<{
+                semi_finished_id: number;
+                name: string;
+                unit: string;
+                required_qty: number;
+                available_qty: number;
+                shortage_qty: number;
+            }>;
+            suggested_production: Array<{
+                semi_finished_id: number;
+                name: string;
+                unit: string;
+                suggested_qty: number;
+                recipe_batch_size: number;
+            }>;
+            shortage_count: number;
+            error?: string;
+        };
+    },
+
+    /**
+     * Create a quick production order from suggested items
+     * Returns the created order ID
+     */
+    createQuickProductionOrder: async (
+        items: { semi_finished_id: number; quantity: number }[],
+        notes: string = 'أمر إنتاج تلقائي - لتغطية نقص في أمر تعبئة'
+    ) => {
+        // Get next code
+        const code = await InventoryService.getNextCode('production_orders', 'PR');
+        const today = new Date().toISOString().split('T')[0];
+
+        // Create production order
+        const { data: order, error: orderError } = await supabase
+            .from('production_orders')
+            .insert({
+                code,
+                date: today,
+                notes,
+                status: 'pending',
+                total_cost: 0
+            })
+            .select()
+            .single();
+
+        if (orderError) throw orderError;
+
+        // Create order items
+        const orderItems = items.map(item => ({
+            production_order_id: order.id,
+            semi_finished_id: item.semi_finished_id,
+            quantity: item.quantity,
+            unit_cost: 0,
+            total_cost: 0
+        }));
+
+        const { error: itemsError } = await supabase
+            .from('production_order_items')
+            .insert(orderItems);
+
+        if (itemsError) throw itemsError;
+
+        return order;
+    },
+
+    /**
+     * Complete a production order (atomic)
+     */
+    completeProductionOrderById: async (orderId: number) => {
+        const { error } = await supabase.rpc('complete_production_order_atomic', { p_order_id: orderId });
+        if (error) throw error;
+    },
+
     // --- SMART AVAILABILITY: Calculate pending demands ---
 
     /**
