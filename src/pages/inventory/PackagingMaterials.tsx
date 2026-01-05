@@ -236,7 +236,7 @@ export default function PackagingMaterials() {
             )}
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{isEditMode ? "تعديل مادة تعبئة" : "إضافة مادة تعبئة جديدة"}</DialogTitle>
                         <DialogDescription>

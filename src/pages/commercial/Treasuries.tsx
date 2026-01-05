@@ -124,7 +124,7 @@ function TransactionDialog({ open, type, treasury, onOpenChange, onSuccess }: an
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>{type === 'deposit' ? 'إيداع نقدية' : 'صرف نقدية'}</DialogTitle>
                     <DialogDescription>
@@ -173,7 +173,7 @@ function TransferDialog({ open, sourceTreasury, allTreasuries, onOpenChange, onS
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>تحويل أموال</DialogTitle>
                     <DialogDescription>تحويل من: {sourceTreasury?.name}</DialogDescription>
@@ -234,7 +234,7 @@ function CreateTreasuryDialog({ open, onOpenChange, onSuccess }: any) {
             <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> إضافة جديد</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>إضافة خزنة أو حساب بنكي</DialogTitle>
                     <DialogDescription>أدخل تفاصيل الحساب المالي الجديد.</DialogDescription>

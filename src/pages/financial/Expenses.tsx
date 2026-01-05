@@ -55,7 +55,7 @@ export default function FinancialLog() {
                             <DialogTrigger asChild>
                                 <Button><Plus className="mr-2 h-4 w-4" /> تسجيل عملية جديدة</Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="sm:max-w-lg">
                                 <DialogHeader>
                                     <DialogTitle>تسجيل معاملة مالية</DialogTitle>
                                     <DialogDescription>أدخل تفاصيل العملية المالية الجديدة أدناه.</DialogDescription>
@@ -122,10 +122,10 @@ export default function FinancialLog() {
                                         <TableCell>{format(new Date(trx.transaction_date), 'yyyy-MM-dd')}</TableCell>
                                         <TableCell>
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${trx.transaction_type === 'income'
-                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                                    : trx.transaction_type === 'transfer' || trx.category?.includes('transfer')
-                                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                                        : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                                : trx.transaction_type === 'transfer' || trx.category?.includes('transfer')
+                                                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                                 }`}>
                                                 {trx.transaction_type === 'income' && !trx.category?.includes('transfer')
                                                     ? 'إيراد'
@@ -137,10 +137,10 @@ export default function FinancialLog() {
                                         <TableCell className="font-medium">{trx.category}</TableCell>
                                         <TableCell className="text-muted-foreground max-w-[200px] truncate">{trx.description}</TableCell>
                                         <TableCell className={`font-bold ${trx.transaction_type === 'income' && !trx.category?.includes('transfer')
-                                                ? 'text-emerald-600'
-                                                : trx.transaction_type === 'transfer' || trx.category?.includes('transfer')
-                                                    ? 'text-blue-600'
-                                                    : 'text-red-600'
+                                            ? 'text-emerald-600'
+                                            : trx.transaction_type === 'transfer' || trx.category?.includes('transfer')
+                                                ? 'text-blue-600'
+                                                : 'text-red-600'
                                             }`}>
                                             {trx.transaction_type === 'income' ? '+' : trx.category?.includes('transfer') ? '↔' : '-'}{trx.amount.toLocaleString()} ج.م
                                         </TableCell>

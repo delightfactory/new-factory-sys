@@ -180,7 +180,7 @@ function PartyDialog({ open, onOpenChange, defaultType, initialData, onSuccess }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle>{initialData ? 'تعديل بيانات' : 'إضافة'} {defaultType === 'supplier' ? 'مورد' : 'عميل'}</DialogTitle>
                     <DialogDescription>{initialData ? 'تعديل بيانات الجهة الحالية.' : 'أدخل بيانات الجهة الجديدة.'}</DialogDescription>

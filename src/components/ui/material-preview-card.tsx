@@ -102,13 +102,13 @@ export function MaterialPreviewCard({
 
             {/* Table */}
             <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[320px]">
                     <thead>
                         <tr className="border-b bg-muted/30">
-                            <th className="text-right px-4 py-2 font-medium text-muted-foreground">المادة</th>
-                            <th className="text-center px-3 py-2 font-medium text-muted-foreground">المطلوب</th>
-                            <th className="text-center px-3 py-2 font-medium text-muted-foreground">المتوفر</th>
-                            <th className="text-center px-3 py-2 font-medium text-muted-foreground">الحالة</th>
+                            <th className="text-right px-2 sm:px-4 py-2 font-medium text-muted-foreground whitespace-nowrap">المادة</th>
+                            <th className="text-center px-2 sm:px-3 py-2 font-medium text-muted-foreground whitespace-nowrap">المطلوب</th>
+                            <th className="text-center px-2 sm:px-3 py-2 font-medium text-muted-foreground whitespace-nowrap">المتوفر</th>
+                            <th className="text-center px-2 sm:px-3 py-2 font-medium text-muted-foreground whitespace-nowrap">الحالة</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -120,21 +120,21 @@ export function MaterialPreviewCard({
 
                             return (
                                 <tr key={`${material.name}-${index}`} className="border-b last:border-0 hover:bg-muted/20">
-                                    <td className="px-4 py-2">
-                                        <span className="font-medium">{material.name}</span>
+                                    <td className="px-2 sm:px-4 py-2">
+                                        <span className="font-medium text-xs sm:text-sm">{material.name}</span>
                                     </td>
-                                    <td className="text-center px-3 py-2">
-                                        <span className="font-mono">{material.requiredQty.toLocaleString()}</span>
-                                        <span className="text-muted-foreground text-xs mr-1">{material.unit}</span>
+                                    <td className="text-center px-2 sm:px-3 py-2">
+                                        <span className="font-mono text-xs sm:text-sm">{material.requiredQty.toLocaleString()}</span>
+                                        <span className="text-muted-foreground text-[10px] sm:text-xs mr-1 hidden sm:inline">{material.unit}</span>
                                     </td>
-                                    <td className="text-center px-3 py-2">
-                                        <span className="font-mono">{material.availableQty.toLocaleString()}</span>
-                                        <span className="text-muted-foreground text-xs mr-1">{material.unit}</span>
+                                    <td className="text-center px-2 sm:px-3 py-2">
+                                        <span className="font-mono text-xs sm:text-sm">{material.availableQty.toLocaleString()}</span>
+                                        <span className="text-muted-foreground text-[10px] sm:text-xs mr-1 hidden sm:inline">{material.unit}</span>
                                     </td>
-                                    <td className="text-center px-3 py-2">
+                                    <td className="text-center px-2 sm:px-3 py-2">
                                         <div className={cn("flex items-center justify-center gap-1", config.className)}>
-                                            <StatusIcon className="h-4 w-4" />
-                                            <span className="text-xs">
+                                            <StatusIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                                            <span className="text-[10px] sm:text-xs hidden sm:inline">
                                                 {status === 'insufficient' ? `نقص ${shortage.toLocaleString()}` : config.label}
                                             </span>
                                         </div>

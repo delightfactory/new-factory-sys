@@ -190,7 +190,7 @@ export default function PurchaseInvoices() {
 
             {/* View Details Dialog */}
             <Dialog open={!!selectedInvoice} onOpenChange={(o) => !o && setSelectedInvoice(null)}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>تفاصيل الفاتورة #{selectedInvoice?.invoice_number || selectedInvoice?.id}</DialogTitle>
                         <DialogDescription>حالة الفاتورة: {selectedInvoice?.status}</DialogDescription>

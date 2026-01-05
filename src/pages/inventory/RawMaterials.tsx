@@ -250,7 +250,7 @@ export default function RawMaterials() {
             )}
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{isEditMode ? "تعديل مادة خام" : "إضافة مادة خام جديدة"}</DialogTitle>
                         <DialogDescription>

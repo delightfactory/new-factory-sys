@@ -351,7 +351,7 @@ export default function SemiFinishedProducts() {
             )}
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>{isEditMode ? "تعديل المنتج والوصفة" : "تعريف منتج نصف مصنع ووصفته"}</DialogTitle>
                         <DialogDescription>

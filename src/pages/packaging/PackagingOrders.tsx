@@ -400,7 +400,7 @@ export default function PackagingOrders() {
             )}
 
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+                <DialogContent className="sm:max-w-3xl">
                     <DialogHeader>
                         <DialogTitle>إنشاء أمر تعبئة جديد</DialogTitle>
                         <DialogDescription>أدخل تفاصيل أمر التعبئة الجديد.</DialogDescription>
@@ -550,7 +550,6 @@ export default function PackagingOrders() {
                                                 title={`متطلبات التعبئة (${products?.find(p => p.id.toString() === selectedProductId)?.name || ''})`}
                                                 materials={materialItems}
                                                 isLoading={isLoadingReq}
-                                                className="mr-4"
                                             />
                                         )}
                                     </div>
@@ -574,7 +573,7 @@ export default function PackagingOrders() {
 
             {/* Order Details Dialog - Enhanced */}
             <Dialog open={!!viewOrderId} onOpenChange={(open) => !open && setViewOrderId(null)}>
-                <DialogContent className="w-[95vw] max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+                <DialogContent className="sm:max-w-3xl">
                     <DialogHeader className="pb-4 border-b">
                         <div className="flex items-center justify-between">
                             <div>

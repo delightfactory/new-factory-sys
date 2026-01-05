@@ -118,7 +118,7 @@ export default function Stocktaking() {
             )}
 
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>بدء جلسة جرد جديدة</DialogTitle>
                         <DialogDescription>
@@ -145,7 +145,9 @@ export default function Stocktaking() {
                                 <label htmlFor="fin">منتجات نهائية</label>
                             </div>
                         </div>
-                        <Button className="w-full mt-4" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
+                    </div>
+                    <div className="flex justify-end pt-4 border-t">
+                        <Button className="w-full sm:w-auto" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
                             {createMutation.isPending ? "جاري التحضير..." : "بدء الجرد"}
                         </Button>
                     </div>

@@ -150,7 +150,7 @@ function PurchaseReturnsList() {
             </Card>
 
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>مرتجع شراء جديد</DialogTitle>
                         <DialogDescription>تسجيل مرتجع سلع أو خامات إلى المورد.</DialogDescription>
@@ -264,7 +264,7 @@ function SalesReturnsList() {
             </Card>
 
             <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-                <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-4xl">
                     <DialogHeader>
                         <DialogTitle>مرتجع بيع جديد</DialogTitle>
                         <DialogDescription>تسجيل مرتجع منتجات من عميل.</DialogDescription>

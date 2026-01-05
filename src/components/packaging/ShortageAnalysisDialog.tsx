@@ -160,7 +160,7 @@ export function ShortageAnalysisDialog({
     // Has shortages - show analysis
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader className="pb-4 border-b">
                     <DialogTitle className="flex items-center gap-2 text-amber-600">
                         <AlertTriangle className="h-5 w-5" />

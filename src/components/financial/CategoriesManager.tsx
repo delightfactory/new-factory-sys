@@ -54,7 +54,7 @@ export function CategoriesManager() {
                     إدارة البنود
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>إدارة بنود المصروفات والإيرادات</DialogTitle>
                     <DialogDescription>قائمة لإدارة بنود المصروفات والإيرادات في النظام.</DialogDescription>
