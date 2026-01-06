@@ -20,8 +20,8 @@ import {
 export default function ReportsHub() {
     const reports = [
         {
-            title: "نظام دعم القرار (Executive)",
-            description: "لوحة قيادة استراتيجية للمدير العام: مؤشرات الصحة، الربحية، والتوصيات الذكية.",
+            title: "نظام دعم القرار",
+            description: "تنبيهات عاجلة، مؤشرات السيولة، تغطية المخزون، وتوصيات ذكية مع إجراءات مباشرة.",
             icon: Activity,
             color: "text-indigo-600",
             path: "/reports/executive",
