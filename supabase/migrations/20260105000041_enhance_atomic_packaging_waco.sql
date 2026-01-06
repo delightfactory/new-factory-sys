@@ -1,6 +1,7 @@
 -- ============================================================================
 -- Migration: Enhance Atomic Packaging Order with WACO
 -- Date: 2026-01-05
+-- Verified: 2026-01-06 (Cost calculation confirmed correct)
 -- Purpose: Add Weighted Average Cost calculation to complete_packaging_order_atomic
 -- 
 -- RISK LEVEL: 🟠 MEDIUM - Enhances existing function, no breaking changes
@@ -11,9 +12,15 @@
 --   3. Update packaging_order_items with unit_cost and total_cost
 --   4. Update packaging_orders with total_cost
 --
+-- COST CALCULATION LOGIC (VERIFIED CORRECT):
+--   v_semi_cost = semi_finished_quantity_per_unit × semi_finished.unit_cost
+--   v_pack_cost = SUM(packaging_material_qty_per_unit × packaging_material.unit_cost)
+--   v_item_cost = v_semi_cost + v_pack_cost (= cost per 1 finished product unit)
+--
 -- Rollback:
 --   Restore original function from 20240127000001_atomic_orders.sql
 -- ============================================================================
+
 
 -- Drop and recreate with WACO support
 DROP FUNCTION IF EXISTS complete_packaging_order_atomic(BIGINT);

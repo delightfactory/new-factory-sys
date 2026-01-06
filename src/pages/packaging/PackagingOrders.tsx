@@ -324,6 +324,20 @@ export default function PackagingOrders() {
                 return <Badge variant={variants[status]}>{labels[status] || status}</Badge>;
             }
         },
+        {
+            accessorKey: "total_cost",
+            header: "إجمالي التكلفة",
+            cell: ({ row }) => {
+                const cost = row.getValue("total_cost") as number;
+                return cost > 0 ? (
+                    <span className="font-medium text-primary">
+                        {cost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م
+                    </span>
+                ) : (
+                    <span className="text-muted-foreground">-</span>
+                );
+            }
+        },
         { accessorKey: "notes", header: "ملاحظات" },
         {
             id: "actions",
@@ -648,6 +662,8 @@ export default function PackagingOrders() {
                                                 <TableHead className="font-bold">المنتج النهائي</TableHead>
                                                 <TableHead className="text-center font-bold">الكمية</TableHead>
                                                 <TableHead className="text-center font-bold">الوحدة</TableHead>
+                                                <TableHead className="text-center font-bold">تكلفة الوحدة</TableHead>
+                                                <TableHead className="text-center font-bold">الإجمالي</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -664,6 +680,12 @@ export default function PackagingOrders() {
                                                     </TableCell>
                                                     <TableCell className="text-center text-muted-foreground">
                                                         {item.finished_products?.unit || '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        {item.unit_cost > 0 ? `${item.unit_cost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م` : '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-bold text-green-600 dark:text-green-400">
+                                                        {item.total_cost > 0 ? `${item.total_cost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م` : '-'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}

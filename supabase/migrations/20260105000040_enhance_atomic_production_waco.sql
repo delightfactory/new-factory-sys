@@ -1,6 +1,7 @@
 -- ============================================================================
 -- Migration: Enhance Atomic Production Order with WACO
 -- Date: 2026-01-05
+-- Updated: 2026-01-06 (Fixed critical cost calculation bug)
 -- Purpose: Add Weighted Average Cost calculation to complete_production_order_atomic
 -- 
 -- RISK LEVEL: 🟠 MEDIUM - Enhances existing function, no breaking changes
@@ -10,6 +11,11 @@
 --   2. Apply WACO to semi_finished_products.unit_cost
 --   3. Update production_order_items with unit_cost and total_cost
 --   4. Update production_orders with total_cost
+--
+-- FIX APPLIED (2026-01-06):
+--   - v_item_cost now correctly represents cost PER UNIT (not total batch cost)
+--   - Formula: SUM(rm.unit_cost * si.quantity) / recipe_batch_size
+--   - This ensures proper WACO calculation without double multiplication
 --
 -- Rollback:
 --   Restore original function from 20240127000001_atomic_orders.sql
@@ -33,9 +39,10 @@ DECLARE
     v_new_balance NUMERIC;
     v_prev_cost NUMERIC;
     v_new_cost NUMERIC;
-    -- WACO Variables (NEW)
-    v_item_cost NUMERIC;
-    v_total_cost NUMERIC := 0;
+    -- WACO Variables
+    v_batch_cost NUMERIC;      -- Total cost for one batch (recipe_batch_size units)
+    v_item_unit_cost NUMERIC;  -- Cost per single unit of semi-finished product
+    v_total_order_cost NUMERIC := 0;
 BEGIN
     -- Get Order Code
     SELECT code INTO v_order_code FROM production_orders WHERE id = p_order_id;
@@ -44,29 +51,41 @@ BEGIN
     -- Loop through Order Items
     FOR r_item IN SELECT * FROM production_order_items WHERE production_order_id = p_order_id LOOP
         
-        -- Get Recipe Details
+        -- Get Recipe Details (batch size)
         SELECT recipe_batch_size INTO v_recipe_batch_size 
         FROM semi_finished_products 
         WHERE id = r_item.semi_finished_id;
 
-        IF v_recipe_batch_size IS NULL OR v_recipe_batch_size = 0 THEN v_recipe_batch_size := 100; END IF;
+        -- Handle NULL or zero batch size
+        IF v_recipe_batch_size IS NULL OR v_recipe_batch_size = 0 THEN 
+            v_recipe_batch_size := 100; 
+        END IF;
+        
+        -- Calculate ratio: how many batches are we producing
         v_ratio := r_item.quantity / v_recipe_batch_size;
 
         -- =====================================================================
-        -- Calculate Item Cost from Raw Materials (WACO Enhancement)
-        -- This calculates the cost of producing this item based on ingredients
+        -- Calculate UNIT COST from Raw Materials (CORRECTED)
+        -- 
+        -- si.quantity = amount of raw material for ONE batch (recipe_batch_size)
+        -- rm.unit_cost = cost per unit of raw material
+        -- 
+        -- v_batch_cost = Total cost of raw materials for ONE batch
+        -- v_item_unit_cost = Cost per SINGLE UNIT of semi-finished product
         -- =====================================================================
-        SELECT COALESCE(SUM(
-            (rm.unit_cost * si.quantity * v_ratio)
-        ), 0) INTO v_item_cost
+        SELECT COALESCE(SUM(rm.unit_cost * si.quantity), 0) INTO v_batch_cost
         FROM semi_finished_ingredients si
         JOIN raw_materials rm ON si.raw_material_id = rm.id
         WHERE si.semi_finished_id = r_item.semi_finished_id;
+
+        -- Unit cost = batch cost / batch size
+        v_item_unit_cost := v_batch_cost / v_recipe_batch_size;
 
         -- Deduct Raw Materials (Ingredients)
         FOR r_ingredient IN 
             SELECT * FROM semi_finished_ingredients WHERE semi_finished_id = r_item.semi_finished_id 
         LOOP
+            -- Amount needed = ingredient quantity per batch * number of batches
             v_qty_needed := r_ingredient.quantity * v_ratio;
 
             SELECT quantity INTO v_prev_balance FROM raw_materials WHERE id = r_ingredient.raw_material_id;
@@ -91,13 +110,13 @@ BEGIN
         v_new_balance := v_prev_balance + r_item.quantity;
 
         -- =====================================================================
-        -- Calculate WACO for Semi-Finished Product (Enhancement)
-        -- New Cost = (Old Qty × Old Cost + New Qty × New Cost) / Total Qty
+        -- Calculate WACO for Semi-Finished Product
+        -- New Avg Cost = (Old Qty × Old Cost + New Qty × New Unit Cost) / Total Qty
         -- =====================================================================
         IF v_new_balance > 0 THEN
-            v_new_cost := ((v_prev_balance * v_prev_cost) + (r_item.quantity * v_item_cost)) / v_new_balance;
+            v_new_cost := ((v_prev_balance * v_prev_cost) + (r_item.quantity * v_item_unit_cost)) / v_new_balance;
         ELSE
-            v_new_cost := v_item_cost;
+            v_new_cost := v_item_unit_cost;
         END IF;
 
         -- Update Semi-Finished Product with quantity AND cost
@@ -113,22 +132,23 @@ BEGIN
         );
 
         -- =====================================================================
-        -- Update Order Item with Cost (Enhancement)
+        -- Update Order Item with Cost
+        -- unit_cost = cost per unit, total_cost = unit_cost * quantity
         -- =====================================================================
         UPDATE production_order_items 
-        SET unit_cost = v_item_cost, 
-            total_cost = r_item.quantity * v_item_cost
+        SET unit_cost = v_item_unit_cost, 
+            total_cost = r_item.quantity * v_item_unit_cost
         WHERE id = r_item.id;
 
-        v_total_cost := v_total_cost + (r_item.quantity * v_item_cost);
+        v_total_order_cost := v_total_order_cost + (r_item.quantity * v_item_unit_cost);
     END LOOP;
 
     -- =====================================================================
-    -- Update Order with Total Cost (Enhancement)
+    -- Update Order with Total Cost
     -- =====================================================================
     UPDATE production_orders 
     SET status = 'completed', 
-        total_cost = v_total_cost,
+        total_cost = v_total_order_cost,
         updated_at = NOW()
     WHERE id = p_order_id;
 END;
@@ -136,7 +156,9 @@ $$;
 
 COMMENT ON FUNCTION complete_production_order_atomic(BIGINT) IS 
 'Completes a production order atomically:
-- Deducts raw materials based on recipe
+- Deducts raw materials based on recipe (quantity * ratio)
 - Adds semi-finished products with WACO calculation
+- Unit cost = SUM(raw_material_cost * ingredient_qty) / batch_size
 - Logs all inventory movements
 - Updates order items and total cost';
+

@@ -222,7 +222,7 @@ export default function ProductionOrders() {
                 const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
                     pending: "secondary",
                     inProgress: "default",
-                    completed: "outline", // Greenish usually better, handled via class
+                    completed: "outline",
                     cancelled: "destructive"
                 };
                 const labels: Record<string, string> = {
@@ -232,6 +232,20 @@ export default function ProductionOrders() {
                     cancelled: "ملغي"
                 };
                 return <Badge variant={variants[status]}>{labels[status] || status}</Badge>;
+            }
+        },
+        {
+            accessorKey: "total_cost",
+            header: "إجمالي التكلفة",
+            cell: ({ row }) => {
+                const cost = row.getValue("total_cost") as number;
+                return cost > 0 ? (
+                    <span className="font-medium text-primary">
+                        {cost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م
+                    </span>
+                ) : (
+                    <span className="text-muted-foreground">-</span>
+                );
             }
         },
         { accessorKey: "notes", header: "ملاحظات" },
@@ -614,6 +628,8 @@ export default function ProductionOrders() {
                                                 <TableHead className="font-bold">المنتج (نصف مصنع)</TableHead>
                                                 <TableHead className="text-center font-bold">الكمية</TableHead>
                                                 <TableHead className="text-center font-bold">الوحدة</TableHead>
+                                                <TableHead className="text-center font-bold">تكلفة الوحدة</TableHead>
+                                                <TableHead className="text-center font-bold">الإجمالي</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -630,6 +646,12 @@ export default function ProductionOrders() {
                                                     </TableCell>
                                                     <TableCell className="text-center text-muted-foreground">
                                                         {item.semi_finished_products?.unit || '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        {item.unit_cost > 0 ? `${item.unit_cost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م` : '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-bold text-green-600 dark:text-green-400">
+                                                        {item.total_cost > 0 ? `${item.total_cost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م` : '-'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}
