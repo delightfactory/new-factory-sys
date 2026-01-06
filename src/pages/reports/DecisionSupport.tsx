@@ -85,31 +85,33 @@ export default function DecisionSupport() {
 
             {/* Critical Alerts Section */}
             {data?.alerts && data.alerts.length > 0 && (
-                <Card className="border-l-4 border-l-red-500">
+                <Card className="border-l-4 border-l-red-500 overflow-hidden">
                     <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <AlertTriangle className="h-5 w-5 text-red-500" />
-                            تنبيهات تحتاج قرار فوري
+                        <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
+                            <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+                            <span>تنبيهات تحتاج قرار فوري</span>
                             <Badge variant="destructive" className="mr-2">
                                 {data.alerts.filter(a => a.type === 'critical').length}
                             </Badge>
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <CardContent className="px-3 sm:px-6">
+                        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                             {data.alerts.slice(0, 6).map((alert) => (
                                 <div
                                     key={alert.id}
-                                    className={`flex items-start gap-3 p-3 rounded-lg border ${alertTypeStyles[alert.type]}`}
+                                    className={`flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border ${alertTypeStyles[alert.type]}`}
                                 >
-                                    {alertTypeIcons[alert.type]}
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-semibold text-sm">{alert.title}</p>
-                                        <p className="text-xs text-muted-foreground truncate">
+                                    <div className="shrink-0 mt-0.5">
+                                        {alertTypeIcons[alert.type]}
+                                    </div>
+                                    <div className="flex-1 min-w-0 overflow-hidden">
+                                        <p className="font-semibold text-xs sm:text-sm break-words">{alert.title}</p>
+                                        <p className="text-xs text-muted-foreground line-clamp-2 break-words">
                                             {alert.description}
                                         </p>
                                     </div>
-                                    <Button size="sm" variant="ghost" asChild className="shrink-0">
+                                    <Button size="sm" variant="ghost" asChild className="shrink-0 h-8 w-8 p-0">
                                         <Link to={alert.action.path}>
                                             <ArrowLeft className="h-4 w-4" />
                                         </Link>
