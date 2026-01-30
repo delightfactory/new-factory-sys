@@ -67,8 +67,7 @@ const CATEGORY_COLORS = [
 
 type Period = 'thisMonth' | 'lastMonth' | 'last3Months' | 'last6Months' | 'thisYear' | 'custom';
 
-// Categories to exclude by default (transfers and payments)
-const EXCLUDED_CATEGORIES = ['transfer', 'payment', 'purchase_payment', 'تحويل', 'سداد مورد'];
+// Categories to filter (transfers and payments)
 const PAYMENT_CATEGORIES = ['payment', 'purchase_payment', 'سداد مورد'];
 const TRANSFER_CATEGORIES = ['transfer', 'تحويل'];
 
@@ -257,21 +256,21 @@ export default function ExpenseAnalysisReport() {
                                     </SelectContent>
                                 </Select>
                                 {period === 'custom' && (
-                                    <>
+                                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                                         <Input
                                             type="date"
                                             value={startDate}
                                             onChange={(e) => setStartDate(e.target.value)}
-                                            className="w-[150px]"
+                                            className="flex-1 min-w-[130px]"
                                         />
-                                        <span className="self-center">إلى</span>
+                                        <span className="self-center text-sm">إلى</span>
                                         <Input
                                             type="date"
                                             value={endDate}
                                             onChange={(e) => setEndDate(e.target.value)}
-                                            className="w-[150px]"
+                                            className="flex-1 min-w-[130px]"
                                         />
-                                    </>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -282,33 +281,33 @@ export default function ExpenseAnalysisReport() {
                                 <Filter className="w-4 h-4 text-muted-foreground" />
                                 <span className="text-sm font-medium">عرض:</span>
                             </div>
-                            <div className="flex gap-3 flex-wrap">
-                                <label className="flex items-center gap-2 cursor-pointer">
+                            <div className="flex gap-2 sm:gap-3 flex-wrap">
+                                <label className="flex items-center gap-2 cursor-pointer min-h-[40px] px-2 rounded hover:bg-muted/50">
                                     <input
                                         type="checkbox"
                                         checked={showExpensesOnly}
                                         onChange={(e) => setShowExpensesOnly(e.target.checked)}
-                                        className="rounded border-gray-300"
+                                        className="w-4 h-4 rounded border-gray-300"
                                     />
                                     <span className="text-sm">مصروفات فقط</span>
                                 </label>
                                 {showExpensesOnly && (
                                     <>
-                                        <label className="flex items-center gap-2 cursor-pointer bg-muted/50 px-2 py-1 rounded">
+                                        <label className="flex items-center gap-2 cursor-pointer min-h-[40px] bg-muted/50 px-3 py-1 rounded hover:bg-muted">
                                             <input
                                                 type="checkbox"
                                                 checked={includePayments}
                                                 onChange={(e) => setIncludePayments(e.target.checked)}
-                                                className="rounded border-gray-300"
+                                                className="w-4 h-4 rounded border-gray-300"
                                             />
                                             <span className="text-sm">+ مدفوعات الموردين</span>
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer bg-muted/50 px-2 py-1 rounded">
+                                        <label className="flex items-center gap-2 cursor-pointer min-h-[40px] bg-muted/50 px-3 py-1 rounded hover:bg-muted">
                                             <input
                                                 type="checkbox"
                                                 checked={includeTransfers}
                                                 onChange={(e) => setIncludeTransfers(e.target.checked)}
-                                                className="rounded border-gray-300"
+                                                className="w-4 h-4 rounded border-gray-300"
                                             />
                                             <span className="text-sm">+ التحويلات</span>
                                         </label>
@@ -375,14 +374,14 @@ export default function ExpenseAnalysisReport() {
             <div className="grid gap-4 lg:grid-cols-2">
                 {/* Pie Chart - Distribution by Category */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <PieChartIcon className="w-5 h-5" />
+                    <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+                            <PieChartIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                             توزيع المصروفات حسب الفئة
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="h-[300px]">
+                    <CardContent className="p-2 sm:p-6">
+                        <div className="h-[250px] sm:h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
@@ -391,18 +390,22 @@ export default function ExpenseAnalysisReport() {
                                         nameKey="name"
                                         cx="50%"
                                         cy="50%"
-                                        outerRadius={100}
-                                        label={({ name, percent }) =>
-                                            `${name}: ${formatNumber((percent ?? 0) * 100)}%`
-                                        }
-                                        labelLine={false}
+                                        outerRadius="70%"
+                                        label={false}
                                     >
                                         {stats?.categories.map((entry, index) => (
                                             <Cell key={index} fill={entry.color} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(value) => formatCurrency(value as number)} />
-                                    <Legend />
+                                    <Tooltip
+                                        formatter={(value) => formatCurrency(value as number)}
+                                        contentStyle={{ direction: 'rtl' }}
+                                    />
+                                    <Legend
+                                        layout="horizontal"
+                                        verticalAlign="bottom"
+                                        wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }}
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
@@ -411,23 +414,29 @@ export default function ExpenseAnalysisReport() {
 
                 {/* Bar Chart - Daily Trend */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>اتجاه المصروفات اليومي</CardTitle>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base sm:text-lg">اتجاه المصروفات اليومي</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="h-[300px]">
+                    <CardContent className="p-2 sm:p-6">
+                        <div className="h-[250px] sm:h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={stats?.dailyData || []}>
+                                <BarChart data={stats?.dailyData || []} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis
                                         dataKey="date"
-                                        tick={{ fontSize: 10 }}
+                                        tick={{ fontSize: 9 }}
                                         tickFormatter={(v) => format(new Date(v), 'dd/MM')}
+                                        interval="preserveStartEnd"
                                     />
-                                    <YAxis tickFormatter={(v) => `${formatNumber(v / 1000)}k`} />
+                                    <YAxis
+                                        tick={{ fontSize: 9 }}
+                                        tickFormatter={(v) => `${formatNumber(v / 1000)}k`}
+                                        width={40}
+                                    />
                                     <Tooltip
                                         formatter={(value) => formatCurrency(value as number)}
                                         labelFormatter={(label) => format(new Date(label as string), 'dd MMMM yyyy', { locale: arEG })}
+                                        contentStyle={{ direction: 'rtl' }}
                                     />
                                     <Bar dataKey="amount" fill="#ef4444" radius={[4, 4, 0, 0]} />
                                 </BarChart>
