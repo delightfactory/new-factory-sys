@@ -60,14 +60,16 @@ const TYPE_COLORS = {
     raw: '#f59e0b',
     packaging: '#8b5cf6',
     semi: '#3b82f6',
-    finished: '#10b981'
+    finished: '#10b981',
+    bundle: '#ec4899'
 };
 
 const TYPE_LABELS = {
     raw: 'مادة خام',
     packaging: 'مادة تعبئة',
     semi: 'نصف مصنع',
-    finished: 'منتج تام'
+    finished: 'منتج تام',
+    bundle: 'باندل'
 };
 
 export default function InventoryAnalytics() {
@@ -79,22 +81,25 @@ export default function InventoryAnalytics() {
     const { data: items, isLoading } = useQuery({
         queryKey: ['inventory-analytics'],
         queryFn: async () => {
-            const [raw, packaging, semi, finished] = await Promise.all([
+            const [raw, packaging, semi, finished, bundles] = await Promise.all([
                 supabase.from('raw_materials').select('id, code, name, quantity, unit_cost, sales_price, unit'),
                 supabase.from('packaging_materials').select('id, code, name, quantity, unit_cost, sales_price'),
                 supabase.from('semi_finished_products').select('id, code, name, quantity, unit_cost, sales_price'),
-                supabase.from('finished_products').select('id, code, name, quantity, unit_cost, sales_price')
+                supabase.from('finished_products').select('id, code, name, quantity, unit_cost, sales_price'),
+                supabase.from('product_bundles').select('id, code, name, quantity, unit_cost, bundle_price').eq('is_active', true)
             ]);
 
             const mapItems = (data: any[], type: string, typeLabel: string): InventoryItem[] =>
                 (data || []).map(item => {
                     const totalValue = (item.quantity || 0) * (item.unit_cost || 0);
-                    const salesValue = (item.quantity || 0) * (item.sales_price || 0);
+                    const salesPrice = item.sales_price || item.bundle_price || 0;
+                    const salesValue = (item.quantity || 0) * salesPrice;
                     const potentialProfit = salesValue - totalValue;
                     const profitMargin = totalValue > 0 ? ((potentialProfit / totalValue) * 100) : 0;
 
                     return {
                         ...item,
+                        sales_price: salesPrice,
                         type,
                         typeLabel,
                         totalValue,
@@ -107,7 +112,8 @@ export default function InventoryAnalytics() {
                 ...mapItems(raw.data || [], 'raw', TYPE_LABELS.raw),
                 ...mapItems(packaging.data || [], 'packaging', TYPE_LABELS.packaging),
                 ...mapItems(semi.data || [], 'semi', TYPE_LABELS.semi),
-                ...mapItems(finished.data || [], 'finished', TYPE_LABELS.finished)
+                ...mapItems(finished.data || [], 'finished', TYPE_LABELS.finished),
+                ...mapItems(bundles.data || [], 'bundle', TYPE_LABELS.bundle)
             ];
         }
     });
@@ -390,6 +396,7 @@ export default function InventoryAnalytics() {
                                     <SelectItem value="packaging">مواد تعبئة</SelectItem>
                                     <SelectItem value="semi">نصف مصنع</SelectItem>
                                     <SelectItem value="finished">منتج تام</SelectItem>
+                                    <SelectItem value="bundle">باندلات</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>

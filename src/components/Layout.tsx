@@ -222,7 +222,7 @@ export default function Layout() {
 
         // Define menu paths with children for auto-expand logic
         const menuPaths = [
-            { path: '/inventory', childPaths: ['/inventory/raw-materials', '/inventory/packaging', '/inventory/semi-finished', '/inventory/finished', '/inventory/stocktaking', '/inventory/movements'] },
+            { path: '/inventory', childPaths: ['/inventory/raw-materials', '/inventory/packaging', '/inventory/semi-finished', '/inventory/finished', '/inventory/bundles', '/inventory/stocktaking', '/inventory/movements'] },
             { path: '/production', childPaths: ['/production/orders'] },
             { path: '/commercial', childPaths: ['/commercial/parties', '/commercial/treasuries', '/commercial/payments', '/commercial/buying', '/commercial/selling', '/commercial/returns'] },
             { path: '/financial', childPaths: ['/financial/expenses', '/financial/reports'] },
@@ -272,6 +272,8 @@ export default function Layout() {
                     { label: "مواد التعبئة", path: "/inventory/packaging", icon: Package },
                     { label: "نصف مصنع", path: "/inventory/semi-finished", icon: Archive },
                     { label: "منتجات نهائية", path: "/inventory/finished", icon: ShoppingCart },
+                    { label: "الباندلات", path: "/inventory/bundles", icon: Package },
+                    { label: "أوامر تجميع الباندلات", path: "/inventory/bundles/assembly", icon: Factory },
                     { label: "جرد المخزون", path: "/inventory/stocktaking", icon: ListTodo },
                     { label: "سجل الحركات", path: "/inventory/movements", icon: ArrowRightLeft },
                 ]

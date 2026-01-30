@@ -23,14 +23,18 @@ const TABLE_EXPORT_ORDER = [
     // Level 3: Depends on Level 2
     'finished_products',
     'finished_product_packaging',
+    'product_bundles',         // NEW: Bundle definitions
+    'bundle_items',            // NEW: Bundle components (depends on all inventory tables)
     'production_orders',
     'packaging_orders',
+    'bundle_assembly_orders',  // NEW: Assembly orders
 
     // Level 4: Depends on Level 3
     'production_order_items',
     'production_order_consumed_materials',  // المواد المستهلكة في الإنتاج
     'packaging_order_items',
     'packaging_order_consumed_materials',   // المواد المستهلكة في التعبئة
+    'bundle_assembly_order_items',          // NEW: Assembly order items
     'purchase_invoices',
     'sales_invoices',
 

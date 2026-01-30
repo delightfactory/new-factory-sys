@@ -182,7 +182,18 @@ export const FinancialService = {
         if (salesError) throw salesError;
         const salesRevenue = sales?.reduce((sum, inv) => sum + inv.total_amount, 0) || 0;
 
-        // 1.b Manual Income (Revenue Categories)
+        // 1.b Sales Returns (Posted) - Reduce Revenue
+        const { data: returns, error: returnsError } = await supabase
+            .from('sales_returns')
+            .select('total_amount')
+            .eq('status', 'posted')
+            .gte('return_date', startDate)
+            .lte('return_date', endDate);
+
+        if (returnsError) throw returnsError;
+        const returnsAmount = returns?.reduce((sum, r) => sum + r.total_amount, 0) || 0;
+
+        // 1.c Manual Income (Revenue Categories)
         const { data: incomeConfig } = await supabase.from('financial_categories').select('name').eq('type', 'income');
         const incomeCategories = incomeConfig?.map(c => c.name) || [];
 
@@ -197,9 +208,10 @@ export const FinancialService = {
         if (incomeError) throw incomeError;
         const manualRevenue = otherIncome?.reduce((sum, t) => sum + t.amount, 0) || 0;
 
-        const totalRevenue = salesRevenue + manualRevenue;
+        // Net Revenue = Sales - Returns + Manual Income
+        const totalRevenue = salesRevenue - returnsAmount + manualRevenue;
 
-        // 2. COGS
+        // 2. COGS (Posted Sales)
         const { data: cogsData, error: cogsError } = await supabase
             .from('sales_invoice_items')
             .select('quantity, unit_cost_at_sale, sales_invoices!inner(status, transaction_date)')
@@ -208,7 +220,21 @@ export const FinancialService = {
             .lte('sales_invoices.transaction_date', endDate);
 
         if (cogsError) throw cogsError;
-        const totalCOGS = cogsData?.reduce((sum, item: any) => sum + (item.quantity * (item.unit_cost_at_sale || 0)), 0) || 0;
+        const salesCOGS = cogsData?.reduce((sum, item: any) => sum + (item.quantity * (item.unit_cost_at_sale || 0)), 0) || 0;
+
+        // 2.b Return COGS (reduce COGS since returned items add back to inventory)
+        const { data: returnCogsData, error: returnCogsError } = await supabase
+            .from('sales_return_items')
+            .select('quantity, unit_cost_at_return, sales_returns!inner(status, return_date)')
+            .eq('sales_returns.status', 'posted')
+            .gte('sales_returns.return_date', startDate)
+            .lte('sales_returns.return_date', endDate);
+
+        if (returnCogsError) throw returnCogsError;
+        const returnCOGS = returnCogsData?.reduce((sum, item: any) => sum + (item.quantity * (item.unit_cost_at_return || 0)), 0) || 0;
+
+        // Net COGS = Sales COGS - Return COGS
+        const totalCOGS = salesCOGS - returnCOGS;
 
         // 3. Expenses
         const { data: expenseConfig } = await supabase.from('financial_categories').select('name').eq('type', 'expense');
@@ -235,7 +261,10 @@ export const FinancialService = {
             expenses: totalExpenses,
             netProfit,
             salesRevenue,
-            manualRevenue
+            manualRevenue,
+            returnsAmount,    // NEW: for detailed display
+            salesCOGS,        // NEW: for detailed display
+            returnCOGS        // NEW: for detailed display
         };
     }
 };

@@ -15,18 +15,32 @@ export default function ProductPerformanceReport() {
     const { data: products, isLoading } = useQuery({
         queryKey: ['report-product-performance'],
         queryFn: async () => {
-            // Fetch finished products
-            const { data } = await supabase
-                .from('finished_products')
-                .select('id, name, sales_price, quantity');
+            // Fetch finished products and bundles
+            const [finished, bundles] = await Promise.all([
+                supabase.from('finished_products').select('id, name, sales_price, quantity'),
+                supabase.from('product_bundles').select('id, name, bundle_price, quantity').eq('is_active', true)
+            ]);
 
-            // Calculate estimated value and potential revenue
-            // In a real scenario, we would join with sales_invoice_items to get actual sales volume
-            // For now, we show current catalogue performance
-            return (data || []).map(p => ({
+            // Map finished products
+            const finishedItems = (finished.data || []).map(p => ({
                 ...p,
+                type: 'product',
                 potentialRevenue: (p.sales_price || 0) * (p.quantity || 0)
-            })).sort((a, b) => b.potentialRevenue - a.potentialRevenue);
+            }));
+
+            // Map bundles
+            const bundleItems = (bundles.data || []).map(b => ({
+                id: b.id,
+                name: `📦 ${b.name}`,
+                sales_price: b.bundle_price,
+                quantity: b.quantity,
+                type: 'bundle',
+                potentialRevenue: (b.bundle_price || 0) * (b.quantity || 0)
+            }));
+
+            // Combine and sort by potential revenue
+            return [...finishedItems, ...bundleItems]
+                .sort((a, b) => b.potentialRevenue - a.potentialRevenue);
         }
     });
 

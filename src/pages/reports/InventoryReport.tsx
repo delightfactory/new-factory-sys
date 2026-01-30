@@ -14,7 +14,8 @@ const TYPE_COLORS: Record<string, string> = {
     raw: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400',
     packaging: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400',
     semi: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400',
-    finished: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400'
+    finished: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400',
+    bundle: 'bg-pink-50 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-400'
 };
 
 export default function InventoryReport() {
@@ -22,11 +23,12 @@ export default function InventoryReport() {
     const { data: items, isLoading } = useQuery({
         queryKey: ['report-inventory-valuation'],
         queryFn: async () => {
-            const [raw, packaging, semi, finished] = await Promise.all([
+            const [raw, packaging, semi, finished, bundles] = await Promise.all([
                 supabase.from('raw_materials').select('id, name, quantity, unit_cost, unit'),
                 supabase.from('packaging_materials').select('id, name, quantity, unit_cost'),
                 supabase.from('semi_finished_products').select('id, name, quantity, unit_cost'),
-                supabase.from('finished_products').select('id, name, quantity, unit_cost')
+                supabase.from('finished_products').select('id, name, quantity, unit_cost'),
+                supabase.from('product_bundles').select('id, name, quantity, unit_cost').eq('is_active', true)
             ]);
 
             const mapItems = (data: any[], type: string, typeLabel: string) =>
@@ -41,7 +43,8 @@ export default function InventoryReport() {
                 ...mapItems(raw.data || [], 'raw', 'مادة خام'),
                 ...mapItems(packaging.data || [], 'packaging', 'مادة تعبئة'),
                 ...mapItems(semi.data || [], 'semi', 'نصف مصنع'),
-                ...mapItems(finished.data || [], 'finished', 'منتج تام')
+                ...mapItems(finished.data || [], 'finished', 'منتج تام'),
+                ...mapItems(bundles.data || [], 'bundle', 'باندل')
             ].sort((a, b) => b.totalValue - a.totalValue);
         }
     });

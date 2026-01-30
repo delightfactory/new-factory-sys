@@ -14,7 +14,8 @@ import {
     Clock,
     RotateCw,
     Users,
-    Scale
+    Scale,
+    Wallet
 } from "lucide-react";
 
 export default function ReportsHub() {
@@ -98,6 +99,14 @@ export default function ReportsHub() {
             color: "text-red-500",
             path: "/reports/low-stock",
             bg: "bg-red-50 dark:bg-red-900/20"
+        },
+        {
+            title: "تحليل المصروفات",
+            description: "تحليل تفصيلي للمصروفات حسب الفئة مع نسبة كل بند ورسوم بيانية.",
+            icon: Wallet,
+            color: "text-rose-500",
+            path: "/reports/expense-analysis",
+            bg: "bg-rose-50 dark:bg-rose-900/20"
         },
     ];
 

@@ -16,7 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
  */
 
 export interface InventoryBreakdown {
-    type: 'raw' | 'packaging' | 'semi' | 'finished';
+    type: 'raw' | 'packaging' | 'semi' | 'finished' | 'bundle';
     typeLabel: string;
     count: number;
     value: number;
@@ -149,11 +149,12 @@ export const BalanceSheetService = {
      * حساب قيمة المخزون الإجمالية (كمية × تكلفة الوحدة)
      */
     async getInventoryValuation(): Promise<InventoryBreakdown[]> {
-        const [raw, packaging, semi, finished] = await Promise.all([
+        const [raw, packaging, semi, finished, bundles] = await Promise.all([
             supabase.from('raw_materials').select('id, quantity, unit_cost'),
             supabase.from('packaging_materials').select('id, quantity, unit_cost'),
             supabase.from('semi_finished_products').select('id, quantity, unit_cost'),
-            supabase.from('finished_products').select('id, quantity, unit_cost')
+            supabase.from('finished_products').select('id, quantity, unit_cost'),
+            supabase.from('product_bundles').select('id, quantity, unit_cost').gt('quantity', 0)
         ]);
 
         const calculate = (data: any[] | null) => {
@@ -170,12 +171,14 @@ export const BalanceSheetService = {
         const packagingCalc = calculate(packaging.data);
         const semiCalc = calculate(semi.data);
         const finishedCalc = calculate(finished.data);
+        const bundlesCalc = calculate(bundles.data);
 
         return [
             { type: 'raw', typeLabel: 'المواد الخام', ...rawCalc },
             { type: 'packaging', typeLabel: 'مواد التعبئة', ...packagingCalc },
             { type: 'semi', typeLabel: 'نصف المصنع', ...semiCalc },
-            { type: 'finished', typeLabel: 'المنتجات التامة', ...finishedCalc }
+            { type: 'finished', typeLabel: 'المنتجات التامة', ...finishedCalc },
+            { type: 'bundle', typeLabel: 'الباندلات', ...bundlesCalc }
         ];
     },
 

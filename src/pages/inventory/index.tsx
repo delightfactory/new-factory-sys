@@ -3,6 +3,8 @@ import RawMaterials from "./RawMaterials";
 import PackagingMaterials from "./PackagingMaterials";
 import SemiFinishedProducts from "./SemiFinishedProducts";
 import FinishedProducts from "./FinishedProducts";
+import Bundles from "./Bundles";
+import BundleAssemblyOrders from "./BundleAssemblyOrders";
 import Stocktaking from "./Stocktaking";
 import StocktakingDetails from "./StocktakingDetails";
 import InventoryMovements from "./InventoryMovements";
@@ -21,6 +23,8 @@ export default function InventoryRoutes() {
             <Route path="semi-finished/:id" element={<ItemDetails />} />
             <Route path="finished" element={<FinishedProducts />} />
             <Route path="finished/:id" element={<ItemDetails />} />
+            <Route path="bundles" element={<Bundles />} />
+            <Route path="bundles/assembly" element={<BundleAssemblyOrders />} />
             <Route path="stocktaking" element={<Stocktaking />} />
             <Route path="stocktaking/:id" element={<StocktakingDetails />} />
             <Route path="movements" element={<InventoryMovements />} />
@@ -28,4 +32,5 @@ export default function InventoryRoutes() {
         </Routes>
     );
 }
+
 

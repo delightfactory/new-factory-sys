@@ -24,14 +24,15 @@ import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
 import { formatNumber } from "@/lib/utils";
 import { format } from "date-fns";
 
-type ItemType = 'raw_materials' | 'packaging_materials' | 'semi_finished_products' | 'finished_products' | 'all';
+type ItemType = 'raw_materials' | 'packaging_materials' | 'semi_finished_products' | 'finished_products' | 'product_bundles' | 'all';
 type MovementType = 'in' | 'out' | 'adjustment' | 'all';
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
     raw_materials: 'مواد خام',
     packaging_materials: 'مواد تعبئة',
     semi_finished_products: 'نصف مصنع',
-    finished_products: 'منتج تام'
+    finished_products: 'منتج تام',
+    product_bundles: 'باندل'
 };
 
 const MOVEMENT_TYPE_CONFIG: Record<string, { label: string; color: string; icon: typeof ArrowUpRight }> = {
@@ -200,6 +201,7 @@ export default function InventoryMovements() {
                                     <SelectItem value="packaging_materials">مواد تعبئة</SelectItem>
                                     <SelectItem value="semi_finished_products">نصف مصنع</SelectItem>
                                     <SelectItem value="finished_products">منتج تام</SelectItem>
+                                    <SelectItem value="product_bundles">باندلات</SelectItem>
                                 </SelectContent>
                             </Select>
                             <Select value={filterMovement} onValueChange={(v) => setFilterMovement(v as MovementType)}>

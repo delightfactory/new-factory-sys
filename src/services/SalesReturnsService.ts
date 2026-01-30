@@ -3,11 +3,12 @@ import { supabase } from "@/integrations/supabase/client";
 export interface SalesReturnItem {
     id?: number;
     return_id?: number;
-    item_type: 'raw_material' | 'packaging_material' | 'semi_finished' | 'finished_product';
+    item_type: 'raw_material' | 'packaging_material' | 'semi_finished' | 'finished_product' | 'bundle';
     raw_material_id?: number;
     packaging_material_id?: number;
     semi_finished_product_id?: number;
     finished_product_id?: number;
+    bundle_id?: number;
     quantity: number;
     unit_price: number;
     total_price: number;

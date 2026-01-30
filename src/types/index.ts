@@ -167,3 +167,66 @@ export type ProductionOrder = Database['public']['Tables']['production_orders'][
 export type ProductionOrderItem = Database['public']['Tables']['production_order_items']['Row']
 export type PackagingOrder = Database['public']['Tables']['packaging_orders']['Row']
 export type PackagingOrderItem = Database['public']['Tables']['packaging_order_items']['Row']
+
+// ============================================================================
+// Product Bundles Types
+// ============================================================================
+
+export type BundleItemType = 'finished_product' | 'semi_finished' | 'raw_material' | 'packaging_material';
+
+export interface ProductBundle {
+    id: number;
+    code: string;
+    name: string;
+    description?: string;
+    quantity: number;
+    min_stock: number;
+    unit_cost: number;
+    bundle_price: number;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+    items?: BundleItem[];
+}
+
+export interface BundleItem {
+    id: number;
+    bundle_id: number;
+    item_type: BundleItemType;
+    finished_product_id?: number;
+    semi_finished_product_id?: number;
+    raw_material_id?: number;
+    packaging_material_id?: number;
+    quantity: number;
+    unit_cost: number;
+    created_at: string;
+    // Joined data for display
+    item_name?: string;
+    item_code?: string;
+    item_unit?: string;
+    available_stock?: number;
+}
+
+export interface BundleAssemblyOrder {
+    id: number;
+    code: string;
+    date: string;
+    status: 'pending' | 'inProgress' | 'completed' | 'cancelled';
+    notes?: string;
+    total_cost: number;
+    created_at: string;
+    updated_at: string;
+    items?: BundleAssemblyOrderItem[];
+}
+
+export interface BundleAssemblyOrderItem {
+    id: number;
+    assembly_order_id: number;
+    bundle_id: number;
+    quantity: number;
+    unit_cost: number;
+    total_cost: number;
+    created_at: string;
+    bundle?: ProductBundle;
+}
+

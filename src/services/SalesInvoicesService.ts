@@ -19,11 +19,12 @@ export interface SalesInvoice {
 export interface SalesInvoiceItem {
     id?: number;
     invoice_id?: number;
-    item_type: 'raw_material' | 'packaging_material' | 'finished_product' | 'semi_finished';
+    item_type: 'raw_material' | 'packaging_material' | 'finished_product' | 'semi_finished' | 'bundle';
     raw_material_id?: number;
     packaging_material_id?: number;
     finished_product_id?: number;
     semi_finished_product_id?: number;
+    bundle_id?: number;
     quantity: number;
     unit_price: number;
     total_price: number;

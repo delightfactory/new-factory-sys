@@ -62,9 +62,15 @@ export default function MovementDetails() {
     const getItemTypeLabel = (type: string) => {
         const labels: Record<string, string> = {
             'raw_material': 'مادة خام',
+            'raw_materials': 'مادة خام',
             'packaging_material': 'مادة تعبئة',
+            'packaging_materials': 'مادة تعبئة',
             'semi_finished': 'نصف مصنع',
-            'finished': 'منتج نهائي'
+            'semi_finished_products': 'نصف مصنع',
+            'finished': 'منتج نهائي',
+            'finished_products': 'منتج نهائي',
+            'product_bundles': 'باندل',
+            'bundle': 'باندل'
         };
         return labels[type] || type;
     };

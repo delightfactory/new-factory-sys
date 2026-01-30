@@ -31,7 +31,7 @@ import { Link } from "react-router-dom";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
 import { PrintButton } from "@/components/print/PrintLayout";
 
-type InventoryType = 'all' | 'raw' | 'packaging' | 'semi' | 'finished';
+type InventoryType = 'all' | 'raw' | 'packaging' | 'semi' | 'finished' | 'bundle';
 type UrgencyLevel = 'all' | 'critical' | 'warning' | 'ok';
 
 interface LowStockItem {
@@ -73,6 +73,12 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; icon: any; bgC
         color: 'text-green-700 dark:text-green-400',
         icon: PackageCheck,
         bgColor: 'bg-green-50 dark:bg-green-900/20 border-green-200'
+    },
+    bundle: {
+        label: 'باندل',
+        color: 'text-pink-700 dark:text-pink-400',
+        icon: Package,
+        bgColor: 'bg-pink-50 dark:bg-pink-900/20 border-pink-200'
     }
 };
 
@@ -84,11 +90,12 @@ export default function LowStockReport() {
         queryKey: ['report-low-stock-comprehensive'],
         queryFn: async () => {
             // Fetch all inventory types in parallel
-            const [raw, packaging, semi, finished] = await Promise.all([
+            const [raw, packaging, semi, finished, bundles] = await Promise.all([
                 supabase.from('raw_materials').select('id, code, name, unit, quantity, min_stock'),
                 supabase.from('packaging_materials').select('id, code, name, unit, quantity, min_stock'),
                 supabase.from('semi_finished_products').select('id, code, name, unit, quantity, min_stock'),
-                supabase.from('finished_products').select('id, code, name, unit, quantity, min_stock')
+                supabase.from('finished_products').select('id, code, name, unit, quantity, min_stock'),
+                supabase.from('product_bundles').select('id, code, name, quantity, min_stock').eq('is_active', true)
             ]);
 
             const processItems = (
@@ -132,7 +139,8 @@ export default function LowStockReport() {
                 ...processItems(raw.data, 'raw', TYPE_CONFIG.raw),
                 ...processItems(packaging.data, 'packaging', TYPE_CONFIG.packaging),
                 ...processItems(semi.data, 'semi', TYPE_CONFIG.semi),
-                ...processItems(finished.data, 'finished', TYPE_CONFIG.finished)
+                ...processItems(finished.data, 'finished', TYPE_CONFIG.finished),
+                ...processItems(bundles.data, 'bundle', TYPE_CONFIG.bundle)
             ];
 
             // Filter only low stock items (quantity <= min_stock)
@@ -149,7 +157,8 @@ export default function LowStockReport() {
                     raw: lowStockItems.filter(i => i.type === 'raw').length,
                     packaging: lowStockItems.filter(i => i.type === 'packaging').length,
                     semi: lowStockItems.filter(i => i.type === 'semi').length,
-                    finished: lowStockItems.filter(i => i.type === 'finished').length
+                    finished: lowStockItems.filter(i => i.type === 'finished').length,
+                    bundle: lowStockItems.filter(i => i.type === 'bundle').length
                 },
                 trackedItems: allItems.length, // Total items being tracked
                 healthyItems: allItems.filter(i => i.urgency === 'ok').length
@@ -280,6 +289,7 @@ export default function LowStockReport() {
                                             <SelectItem value="packaging">مواد التعبئة</SelectItem>
                                             <SelectItem value="semi">نصف المصنع</SelectItem>
                                             <SelectItem value="finished">المنتجات التامة</SelectItem>
+                                            <SelectItem value="bundle">الباندلات</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <Select value={filterUrgency} onValueChange={(v) => setFilterUrgency(v as UrgencyLevel)}>
@@ -428,8 +438,8 @@ export default function LowStockReport() {
                                             <div
                                                 key={`${item.type}-${item.id}`}
                                                 className={`p-4 rounded-lg border ${item.urgency === 'critical'
-                                                        ? 'border-red-300 bg-red-50 dark:bg-red-950/40 dark:border-red-800'
-                                                        : 'border-amber-200 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800'
+                                                    ? 'border-red-300 bg-red-50 dark:bg-red-950/40 dark:border-red-800'
+                                                    : 'border-amber-200 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800'
                                                     }`}
                                             >
                                                 <div className="flex items-start justify-between gap-3 mb-3">

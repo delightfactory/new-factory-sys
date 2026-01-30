@@ -259,21 +259,23 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
     const { data: customers } = useQuery({ queryKey: ['customers'], queryFn: () => PartiesService.getParties('customer') });
     const { data: treasuries } = useQuery({ queryKey: ['treasuries'], queryFn: TreasuriesService.getTreasuries });
 
-    // Unified Inventory Fetcher
+    // Unified Inventory Fetcher (including bundles)
     const { data: inventoryItems } = useQuery({
         queryKey: ['all_inventory_items_sales'],
         queryFn: async () => {
-            const [raw, pkg, semi, finished] = await Promise.all([
+            const [raw, pkg, semi, finished, bundles] = await Promise.all([
                 supabase.from('raw_materials').select('id, name, sales_price'),
                 supabase.from('packaging_materials').select('id, name, sales_price'),
                 supabase.from('semi_finished_products').select('id, name, sales_price'),
-                supabase.from('finished_products').select('id, name, sales_price')
+                supabase.from('finished_products').select('id, name, sales_price'),
+                supabase.from('product_bundles').select('id, name, bundle_price, quantity').eq('is_active', true)
             ]);
             return {
                 raw_material: raw.data || [],
                 packaging_material: pkg.data || [],
                 semi_finished: semi.data || [],
-                finished_product: finished.data || []
+                finished_product: finished.data || [],
+                bundle: (bundles.data || []).map(b => ({ ...b, sales_price: b.bundle_price }))
             };
         }
     });
@@ -299,6 +301,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                 if (item.item_type === 'packaging_material') map.packaging_material_id = parseInt(item.item_id);
                 if (item.item_type === 'semi_finished') map.semi_finished_product_id = parseInt(item.item_id);
                 if (item.item_type === 'finished_product') map.finished_product_id = parseInt(item.item_id);
+                if (item.item_type === 'bundle') map.bundle_id = parseInt(item.item_id);
 
                 return {
                     item_type: item.item_type,
@@ -416,6 +419,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                                                             <SelectItem value="raw_material">خام</SelectItem>
                                                             <SelectItem value="packaging_material">تعبئة</SelectItem>
                                                             <SelectItem value="semi_finished">نصف مصنع</SelectItem>
+                                                            <SelectItem value="bundle">باندل</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 )}
@@ -524,6 +528,7 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                                                                     <SelectItem value="raw_material">خام</SelectItem>
                                                                     <SelectItem value="packaging_material">تعبئة</SelectItem>
                                                                     <SelectItem value="semi_finished">نصف مصنع</SelectItem>
+                                                                    <SelectItem value="bundle">باندل</SelectItem>
                                                                 </SelectContent>
                                                             </Select>
                                                         )}

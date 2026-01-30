@@ -279,7 +279,7 @@ function SalesReturnsList() {
 // --- Shared Create Form ---
 
 interface ReturnItemForm {
-    item_type: 'raw_material' | 'packaging_material' | 'semi_finished' | 'finished_product';
+    item_type: 'raw_material' | 'packaging_material' | 'semi_finished' | 'finished_product' | 'bundle';
     item_id: string; // Stored as string in Select value
     quantity: number;
     unit_price: number;
@@ -353,27 +353,30 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
             if (itemType === 'packaging_material') return invItem.packaging_material_id === idInt;
             if (itemType === 'finished_product') return invItem.finished_product_id === idInt;
             if (itemType === 'semi_finished') return invItem.semi_finished_product_id === idInt;
+            if (itemType === 'bundle') return invItem.bundle_id === idInt;
             return false;
         });
 
         return found ? found.unit_price : null;
     };
 
-    // Fetch Inventory Items (Unified)
+    // Fetch Inventory Items (Unified with bundles)
     const { data: inventoryItems } = useQuery({
         queryKey: ['inventory_items_returns'],
         queryFn: async () => {
-            const [raw, pkg, semi, finished] = await Promise.all([
+            const [raw, pkg, semi, finished, bundles] = await Promise.all([
                 supabase.from('raw_materials').select('id, name'),
                 supabase.from('packaging_materials').select('id, name'),
                 supabase.from('semi_finished_products').select('id, name'),
-                supabase.from('finished_products').select('id, name')
+                supabase.from('finished_products').select('id, name'),
+                supabase.from('product_bundles').select('id, name, bundle_price').eq('is_active', true)
             ]);
             return {
                 raw_material: raw.data || [],
                 packaging_material: pkg.data || [],
                 semi_finished: semi.data || [],
-                finished_product: finished.data || []
+                finished_product: finished.data || [],
+                bundle: bundles.data || []
             };
         }
     });
@@ -405,6 +408,7 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                 if (item.item_type === 'packaging_material') map.packaging_material_id = parseInt(item.item_id);
                 if (item.item_type === 'semi_finished') map.semi_finished_product_id = parseInt(item.item_id);
                 if (item.item_type === 'finished_product') map.finished_product_id = parseInt(item.item_id);
+                if (item.item_type === 'bundle') map.bundle_id = parseInt(item.item_id);
 
                 return {
                     item_type: item.item_type,
@@ -505,6 +509,7 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                                                     <SelectItem value="raw_material">خام</SelectItem>
                                                     <SelectItem value="packaging_material">تعبئة</SelectItem>
                                                     <SelectItem value="semi_finished">نصف مصنع</SelectItem>
+                                                    <SelectItem value="bundle">باندل</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         )}
@@ -611,6 +616,7 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                                                             <SelectItem value="raw_material">خام</SelectItem>
                                                             <SelectItem value="packaging_material">تعبئة</SelectItem>
                                                             <SelectItem value="semi_finished">نصف مصنع</SelectItem>
+                                                            <SelectItem value="bundle">باندل</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                 )}
