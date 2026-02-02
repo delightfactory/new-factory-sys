@@ -342,11 +342,25 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
         createMutation.mutate({ ...data, final_total: finalTotal });
     };
 
+    const onError = (formErrors: any) => {
+        console.error('Form validation errors:', formErrors);
+        // Check for item-level errors
+        if (formErrors.items) {
+            toast.error("يرجى التحقق من بيانات الأصناف - تأكد من اختيار الصنف وإدخال الكمية والسعر");
+        } else if (formErrors.supplier_id) {
+            toast.error("يرجى اختيار المورد");
+        } else if (formErrors.transaction_date) {
+            toast.error("يرجى إدخال تاريخ الفاتورة");
+        } else {
+            toast.error("يرجى التحقق من البيانات المطلوبة");
+        }
+    };
+
     return (
         <Card>
             <CardHeader><CardTitle>بيانات الفاتورة</CardTitle></CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-6">
                     {/* Header Fields */}
                     {/* Header Fields */}
                     <FormGrid className="grid-cols-1 md:grid-cols-4">
@@ -613,7 +627,12 @@ function CreateInvoiceForm({ onSuccess }: { onSuccess: () => void }) {
                         </div>
                     </div>
 
-                    <Button type="submit" className="w-full text-lg h-12" disabled={createMutation.isPending}>
+                    <Button
+                        type="submit"
+                        className="w-full text-lg h-12 relative z-50"
+                        style={{ touchAction: 'manipulation', pointerEvents: 'auto' }}
+                        disabled={createMutation.isPending}
+                    >
                         {createMutation.isPending ? "جاري الحفظ..." : "حفظ الفاتورة"}
                     </Button>
                 </form>
