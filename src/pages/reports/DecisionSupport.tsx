@@ -216,7 +216,7 @@ export default function DecisionSupport() {
                                 <span>{formatCurrency(data?.profitability.cogs30d || 0)}</span>
                             </div>
                             <div className="flex justify-between font-semibold">
-                                <span>صافي الربح</span>
+                                <span>إجمالي الربح</span>
                                 <span className="text-green-600">{formatCurrency(data?.profitability.grossMargin || 0)}</span>
                             </div>
                         </div>

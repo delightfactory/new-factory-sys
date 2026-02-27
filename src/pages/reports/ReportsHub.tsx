@@ -15,7 +15,11 @@ import {
     RotateCw,
     Users,
     Scale,
-    Wallet
+    Wallet,
+    CreditCard,
+    Tags,
+    Banknote,
+    Route
 } from "lucide-react";
 
 export default function ReportsHub() {
@@ -29,12 +33,52 @@ export default function ReportsHub() {
             bg: "bg-indigo-50 dark:bg-indigo-900/20"
         },
         {
+            title: "بطاقة تكلفة المنتج",
+            description: "هيكل التكلفة التفصيلي: خامات + نصف مصنع + تعبئة = تكلفة الوحدة وهامش الربح.",
+            icon: CreditCard,
+            color: "text-amber-600",
+            path: "/reports/cost-card",
+            bg: "bg-amber-50 dark:bg-amber-900/20"
+        },
+        {
+            title: "تحليل التسعير",
+            description: "مقارنة أسعار البيع بالتكاليف، تحديد المنتجات ذات الهامش المنخفض، واقتراح أسعار مثالية.",
+            icon: Tags,
+            color: "text-violet-600",
+            path: "/reports/pricing-analysis",
+            bg: "bg-violet-50 dark:bg-violet-900/20"
+        },
+        {
+            title: "تحليل الاتجاهات",
+            description: "رسوم بيانية تفاعلية للمبيعات والمشتريات والمصروفات والأرباح عبر الزمن.",
+            icon: BarChart3,
+            color: "text-sky-600",
+            path: "/reports/trends",
+            bg: "bg-sky-50 dark:bg-sky-900/20"
+        },
+        {
             title: "الميزان المالي",
             description: "صافي المركز المالي: قيمة المخزون + السيولة + مستحقات العملاء - ديون الموردين.",
             icon: Scale,
             color: "text-emerald-600",
             path: "/reports/balance-sheet",
             bg: "bg-emerald-50 dark:bg-emerald-900/20"
+        },
+        {
+            title: "التدفقات النقدية",
+            description: "تحليل حركة النقد: تدفقات تشغيلية واستثمارية مع تفصيل المصروفات حسب الفئة.",
+            icon: Banknote,
+            color: "text-lime-600",
+            path: "/reports/cash-flow",
+            bg: "bg-lime-50 dark:bg-lime-900/20"
+        },
+        {
+            title: "رحلة المنتج",
+            description: "تتبع حركة المنتج من المادة الخام حتى البيع مع التكلفة في كل مرحلة.",
+            icon: Route,
+            color: "text-fuchsia-600",
+            path: "/reports/product-journey",
+            bg: "bg-fuchsia-50 dark:bg-fuchsia-900/20"
         },
         {
             title: "أعمار الديون",

@@ -5,7 +5,6 @@ import { ArrowLeft, Users, Truck, TrendingUp, Banknote, Clock, Percent } from 'l
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
-import { differenceInDays } from 'date-fns';
 
 interface PartyAnalysis {
     id: string;
@@ -40,12 +39,7 @@ interface Invoice {
     payment_status: string;
 }
 
-interface Payment {
-    id: string;
-    party_id: string;
-    amount: number;
-    date: string;
-}
+
 
 interface Return {
     id: string;
@@ -68,13 +62,14 @@ export default function PartyAnalysisReport() {
         }
     });
 
-    // Fetch sales invoices (for customers)
+    // Fetch sales invoices (for customers) - posted only
     const { data: salesInvoices } = useQuery({
         queryKey: ['sales_invoices_report'],
         queryFn: async () => {
             const { data } = await supabase
                 .from('sales_invoices')
-                .select('id, customer_id, total_amount, paid_amount, transaction_date, status');
+                .select('id, customer_id, total_amount, paid_amount, transaction_date, status')
+                .eq('status', 'posted');
             return (data || []).map(inv => ({
                 id: inv.id,
                 party_id: inv.customer_id,
@@ -88,13 +83,14 @@ export default function PartyAnalysisReport() {
         }
     });
 
-    // Fetch purchase invoices (for suppliers)
+    // Fetch purchase invoices (for suppliers) - posted only
     const { data: purchaseInvoices } = useQuery({
         queryKey: ['purchase_invoices_report'],
         queryFn: async () => {
             const { data } = await supabase
                 .from('purchase_invoices')
-                .select('id, supplier_id, total_amount, paid_amount, transaction_date, status');
+                .select('id, supplier_id, total_amount, paid_amount, transaction_date, status')
+                .eq('status', 'posted');
             return (data || []).map(inv => ({
                 id: inv.id,
                 party_id: inv.supplier_id,
@@ -111,18 +107,40 @@ export default function PartyAnalysisReport() {
     // Combine all invoices
     const invoices = [...(salesInvoices || []), ...(purchaseInvoices || [])];
 
-    // Fetch payments with dates
-    const { data: payments } = useQuery({
-        queryKey: ['payments_all'],
+    // Fetch returns — use direct customer_id/supplier_id columns (NOT joins)
+    const { data: salesReturns } = useQuery({
+        queryKey: ['sales_returns_report'],
         queryFn: async () => {
-            const { data } = await supabase.from('payments').select('id, party_id, amount, date');
-            return (data || []) as Payment[];
+            const { data } = await supabase
+                .from('sales_returns')
+                .select('id, customer_id, total_amount, return_date, status')
+                .eq('status', 'posted');
+            return (data || []).map((r: any) => ({
+                id: r.id,
+                party_id: r.customer_id,
+                total_amount: r.total_amount || 0,
+                date: r.return_date
+            })) as Return[];
         }
     });
 
-    // Note: Returns are stored in separate tables (purchase_returns, sales_returns)
-    // For simplicity, we set return metrics to 0 - could be enhanced to query both tables
-    const returns: Return[] = [];
+    const { data: purchaseReturns } = useQuery({
+        queryKey: ['purchase_returns_report'],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('purchase_returns')
+                .select('id, supplier_id, total_amount, return_date, status')
+                .eq('status', 'posted');
+            return (data || []).map((r: any) => ({
+                id: r.id,
+                party_id: r.supplier_id,
+                total_amount: r.total_amount || 0,
+                date: r.return_date
+            })) as Return[];
+        }
+    });
+
+    const allReturns = [...(salesReturns || []), ...(purchaseReturns || [])];
 
 
     // Calculate analysis for each party
@@ -131,37 +149,23 @@ export default function PartyAnalysisReport() {
 
         return parties.map(party => {
             const partyInvoices = invoices.filter(i => i.party_id === party.id);
-            const partyPayments = payments?.filter(p => p.party_id === party.id) || [];
-            const partyReturns = returns?.filter(r => r.party_id === party.id) || [];
+            const partyReturns = allReturns.filter(r => r.party_id === party.id);
 
             const totalAmount = partyInvoices.reduce((s, i) => s + (i.total_amount || 0), 0);
             const totalPaid = partyInvoices.reduce((s, i) => s + (i.paid_amount || 0), 0);
-            const totalRemaining = partyInvoices.reduce((s, i) => s + (i.remaining_amount || 0), 0);
             const returnAmount = partyReturns.reduce((s, r) => s + (r.total_amount || 0), 0);
 
-            // Calculate average payment days
-            let avgPaymentDays = 0;
-            const paidInvoices = partyInvoices.filter(i => i.payment_status === 'paid');
-            if (paidInvoices.length > 0 && partyPayments.length > 0) {
-                const paymentDelays = paidInvoices.map(inv => {
-                    const invDate = new Date(inv.date);
-                    // Find the last payment for this invoice (simplified)
-                    const lastPayment = partyPayments
-                        .filter(p => new Date(p.date) >= invDate)
-                        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+            // Use party.balance as the authoritative remaining balance
+            // balance > 0 means they owe us (customer) or we overpaid (supplier)
+            // balance < 0 means we owe them (supplier) or customer overpaid
+            const partyBalance = party.balance || 0;
+            const totalRemaining = Math.abs(partyBalance);
 
-                    if (lastPayment) {
-                        return differenceInDays(new Date(lastPayment.date), invDate);
-                    }
-                    return 0;
-                });
-                avgPaymentDays = paymentDelays.reduce((s, d) => s + d, 0) / paymentDelays.length;
-            }
+            const avgPaymentDays = 0; // Not calculable without payment transaction dates
 
             // Find last transaction
             const allDates = [
                 ...partyInvoices.map(i => i.date),
-                ...partyPayments.map(p => p.date),
                 ...partyReturns.map(r => r.date)
             ].filter(Boolean).sort().reverse();
 
@@ -180,7 +184,7 @@ export default function PartyAnalysisReport() {
                 last_transaction_date: allDates[0] || null
             };
         });
-    }, [parties, salesInvoices, purchaseInvoices, payments]);
+    }, [parties, salesInvoices, purchaseInvoices, salesReturns, purchaseReturns]);
 
     // Filter
     const filtered = typeFilter === 'all'
@@ -203,14 +207,18 @@ export default function PartyAnalysisReport() {
         }
     });
 
-    // Stats
+    // Stats — use parties.balance for authoritative receivables/payables
     const customers = partyAnalysis.filter(p => p.type === 'customer');
     const suppliers = partyAnalysis.filter(p => p.type === 'supplier');
 
     const totalCustomerSales = customers.reduce((s, c) => s + c.total_amount, 0);
     const totalSupplierPurchases = suppliers.reduce((s, s2) => s + s2.total_amount, 0);
-    const totalReceivables = customers.reduce((s, c) => s + c.total_remaining, 0);
-    const totalPayables = suppliers.reduce((s, s2) => s + s2.total_remaining, 0);
+    // Receivables: sum of positive customer balances (they owe us)
+    const totalReceivables = parties?.filter(p => p.type === 'customer' && (p.balance || 0) > 0)
+        .reduce((s, p) => s + (p.balance || 0), 0) || 0;
+    // Payables: sum of positive supplier balances (we owe them — typically stored as positive on supplier)  
+    const totalPayables = parties?.filter(p => p.type === 'supplier' && (p.balance || 0) > 0)
+        .reduce((s, p) => s + (p.balance || 0), 0) || 0;
 
     return (
         <div className="p-4 sm:p-6 space-y-6">

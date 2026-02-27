@@ -237,6 +237,14 @@ export default function InventoryTurnoverReport() {
                 </div>
             </div>
 
+            {/* Warning if no movement data */}
+            {allItems.length > 0 && allItems.every(i => i.total_consumed === 0) && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+                    <Package className="h-4 w-4 shrink-0" />
+                    <span>لا توجد بيانات حركة مخزون — معدلات الدوران قد لا تكون دقيقة. تأكد من تسجيل حركات المخزون.</span>
+                </div>
+            )}
+
             {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20 border-blue-200 dark:border-blue-800">

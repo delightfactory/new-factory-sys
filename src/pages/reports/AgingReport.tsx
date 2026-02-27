@@ -57,14 +57,14 @@ export default function AgingReport() {
             const { data: salesData } = await supabase
                 .from('sales_invoices')
                 .select('id, invoice_number, customer_id, total_amount, paid_amount, transaction_date, status, customer:parties!customer_id(name, type)')
-                .in('status', ['draft', 'posted'])
+                .eq('status', 'posted')
                 .order('transaction_date', { ascending: true });
 
             // Fetch unpaid/partial purchase invoices (for suppliers)
             const { data: purchaseData } = await supabase
                 .from('purchase_invoices')
                 .select('id, invoice_number, supplier_id, total_amount, paid_amount, transaction_date, status, supplier:parties!supplier_id(name, type)')
-                .in('status', ['draft', 'posted'])
+                .eq('status', 'posted')
                 .order('transaction_date', { ascending: true });
 
             // Combine and normalize invoices

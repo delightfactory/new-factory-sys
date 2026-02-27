@@ -47,6 +47,10 @@ export interface ProfitabilityData {
     grossMargin: number;
     grossMarginPercent: number;
     topProducts: { name: string; revenue: number; margin: number }[];
+    previousRevenue30d: number;
+    previousCogs30d: number;
+    revenueChange: number;
+    marginChange: number;
 }
 
 export interface TrendData {
@@ -54,6 +58,7 @@ export interface TrendData {
     sales: number[];
     purchases: number[];
     expenses: number[];
+    profit: number[];
 }
 
 export interface DecisionSupportData {
@@ -214,6 +219,130 @@ export const DecisionSupportService = {
             });
         }
 
+        // 6. Low Margin Products (margin < 15%)
+        const { data: finishedProducts } = await supabase
+            .from('finished_products')
+            .select('id, name, unit_cost, sales_price, quantity');
+
+        const lowMarginProducts = finishedProducts?.filter(p => {
+            if (!p.sales_price || p.sales_price <= 0) return false;
+            const margin = ((p.sales_price - (p.unit_cost || 0)) / p.sales_price) * 100;
+            return margin < 15 && margin >= 0;
+        }) || [];
+
+        const negativeMarginProducts = finishedProducts?.filter(p => {
+            if (!p.sales_price || p.sales_price <= 0) return false;
+            return (p.unit_cost || 0) > p.sales_price;
+        }) || [];
+
+        if (negativeMarginProducts.length > 0) {
+            alerts.push({
+                id: 'negative-margin',
+                type: 'critical',
+                category: 'sales',
+                title: `${negativeMarginProducts.length} منتج بهامش ربح سلبي!`,
+                description: negativeMarginProducts.slice(0, 3).map(p => p.name).join('، '),
+                value: negativeMarginProducts.length,
+                action: { label: 'تحليل التسعير', path: '/reports/pricing-analysis' }
+            });
+        } else if (lowMarginProducts.length > 0) {
+            alerts.push({
+                id: 'low-margin',
+                type: 'warning',
+                category: 'sales',
+                title: `${lowMarginProducts.length} منتج بهامش ربح أقل من 15%`,
+                description: lowMarginProducts.slice(0, 3).map(p => p.name).join('، '),
+                value: lowMarginProducts.length,
+                action: { label: 'تحليل التسعير', path: '/reports/pricing-analysis' }
+            });
+        }
+
+        // 7. Declining Sales (this week vs last week)
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+        const { data: thisWeekSales } = await supabase
+            .from('sales_invoices')
+            .select('total_amount')
+            .eq('status', 'posted')
+            .gte('transaction_date', oneWeekAgo.toISOString().split('T')[0]);
+
+        const { data: lastWeekSales } = await supabase
+            .from('sales_invoices')
+            .select('total_amount')
+            .eq('status', 'posted')
+            .gte('transaction_date', twoWeeksAgo.toISOString().split('T')[0])
+            .lt('transaction_date', oneWeekAgo.toISOString().split('T')[0]);
+
+        const thisWeekTotal = thisWeekSales?.reduce((s, i) => s + i.total_amount, 0) || 0;
+        const lastWeekTotal = lastWeekSales?.reduce((s, i) => s + i.total_amount, 0) || 0;
+
+        if (lastWeekTotal > 0 && thisWeekTotal < lastWeekTotal * 0.7) {
+            const declinePercent = Math.round(((lastWeekTotal - thisWeekTotal) / lastWeekTotal) * 100);
+            alerts.push({
+                id: 'declining-sales',
+                type: 'warning',
+                category: 'sales',
+                title: `انخفاض المبيعات بنسبة ${declinePercent}%`,
+                description: `هذا الأسبوع: ${thisWeekTotal.toLocaleString()} vs الأسبوع الماضي: ${lastWeekTotal.toLocaleString()}`,
+                value: declinePercent,
+                action: { label: 'تحليل الاتجاهات', path: '/reports/trends' }
+            });
+        }
+
+        // 8. Supplier Payables Alert
+        const { data: supplierPayables } = await supabase
+            .from('parties')
+            .select('name, balance')
+            .eq('type', 'supplier')
+            .lt('balance', 0);
+
+        const totalPayables = Math.abs(supplierPayables?.reduce((s, p) => s + p.balance, 0) || 0);
+        if (totalPayables > 0 && supplierPayables && supplierPayables.length > 0) {
+            alerts.push({
+                id: 'supplier-payables',
+                type: totalPayables > 50000 ? 'warning' : 'info',
+                category: 'finance',
+                title: `مستحقات للموردين: ${totalPayables.toLocaleString()} ج.م`,
+                description: `${supplierPayables.length} مورد — الأعلى: ${supplierPayables.sort((a, b) => a.balance - b.balance)[0]?.name}`,
+                value: totalPayables,
+                action: { label: 'تقرير أعمار الديون', path: '/reports/aging' }
+            });
+        }
+
+        // 9. Stagnant Inventory (finished products with no movements in 30+ days)
+        const thirtyDaysAgoAlert = new Date();
+        thirtyDaysAgoAlert.setDate(thirtyDaysAgoAlert.getDate() - 30);
+
+        // inventory_movements table may not exist — handle gracefully
+        let movedIds = new Set<number>();
+        try {
+            const { data: recentMovements, error: movErr } = await supabase
+                .from('inventory_movements')
+                .select('item_id')
+                .eq('item_type', 'finished_products')
+                .gte('created_at', thirtyDaysAgoAlert.toISOString());
+            if (!movErr && recentMovements) {
+                movedIds = new Set(recentMovements.map(m => m.item_id) || []);
+            }
+        } catch { /* table may not exist */ }
+
+        const stagnant = finishedProducts?.filter(p => p.quantity > 0 && !movedIds.has(p.id)) || [];
+
+        if (stagnant.length > 0) {
+            alerts.push({
+                id: 'stagnant-inventory',
+                type: 'info',
+                category: 'inventory',
+                title: `${stagnant.length} منتج بدون حركة منذ 30+ يوم`,
+                description: stagnant.slice(0, 3).map(p => p.name).join('، '),
+                value: stagnant.length,
+                action: { label: 'تحليل المخزون', path: '/reports/inventory-analytics' }
+            });
+        }
+
         return alerts.sort((a, b) => {
             const priority = { critical: 0, warning: 1, info: 2 };
             return priority[a.type] - priority[b.type];
@@ -342,7 +471,7 @@ export const DecisionSupportService = {
     },
 
     /**
-     * Get profitability data (last 30 days)
+     * Get profitability data (last 30 days) with month-over-month comparison
      */
     async getProfitability(): Promise<ProfitabilityData> {
         const thirtyDaysAgo = new Date();
@@ -350,7 +479,12 @@ export const DecisionSupportService = {
         const startDate = thirtyDaysAgo.toISOString().split('T')[0];
         const endDate = new Date().toISOString().split('T')[0];
 
-        // Sales revenue
+        // Previous period (30-60 days ago)
+        const sixtyDaysAgoDate = new Date();
+        sixtyDaysAgoDate.setDate(sixtyDaysAgoDate.getDate() - 60);
+        const prevStartDate = sixtyDaysAgoDate.toISOString().split('T')[0];
+
+        // Sales revenue (current period)
         const { data: sales } = await supabase
             .from('sales_invoices')
             .select('total_amount')
@@ -360,7 +494,17 @@ export const DecisionSupportService = {
 
         const revenue30d = sales?.reduce((sum, s) => sum + s.total_amount, 0) || 0;
 
-        // COGS
+        // Sales revenue (previous period)
+        const { data: prevSales } = await supabase
+            .from('sales_invoices')
+            .select('total_amount')
+            .eq('status', 'posted')
+            .gte('transaction_date', prevStartDate)
+            .lt('transaction_date', startDate);
+
+        const previousRevenue30d = prevSales?.reduce((sum, s) => sum + s.total_amount, 0) || 0;
+
+        // COGS (current period)
         const { data: salesItems } = await supabase
             .from('sales_invoice_items')
             .select('quantity, unit_cost_at_sale, sales_invoices!inner(status, transaction_date)')
@@ -369,6 +513,18 @@ export const DecisionSupportService = {
             .lte('sales_invoices.transaction_date', endDate);
 
         const cogs30d = salesItems?.reduce((sum, item: any) =>
+            sum + (item.quantity * (item.unit_cost_at_sale || 0)), 0
+        ) || 0;
+
+        // COGS (previous period)
+        const { data: prevSalesItems } = await supabase
+            .from('sales_invoice_items')
+            .select('quantity, unit_cost_at_sale, sales_invoices!inner(status, transaction_date)')
+            .eq('sales_invoices.status', 'posted')
+            .gte('sales_invoices.transaction_date', prevStartDate)
+            .lt('sales_invoices.transaction_date', startDate);
+
+        const previousCogs30d = prevSalesItems?.reduce((sum, item: any) =>
             sum + (item.quantity * (item.unit_cost_at_sale || 0)), 0
         ) || 0;
 
@@ -408,24 +564,35 @@ export const DecisionSupportService = {
             .slice(0, 5);
 
         const grossMargin = revenue30d - cogs30d;
+        const previousGrossMargin = previousRevenue30d - previousCogs30d;
+        const previousMarginPercent = previousRevenue30d > 0 ? (previousGrossMargin / previousRevenue30d) * 100 : 0;
+        const currentMarginPercent = revenue30d > 0 ? (grossMargin / revenue30d) * 100 : 0;
 
         return {
             revenue30d,
             cogs30d,
             grossMargin,
-            grossMarginPercent: revenue30d > 0 ? Math.round((grossMargin / revenue30d) * 100) : 0,
-            topProducts
+            grossMarginPercent: Math.round(currentMarginPercent),
+            topProducts,
+            previousRevenue30d,
+            previousCogs30d,
+            revenueChange: previousRevenue30d > 0 ? Math.round(((revenue30d - previousRevenue30d) / previousRevenue30d) * 100) : 0,
+            marginChange: Math.round(currentMarginPercent - previousMarginPercent)
         };
     },
 
     /**
-     * Get trend data for charts
-     */
+ * Get trend data for charts
+ */
     async getTrends(): Promise<TrendData> {
         const dates: string[] = [];
         const sales: number[] = [];
         const purchases: number[] = [];
         const expenses: number[] = [];
+        const profit: number[] = [];
+
+        // Categories that are NOT operating expenses (supplier payments, transfers)
+        const excludeExpenseCategories = ['payment', 'purchase_payment', 'سداد مورد', 'transfer', 'تحويل'];
 
         // Generate last 30 days
         for (let i = 29; i >= 0; i--) {
@@ -442,7 +609,7 @@ export const DecisionSupportService = {
             .gte('transaction_date', dates[0])
             .lte('transaction_date', dates[dates.length - 1]);
 
-        // Fetch daily purchases
+        // Fetch daily purchases (for display, not profit calc)
         const { data: purchasesData } = await supabase
             .from('purchase_invoices')
             .select('transaction_date, total_amount')
@@ -450,18 +617,45 @@ export const DecisionSupportService = {
             .gte('transaction_date', dates[0])
             .lte('transaction_date', dates[dates.length - 1]);
 
+        // Fetch COGS from sales_invoice_items
+        const { data: cogsData } = await supabase
+            .from('sales_invoice_items')
+            .select('quantity, unit_cost_at_sale, sales_invoices!inner(transaction_date, status)')
+            .eq('sales_invoices.status', 'posted')
+            .gte('sales_invoices.transaction_date', dates[0])
+            .lte('sales_invoices.transaction_date', dates[dates.length - 1]);
+
+        // Fetch daily expenses (with category for filtering) — includes salary/payroll
+        const { data: expensesData } = await supabase
+            .from('financial_transactions')
+            .select('transaction_date, amount, category')
+            .eq('transaction_type', 'expense')
+            .gte('transaction_date', dates[0])
+            .lte('transaction_date', dates[dates.length - 1]);
+
+        // Filter out payment categories from expenses
+        const filteredExpenses = (expensesData || []).filter((e: any) =>
+            !excludeExpenseCategories.some(cat => (e.category || '').toLowerCase().includes(cat.toLowerCase()))
+        );
+
         // Aggregate by date
         dates.forEach(date => {
             const daySales = salesData?.filter(s => s.transaction_date === date)
                 .reduce((sum, s) => sum + s.total_amount, 0) || 0;
             const dayPurchases = purchasesData?.filter(p => p.transaction_date === date)
                 .reduce((sum, p) => sum + p.total_amount, 0) || 0;
+            const dayCogs = cogsData?.filter((c: any) => c.sales_invoices?.transaction_date === date)
+                .reduce((sum: number, c: any) => sum + (c.quantity * (c.unit_cost_at_sale || 0)), 0) || 0;
+            const dayExpenses = filteredExpenses.filter((e: any) => e.transaction_date === date)
+                .reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
 
             sales.push(daySales);
             purchases.push(dayPurchases);
-            expenses.push(0); // Can be enhanced later
+            expenses.push(dayExpenses);
+            // Profit = Revenue - COGS - Operating Expenses (includes salary)
+            profit.push(daySales - dayCogs - dayExpenses);
         });
 
-        return { dates, sales, purchases, expenses };
+        return { dates, sales, purchases, expenses, profit };
     }
 };

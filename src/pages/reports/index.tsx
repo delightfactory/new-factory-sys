@@ -11,6 +11,11 @@ import InventoryTurnoverReport from "./InventoryTurnoverReport";
 import PartyAnalysisReport from "./PartyAnalysisReport";
 import FinancialBalanceSheet from "./FinancialBalanceSheet";
 import ExpenseAnalysisReport from "./ExpenseAnalysisReport";
+import ProductCostCardReport from "./ProductCostCardReport";
+import PricingAnalysisReport from "./PricingAnalysisReport";
+import TrendsAnalyticsReport from "./TrendsAnalyticsReport";
+import CashFlowReport from "./CashFlowReport";
+import ProductJourneyReport from "./ProductJourneyReport";
 
 export default function ReportsRoutes() {
     return (
@@ -27,6 +32,11 @@ export default function ReportsRoutes() {
             <Route path="party-analysis" element={<PartyAnalysisReport />} />
             <Route path="balance-sheet" element={<FinancialBalanceSheet />} />
             <Route path="expense-analysis" element={<ExpenseAnalysisReport />} />
+            <Route path="cost-card" element={<ProductCostCardReport />} />
+            <Route path="pricing-analysis" element={<PricingAnalysisReport />} />
+            <Route path="trends" element={<TrendsAnalyticsReport />} />
+            <Route path="cash-flow" element={<CashFlowReport />} />
+            <Route path="product-journey" element={<ProductJourneyReport />} />
         </Routes>
     );
 }
