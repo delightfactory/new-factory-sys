@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Dialog,
     DialogContent,
@@ -64,21 +64,20 @@ export function ShortageAnalysisDialog({
     const [editableQuantities, setEditableQuantities] = useState<Record<number, number>>({});
     const [isEditing, setIsEditing] = useState(false);
 
-    // Initialize editable quantities when analysis result changes
-    const initializeQuantities = () => {
-        if (analysisResult?.suggested_production) {
+    // Initialize editable quantities when dialog opens or analysis result changes
+    useEffect(() => {
+        if (isOpen && analysisResult?.suggested_production) {
             const initial: Record<number, number> = {};
             analysisResult.suggested_production.forEach(item => {
                 initial[item.semi_finished_id] = item.suggested_qty;
             });
             setEditableQuantities(initial);
         }
-    };
-
-    // Reset when dialog opens
-    if (isOpen && analysisResult && Object.keys(editableQuantities).length === 0) {
-        initializeQuantities();
-    }
+        if (!isOpen) {
+            setEditableQuantities({});
+            setIsEditing(false);
+        }
+    }, [isOpen, analysisResult]);
 
     const handleQuantityChange = (id: number, value: number) => {
         setEditableQuantities(prev => ({
