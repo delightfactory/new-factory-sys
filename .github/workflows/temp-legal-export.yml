@@ -9,9 +9,6 @@ on:
 permissions:
   contents: read
 
-env:
-  EXPORT_URL: "https://ozthzccqudrudicnneuu.supabase.co/functions/v1/legal-kareem-export-20260805?token=o5wmDIEUoXw9DT8fa_6fPFfCqzzhRjMhDKOromlytmQ"
-
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -24,10 +21,27 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y fonts-noto-core qpdf poppler-utils
+          sudo apt-get install -y fonts-noto-core qpdf poppler-utils gnupg
           python -m pip install --upgrade pip
           pip install requests weasyprint pypdf
+      - name: Prepare protected system export
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://ozthzccqudrudicnneuu.supabase.co/functions/v1/legal-kareem-export-20260805?token=o5wmDIEUoXw9DT8fa_6fPFfCqzzhRjMhDKOromlytmQ" -o /tmp/kareem_payload.b64
+          base64 -d /tmp/kareem_payload.b64 > /tmp/kareem_payload.gpg
+          gpg --batch --yes --pinentry-mode loopback --passphrase "KAREEM-DOCS" --decrypt /tmp/kareem_payload.gpg > /tmp/kareem_data.json
+          python - <<'PY'
+          import json
+          p='/tmp/kareem_data.json'
+          d=json.load(open(p,encoding='utf-8'))
+          assert all(k in d for k in ('m','r','c','s','al','ad','cr'))
+          print({k: len(v) if isinstance(v,list) else v for k,v in d.items()})
+          PY
+          nohup python -m http.server 8765 --directory /tmp >/tmp/http.log 2>&1 &
+          sleep 1
       - name: Generate files
+        env:
+          EXPORT_URL: http://127.0.0.1:8765/kareem_data.json
         run: python legal_export.py
       - name: Validate files
         run: |
