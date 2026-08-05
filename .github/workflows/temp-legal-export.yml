@@ -1,0 +1,49 @@
+name: Temporary legal document export
+
+on:
+  push:
+    branches:
+      - temp-legal-export-kareem-20260805
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXPORT_URL: "https://ozthzccqudrudicnneuu.supabase.co/functions/v1/legal-kareem-export-20260805?token=o5wmDIEUoXw9DT8fa_6fPFfCqzzhRjMhDKOromlytmQ"
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-core qpdf poppler-utils
+          python -m pip install --upgrade pip
+          pip install requests weasyprint pypdf
+      - name: Generate files
+        run: python legal_export.py
+      - name: Validate files
+        run: |
+          set -euo pipefail
+          for f in legal_export_output/*.pdf; do
+            qpdf --check "$f"
+            pdfinfo "$f" | grep -E '^(Pages|Page size):'
+          done
+          cat legal_export_output/build_summary.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kareem-legal-documents
+          path: |
+            legal_export_output/*.pdf
+            legal_export_output/*.txt
+            legal_export_output/*.zip
+            legal_export_output/build_summary.json
+          if-no-files-found: error
+          retention-days: 1
