@@ -1,0 +1,223 @@
+{
+  "functions": [
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "complete_packaging_order_atomic(bigint)",
+      "definition": "CREATE OR REPLACE FUNCTION public.complete_packaging_order_atomic(p_order_id bigint)\n RETURNS void\n LANGUAGE plpgsql\nAS $function$\r\nDECLARE\r\n    r_item RECORD;\r\n    r_pkg RECORD;\r\n    v_order_code TEXT;\r\n    v_sf_id BIGINT;\r\n    v_sf_qty_per_unit NUMERIC;\r\n    v_sf_needed NUMERIC;\r\n    v_pkg_needed NUMERIC;\r\n    v_prev_balance NUMERIC;\r\n    v_new_balance NUMERIC;\r\n    -- WACO Variables (NEW)\r\n    v_prev_cost NUMERIC;\r\n    v_new_cost NUMERIC;\r\n    v_semi_cost NUMERIC;\r\n    v_pack_cost NUMERIC;\r\n    v_item_cost NUMERIC;\r\n    v_total_cost NUMERIC := 0;\r\nBEGIN\r\n    -- Get Order Code\r\n    SELECT code INTO v_order_code FROM packaging_orders WHERE id = p_order_id;\r\n    IF v_order_code IS NULL THEN v_order_code := 'PKG-' || p_order_id::TEXT; END IF;\r\n\r\n    -- Loop through Order Items\r\n    FOR r_item IN SELECT * FROM packaging_order_items WHERE packaging_order_id = p_order_id LOOP\r\n        \r\n        -- Get Finished Product Details\r\n        SELECT semi_finished_id, semi_finished_quantity \r\n        INTO v_sf_id, v_sf_qty_per_unit\r\n        FROM finished_products \r\n        WHERE id = r_item.finished_product_id;\r\n\r\n        -- =====================================================================\r\n        -- Calculate Item Cost (WACO Enhancement)\r\n        -- Cost = (Semi-Finished Qty × Cost) + Sum(Packaging Qty × Cost)\r\n        -- =====================================================================\r\n        \r\n        -- 1. Semi-Finished Cost Component\r\n        v_semi_cost := 0;\r\n        IF v_sf_id IS NOT NULL AND v_sf_qty_per_unit IS NOT NULL THEN\r\n            SELECT COALESCE(v_sf_qty_per_unit * sfp.unit_cost, 0) INTO v_semi_cost\r\n            FROM semi_finished_products sfp\r\n            WHERE sfp.id = v_sf_id;\r\n        END IF;\r\n\r\n        -- 2. Packaging Materials Cost Component\r\n        SELECT COALESCE(SUM(fpp.quantity * pm.unit_cost), 0) INTO v_pack_cost\r\n        FROM finished_product_packaging fpp\r\n        JOIN packaging_materials pm ON fpp.packaging_material_id = pm.id\r\n        WHERE fpp.finished_product_id = r_item.finished_product_id;\r\n\r\n        -- Total item cost = semi-finished cost + packaging cost\r\n        v_item_cost := COALESCE(v_semi_cost, 0) + COALESCE(v_pack_cost, 0);\r\n\r\n        -- Deduct Semi-Finished\r\n        IF v_sf_id IS NOT NULL AND v_sf_qty_per_unit IS NOT NULL THEN\r\n            v_sf_needed := r_item.quantity * v_sf_qty_per_unit;\r\n\r\n            SELECT quantity INTO v_prev_balance FROM semi_finished_products WHERE id = v_sf_id;\r\n            IF v_prev_balance IS NULL THEN v_prev_balance := 0; END IF;\r\n            v_new_balance := v_prev_balance - v_sf_needed;\r\n\r\n            UPDATE semi_finished_products \r\n            SET quantity = v_new_balance, updated_at = NOW() \r\n            WHERE id = v_sf_id;\r\n\r\n            PERFORM log_inventory_movement(\r\n                v_sf_id, 'semi_finished_products', 'out', v_sf_needed, \r\n                'استهلاك في أمر تعبئة #' || v_order_code, v_order_code\r\n            );\r\n        END IF;\r\n\r\n        -- Deduct Packaging Materials\r\n        FOR r_pkg IN \r\n            SELECT * FROM finished_product_packaging WHERE finished_product_id = r_item.finished_product_id\r\n        LOOP\r\n            v_pkg_needed := r_item.quantity * r_pkg.quantity;\r\n\r\n            SELECT quantity INTO v_prev_balance FROM packaging_materials WHERE id = r_pkg.packaging_material_id;\r\n            IF v_prev_balance IS NULL THEN v_prev_balance := 0; END IF;\r\n            v_new_balance := v_prev_balance - v_pkg_needed;\r\n\r\n            UPDATE packaging_materials \r\n            SET quantity = v_new_balance, updated_at = NOW() \r\n            WHERE id = r_pkg.packaging_material_id;\r\n\r\n            PERFORM log_inventory_movement(\r\n                r_pkg.packaging_material_id, 'packaging_materials', 'out', v_pkg_needed, \r\n                'استهلاك في أمر تعبئة #' || v_order_code, v_order_code\r\n            );\r\n        END LOOP;\r\n\r\n        -- Get current finished product quantity and cost\r\n        SELECT quantity, COALESCE(unit_cost, 0) INTO v_prev_balance, v_prev_cost \r\n        FROM finished_products WHERE id = r_item.finished_product_id;\r\n        IF v_prev_balance IS NULL THEN v_prev_balance := 0; END IF;\r\n        IF v_prev_cost IS NULL THEN v_prev_cost := 0; END IF;\r\n        \r\n        v_new_balance := v_prev_balance + r_item.quantity;\r\n\r\n        -- =====================================================================\r\n        -- Calculate WACO for Finished Product (Enhancement)\r\n        -- New Cost = (Old Qty × Old Cost + New Qty × New Cost) / Total Qty\r\n        -- =====================================================================\r\n        IF v_new_balance > 0 THEN\r\n            v_new_cost := ((v_prev_balance * v_prev_cost) + (r_item.quantity * v_item_cost)) / v_new_balance;\r\n        ELSE\r\n            v_new_cost := v_item_cost;\r\n        END IF;\r\n\r\n        -- Update Finished Product with quantity AND cost\r\n        UPDATE finished_products \r\n        SET quantity = v_new_balance, \r\n            unit_cost = v_new_cost,\r\n            updated_at = NOW() \r\n        WHERE id = r_item.finished_product_id;\r\n\r\n        PERFORM log_inventory_movement(\r\n            r_item.finished_product_id, 'finished_products', 'in', r_item.quantity, \r\n            'إنتاج تعبئة وتغليف #' || v_order_code, v_order_code\r\n        );\r\n\r\n        -- =====================================================================\r\n        -- Update Order Item with Cost (Enhancement)\r\n        -- =====================================================================\r\n        UPDATE packaging_order_items \r\n        SET unit_cost = v_item_cost, \r\n            total_cost = r_item.quantity * v_item_cost\r\n        WHERE id = r_item.id;\r\n\r\n        v_total_cost := v_total_cost + (r_item.quantity * v_item_cost);\r\n    END LOOP;\r\n\r\n    -- =====================================================================\r\n    -- Update Order with Total Cost (Enhancement)\r\n    -- =====================================================================\r\n    UPDATE packaging_orders \r\n    SET status = 'completed', \r\n        total_cost = v_total_cost,\r\n        updated_at = NOW()\r\n    WHERE id = p_order_id;\r\nEND;\r\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "complete_production_order_atomic(bigint)",
+      "definition": "CREATE OR REPLACE FUNCTION public.complete_production_order_atomic(p_order_id bigint)\n RETURNS void\n LANGUAGE plpgsql\nAS $function$\r\nDECLARE\r\n    r_item RECORD;\r\n    r_ingredient RECORD;\r\n    v_order_code TEXT;\r\n    v_recipe_batch_size NUMERIC;\r\n    v_ratio NUMERIC;\r\n    v_qty_needed NUMERIC;\r\n    v_prev_balance NUMERIC;\r\n    v_new_balance NUMERIC;\r\n    v_prev_cost NUMERIC;\r\n    v_new_cost NUMERIC;\r\n    -- WACO Variables\r\n    v_batch_cost NUMERIC;      -- Total cost for one batch (recipe_batch_size units)\r\n    v_item_unit_cost NUMERIC;  -- Cost per single unit of semi-finished product\r\n    v_total_order_cost NUMERIC := 0;\r\nBEGIN\r\n    -- Get Order Code\r\n    SELECT code INTO v_order_code FROM production_orders WHERE id = p_order_id;\r\n    IF v_order_code IS NULL THEN v_order_code := 'PO-' || p_order_id::TEXT; END IF;\r\n\r\n    -- Loop through Order Items\r\n    FOR r_item IN SELECT * FROM production_order_items WHERE production_order_id = p_order_id LOOP\r\n        \r\n        -- Get Recipe Details (batch size)\r\n        SELECT recipe_batch_size INTO v_recipe_batch_size \r\n        FROM semi_finished_products \r\n        WHERE id = r_item.semi_finished_id;\r\n\r\n        -- Handle NULL or zero batch size\r\n        IF v_recipe_batch_size IS NULL OR v_recipe_batch_size = 0 THEN \r\n            v_recipe_batch_size := 100; \r\n        END IF;\r\n        \r\n        -- Calculate ratio: how many batches are we producing\r\n        v_ratio := r_item.quantity / v_recipe_batch_size;\r\n\r\n        -- =====================================================================\r\n        -- Calculate UNIT COST from Raw Materials (CORRECTED)\r\n        -- \r\n        -- si.quantity = amount of raw material for ONE batch (recipe_batch_size)\r\n        -- rm.unit_cost = cost per unit of raw material\r\n        -- \r\n        -- v_batch_cost = Total cost of raw materials for ONE batch\r\n        -- v_item_unit_cost = Cost per SINGLE UNIT of semi-finished product\r\n        -- =====================================================================\r\n        SELECT COALESCE(SUM(rm.unit_cost * si.quantity), 0) INTO v_batch_cost\r\n        FROM semi_finished_ingredients si\r\n        JOIN raw_materials rm ON si.raw_material_id = rm.id\r\n        WHERE si.semi_finished_id = r_item.semi_finished_id;\r\n\r\n        -- Unit cost = batch cost / batch size\r\n        v_item_unit_cost := v_batch_cost / v_recipe_batch_size;\r\n\r\n        -- Deduct Raw Materials (Ingredients)\r\n        FOR r_ingredient IN \r\n            SELECT * FROM semi_finished_ingredients WHERE semi_finished_id = r_item.semi_finished_id \r\n        LOOP\r\n            -- Amount needed = ingredient quantity per batch * number of batches\r\n            v_qty_needed := r_ingredient.quantity * v_ratio;\r\n\r\n            SELECT quantity INTO v_prev_balance FROM raw_materials WHERE id = r_ingredient.raw_material_id;\r\n            IF v_prev_balance IS NULL THEN v_prev_balance := 0; END IF;\r\n            v_new_balance := v_prev_balance - v_qty_needed;\r\n\r\n            UPDATE raw_materials SET quantity = v_new_balance, updated_at = NOW() \r\n            WHERE id = r_ingredient.raw_material_id;\r\n\r\n            PERFORM log_inventory_movement(\r\n                r_ingredient.raw_material_id, 'raw_materials', 'out', v_qty_needed, \r\n                'استهلاك في أمر إنتاج #' || v_order_code, v_order_code\r\n            );\r\n        END LOOP;\r\n\r\n        -- Get current semi-finished product quantity and cost\r\n        SELECT quantity, COALESCE(unit_cost, 0) INTO v_prev_balance, v_prev_cost \r\n        FROM semi_finished_products WHERE id = r_item.semi_finished_id;\r\n        IF v_prev_balance IS NULL THEN v_prev_balance := 0; END IF;\r\n        IF v_prev_cost IS NULL THEN v_prev_cost := 0; END IF;\r\n        \r\n        v_new_balance := v_prev_balance + r_item.quantity;\r\n\r\n        -- =====================================================================\r\n        -- Calculate WACO for Semi-Finished Product\r\n        -- New Avg Cost = (Old Qty × Old Cost + New Qty × New Unit Cost) / Total Qty\r\n        -- =====================================================================\r\n        IF v_new_balance > 0 THEN\r\n            v_new_cost := ((v_prev_balance * v_prev_cost) + (r_item.quantity * v_item_unit_cost)) / v_new_balance;\r\n        ELSE\r\n            v_new_cost := v_item_unit_cost;\r\n        END IF;\r\n\r\n        -- Update Semi-Finished Product with quantity AND cost\r\n        UPDATE semi_finished_products \r\n        SET quantity = v_new_balance, \r\n            unit_cost = v_new_cost,\r\n            updated_at = NOW() \r\n        WHERE id = r_item.semi_finished_id;\r\n\r\n        PERFORM log_inventory_movement(\r\n            r_item.semi_finished_id, 'semi_finished_products', 'in', r_item.quantity, \r\n            'إنتاج من أمر تشغيل #' || v_order_code, v_order_code\r\n        );\r\n\r\n        -- =====================================================================\r\n        -- Update Order Item with Cost\r\n        -- unit_cost = cost per unit, total_cost = unit_cost * quantity\r\n        -- =====================================================================\r\n        UPDATE production_order_items \r\n        SET unit_cost = v_item_unit_cost, \r\n            total_cost = r_item.quantity * v_item_unit_cost\r\n        WHERE id = r_item.id;\r\n\r\n        v_total_order_cost := v_total_order_cost + (r_item.quantity * v_item_unit_cost);\r\n    END LOOP;\r\n\r\n    -- =====================================================================\r\n    -- Update Order with Total Cost\r\n    -- =====================================================================\r\n    UPDATE production_orders \r\n    SET status = 'completed', \r\n        total_cost = v_total_order_cost,\r\n        updated_at = NOW()\r\n    WHERE id = p_order_id;\r\nEND;\r\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "delete_user_by_admin(uuid)",
+      "definition": "CREATE OR REPLACE FUNCTION public.delete_user_by_admin(target_user_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n    _executing_role app_role;\r\nBEGIN\r\n    -- Check permissions\r\n    SELECT role INTO _executing_role FROM public.profiles WHERE id = auth.uid();\r\n\r\n    IF _executing_role IS NULL OR _executing_role != 'admin' THEN\r\n        RAISE EXCEPTION 'Access Denied: Only admins can delete users.';\r\n    END IF;\r\n\r\n    -- Prevent self-deletion\r\n    IF target_user_id = auth.uid() THEN\r\n        RAISE EXCEPTION 'You cannot delete your own account.';\r\n    END IF;\r\n\r\n    -- Delete from auth.users (Cascade should handle profiles)\r\n    DELETE FROM auth.users WHERE id = target_user_id;\r\nEND;\r\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "has_role(app_role)",
+      "definition": "CREATE OR REPLACE FUNCTION public.has_role(required_role app_role)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n  _curr_role app_role;\r\nBEGIN\r\n  SELECT role INTO _curr_role FROM public.profiles WHERE id = auth.uid();\r\n  \r\n  -- Hierarchical Logic\r\n  IF _curr_role = 'admin' THEN RETURN TRUE; END IF;\r\n  IF _curr_role = 'manager' AND required_role != 'admin' THEN RETURN TRUE; END IF;\r\n  \r\n  RETURN _curr_role = required_role;\r\nEND;\r\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "is_admin()",
+      "definition": "CREATE OR REPLACE FUNCTION public.is_admin()\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n  _curr_role app_role;\r\nBEGIN\r\n  SELECT role INTO _curr_role FROM public.profiles WHERE id = auth.uid();\r\n  RETURN _curr_role = 'admin';\r\nEND;\r\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "process_sales_invoice(bigint)",
+      "definition": "CREATE OR REPLACE FUNCTION public.process_sales_invoice(p_invoice_id bigint)\n RETURNS jsonb\n LANGUAGE plpgsql\nAS $function$\r\nDECLARE\r\n    v_invoice RECORD;\r\n    v_item RECORD;\r\n    v_current_qty NUMERIC;\r\n    v_current_cost NUMERIC;\r\n    v_remaining_amount NUMERIC;\r\n    v_item_id BIGINT;\r\n    v_item_type_str TEXT;\r\nBEGIN\r\n    SELECT * INTO v_invoice FROM sales_invoices WHERE id = p_invoice_id;\r\n    \r\n    IF v_invoice.status != 'draft' THEN\r\n        RAISE EXCEPTION 'Invoice is already processed or voided';\r\n    END IF;\r\n\r\n    FOR v_item IN SELECT * FROM sales_invoice_items WHERE invoice_id = p_invoice_id LOOP\r\n        v_item_id := NULL;\r\n        v_current_cost := 0;\r\n        \r\n        IF v_item.item_type = 'finished_product' THEN\r\n            v_item_id := v_item.finished_product_id;\r\n            v_item_type_str := 'finished_products';\r\n            SELECT quantity, COALESCE(unit_cost, 0) INTO v_current_qty, v_current_cost \r\n            FROM finished_products WHERE id = v_item_id;\r\n            IF v_current_qty < v_item.quantity THEN RAISE EXCEPTION 'رصيد غير كافي للمنتج #%', v_item_id; END IF;\r\n            UPDATE finished_products SET quantity = quantity - v_item.quantity, updated_at = NOW() WHERE id = v_item_id;\r\n\r\n        ELSIF v_item.item_type = 'raw_material' THEN\r\n            v_item_id := v_item.raw_material_id;\r\n            v_item_type_str := 'raw_materials';\r\n            SELECT quantity, COALESCE(unit_cost, 0) INTO v_current_qty, v_current_cost \r\n            FROM raw_materials WHERE id = v_item_id;\r\n            IF v_current_qty < v_item.quantity THEN RAISE EXCEPTION 'رصيد غير كافي للخامة #%', v_item_id; END IF;\r\n            UPDATE raw_materials SET quantity = quantity - v_item.quantity, updated_at = NOW() WHERE id = v_item_id;\r\n\r\n        ELSIF v_item.item_type = 'packaging_material' THEN\r\n            v_item_id := v_item.packaging_material_id;\r\n            v_item_type_str := 'packaging_materials';\r\n            SELECT quantity, COALESCE(unit_cost, 0) INTO v_current_qty, v_current_cost \r\n            FROM packaging_materials WHERE id = v_item_id;\r\n            IF v_current_qty < v_item.quantity THEN RAISE EXCEPTION 'رصيد غير كافي لمادة التعبئة #%', v_item_id; END IF;\r\n            UPDATE packaging_materials SET quantity = quantity - v_item.quantity, updated_at = NOW() WHERE id = v_item_id;\r\n\r\n        ELSIF v_item.item_type = 'semi_finished' THEN\r\n            v_item_id := v_item.semi_finished_product_id;\r\n            v_item_type_str := 'semi_finished_products';\r\n            SELECT quantity, COALESCE(unit_cost, 0) INTO v_current_qty, v_current_cost \r\n            FROM semi_finished_products WHERE id = v_item_id;\r\n            IF v_current_qty < v_item.quantity THEN RAISE EXCEPTION 'رصيد غير كافي للمنتج نصف المصنع #%', v_item_id; END IF;\r\n            UPDATE semi_finished_products SET quantity = quantity - v_item.quantity, updated_at = NOW() WHERE id = v_item_id;\r\n\r\n        -- ===== NEW: Bundle Support =====\r\n        ELSIF v_item.item_type = 'bundle' THEN\r\n            v_item_id := v_item.bundle_id;\r\n            v_item_type_str := 'product_bundles';\r\n            SELECT quantity, COALESCE(unit_cost, 0) INTO v_current_qty, v_current_cost \r\n            FROM product_bundles WHERE id = v_item_id;\r\n            IF v_current_qty < v_item.quantity THEN RAISE EXCEPTION 'رصيد غير كافي للباندل #%', v_item_id; END IF;\r\n            UPDATE product_bundles SET quantity = quantity - v_item.quantity, updated_at = NOW() WHERE id = v_item_id;\r\n        -- ===============================\r\n        END IF;\r\n\r\n        UPDATE sales_invoice_items SET unit_cost_at_sale = v_current_cost WHERE id = v_item.id;\r\n\r\n        IF v_item_id IS NOT NULL THEN\r\n            PERFORM log_inventory_movement(\r\n                v_item_id, v_item_type_str, 'out', v_item.quantity,\r\n                'فاتورة بيع #' || v_invoice.invoice_number, 'SI-' || p_invoice_id::TEXT\r\n            );\r\n        END IF;\r\n    END LOOP;\r\n\r\n    IF v_invoice.paid_amount > 0 AND v_invoice.treasury_id IS NOT NULL THEN\r\n        UPDATE treasuries SET balance = balance + v_invoice.paid_amount WHERE id = v_invoice.treasury_id;\r\n        INSERT INTO financial_transactions (treasury_id, party_id, amount, transaction_type, category, description, reference_type, reference_id, transaction_date)\r\n        VALUES (v_invoice.treasury_id, v_invoice.customer_id, v_invoice.paid_amount, 'income', 'sales_payment', 'تحصيل فاتورة بيع #' || v_invoice.invoice_number, 'sales_invoice', v_invoice.id::text, v_invoice.transaction_date);\r\n    END IF;\r\n\r\n    v_remaining_amount := v_invoice.total_amount - v_invoice.paid_amount;\r\n    IF v_remaining_amount > 0 THEN\r\n        UPDATE parties SET balance = balance + v_remaining_amount WHERE id = v_invoice.customer_id;\r\n    END IF;\r\n\r\n    UPDATE sales_invoices SET status = 'posted' WHERE id = p_invoice_id;\r\n    RETURN jsonb_build_object('success', true);\r\nEND;\r\n$function$\n",
+      "security_definer": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "reset_user_password_by_admin(uuid,text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.reset_user_password_by_admin(target_user_id uuid, new_password text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n    _executing_role app_role;\r\n    encrypted_pw TEXT;\r\nBEGIN\r\n    SELECT role INTO _executing_role FROM public.profiles WHERE id = auth.uid();\r\n    \r\n    IF _executing_role IS NULL OR _executing_role != 'admin' THEN\r\n        RAISE EXCEPTION 'Access Denied: Admins only';\r\n    END IF;\r\n\r\n    -- Hash new password\r\n    encrypted_pw := crypt(new_password, gen_salt('bf'));\r\n\r\n    UPDATE auth.users\r\n    SET encrypted_password = encrypted_pw, updated_at = NOW()\r\n    WHERE id = target_user_id;\r\nEND;\r\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "toggle_user_active(uuid,boolean)",
+      "definition": "CREATE OR REPLACE FUNCTION public.toggle_user_active(target_user_id uuid, status boolean)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nBEGIN\r\n  IF NOT public.is_admin() THEN\r\n    RAISE EXCEPTION 'Access Denied: Admins only';\r\n  END IF;\r\n\r\n  UPDATE public.profiles\r\n  SET is_active = status, updated_at = NOW()\r\n  WHERE id = target_user_id;\r\nEND;\r\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "update_user_details_by_admin(uuid,text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.update_user_details_by_admin(target_user_id uuid, new_name text)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nDECLARE\r\n    _executing_role app_role;\r\nBEGIN\r\n    SELECT role INTO _executing_role FROM public.profiles WHERE id = auth.uid();\r\n    \r\n    IF _executing_role IS NULL OR _executing_role != 'admin' THEN\r\n        RAISE EXCEPTION 'Access Denied: Admins only';\r\n    END IF;\r\n\r\n    UPDATE public.profiles\r\n    SET full_name = new_name, updated_at = NOW()\r\n    WHERE id = target_user_id;\r\n\r\n    -- Also update auth.users metadata if we want to keep them in sync\r\n    UPDATE auth.users\r\n    SET raw_user_meta_data = jsonb_set(\r\n        COALESCE(raw_user_meta_data, '{}'::jsonb),\r\n        '{full_name}',\r\n        to_jsonb(new_name)\r\n    )\r\n    WHERE id = target_user_id;\r\nEND;\r\n$function$\n",
+      "security_definer": true
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "identity": "update_user_role(uuid,app_role)",
+      "definition": "CREATE OR REPLACE FUNCTION public.update_user_role(target_user_id uuid, new_role app_role)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\r\nBEGIN\r\n  -- Check if caller is admin\r\n  IF NOT public.is_admin() THEN\r\n    RAISE EXCEPTION 'Access Denied: Admins only';\r\n  END IF;\r\n\r\n  UPDATE public.profiles\r\n  SET role = new_role, updated_at = NOW()\r\n  WHERE id = target_user_id;\r\nEND;\r\n$function$\n",
+      "security_definer": true
+    }
+  ],
+  "role_state": [
+    {
+      "name": "authenticated",
+      "login": false,
+      "super": false,
+      "bypass": false
+    },
+    {
+      "name": "service_role",
+      "login": false,
+      "super": false,
+      "bypass": true
+    }
+  ],
+  "profile_table": {
+    "acl": [
+      "postgres=arwdDxtm/postgres",
+      "anon=arwdDxtm/postgres",
+      "authenticated=arwdDxtm/postgres",
+      "service_role=arwdDxtm/postgres"
+    ],
+    "rls": true,
+    "owner": "postgres",
+    "force_rls": false
+  },
+  "profile_columns": [
+    {
+      "acl": null,
+      "name": "id"
+    },
+    {
+      "acl": null,
+      "name": "full_name"
+    },
+    {
+      "acl": null,
+      "name": "role"
+    },
+    {
+      "acl": null,
+      "name": "is_active"
+    },
+    {
+      "acl": null,
+      "name": "created_at"
+    },
+    {
+      "acl": null,
+      "name": "updated_at"
+    }
+  ],
+  "profile_policies": [
+    {
+      "cmd": "SELECT",
+      "qual": "(auth.role() = 'authenticated'::text)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "Public profiles are viewable by everyone",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() = id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users can update own profile",
+      "schemaname": "public",
+      "with_check": "(auth.uid() = id)"
+    }
+  ],
+  "migration_catalog": null,
+  "mcp_existing_functions": null
+}

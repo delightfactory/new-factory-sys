@@ -1,0 +1,6 @@
+Skipping "install" command...
+{"builderVersion":"5.8.17","entrypoint":"api/mcp.js","handler":"api\\mcp.js","runtime":"nodejs24.x","files":604,"bytes":2989557}
+Skipping "install" command...
+{"builderVersion":"5.8.17","entrypoint":"api/oauth-resource.js","handler":"api\\oauth-resource.js","runtime":"nodejs24.x","files":3,"bytes":3598}
+PASS emitted Vercel handlers: public discovery 200 without database/client secrets, POST 405, unconfigured MCP 503
+PASS emitted MCP trace: signed identity, SDK initialize/tools/list/call, integrated catalog, operation number, 401 challenge

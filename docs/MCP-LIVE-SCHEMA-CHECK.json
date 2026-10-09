@@ -1,0 +1,29 @@
+{
+  "reconnection": "Owner reconnected correct organization; current list_projects includes factory",
+  "analytics_schema": {
+    "tables": 31,
+    "columns": 281,
+    "missing": [],
+    "type_mismatch": []
+  },
+  "atomic_rpcs": [
+    {
+      "name": "complete_production_order_atomic",
+      "source": "20260105000040_enhance_atomic_production_waco.sql",
+      "same_normalized_baseline_body": true
+    },
+    {
+      "name": "complete_packaging_order_atomic",
+      "source": "20260105000041_enhance_atomic_packaging_waco.sql",
+      "same_normalized_baseline_body": true
+    }
+  ],
+  "scope": "Read-only catalog/source body comparison; no credentials/Auth/grants/business changes",
+  "native_grants": {
+    "tables": 31,
+    "all_native_select": true,
+    "all_nonowner": true,
+    "rls_enabled_tables": 4,
+    "prerequisites_failed": null
+  }
+}

@@ -1,3 +1,4 @@
+import { factoryCommand, fields } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Party {
@@ -44,25 +45,12 @@ export const PartiesService = {
 
     // Create party
     createParty: async (party: Partial<Party>) => {
-        const { data, error } = await supabase
-            .from('parties')
-            .insert(party)
-            .select()
-            .single();
-        if (error) throw error;
-        return data as Party;
+        return factoryCommand<Party>("create_party", { ...fields(party, ["name", "type", "phone", "email", "address", "tax_number", "commercial_record", "credit_limit"]), opening_balance: Number(party.balance ?? 0) });
     },
 
     // Update party
     updateParty: async (id: string, updates: Partial<Party>) => {
-        const { data, error } = await supabase
-            .from('parties')
-            .update(updates)
-            .eq('id', id)
-            .select()
-            .single();
-        if (error) throw error;
-        return data as Party;
+        return factoryCommand<Party>("update_party", { ...fields(updates, ["name", "type", "phone", "email", "address", "tax_number", "commercial_record", "credit_limit"]), id });
     },
 
     // Delete party (Check if they have transactions first? DB restrict will handle it)

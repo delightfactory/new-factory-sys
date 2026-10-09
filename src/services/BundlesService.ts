@@ -1,3 +1,4 @@
+import { factoryCommand, fields, commercialItems } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 import type { ProductBundle, BundleItem, BundleAssemblyOrder, BundleItemType } from "@/types";
 
@@ -118,41 +119,7 @@ export const BundlesService = {
             quantity: number;
         }[]
     ): Promise<ProductBundle> => {
-        // Create bundle
-        const { data: newBundle, error: bundleError } = await supabase
-            .from('product_bundles')
-            .insert({
-                ...bundle,
-                quantity: 0,
-                unit_cost: 0,
-            })
-            .select()
-            .single();
-
-        if (bundleError) throw bundleError;
-
-        // Create items
-        if (items.length > 0) {
-            const itemsToInsert = items.map(item => ({
-                bundle_id: newBundle.id,
-                ...item,
-            }));
-
-            const { error: itemsError } = await supabase
-                .from('bundle_items')
-                .insert(itemsToInsert);
-
-            if (itemsError) {
-                // Rollback: delete the bundle if items failed
-                await supabase.from('product_bundles').delete().eq('id', newBundle.id);
-                throw itemsError;
-            }
-        }
-
-        // Calculate cost
-        await supabase.rpc('calculate_bundle_cost', { p_bundle_id: newBundle.id });
-
-        return newBundle as ProductBundle;
+        return factoryCommand<ProductBundle>("create_bundle", { ...fields(bundle, ["code", "name", "description", "min_stock", "bundle_price", "is_active"]), items: items.map(item => { const { unit_price, ...component } = commercialItems([item])[0]; return component; }) });
     },
 
     /**
@@ -170,39 +137,7 @@ export const BundlesService = {
             quantity: number;
         }[]
     ): Promise<void> => {
-        // Update bundle
-        const { error: bundleError } = await supabase
-            .from('product_bundles')
-            .update({
-                name: bundle.name,
-                description: bundle.description,
-                min_stock: bundle.min_stock,
-                bundle_price: bundle.bundle_price,
-                is_active: bundle.is_active,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', id);
-
-        if (bundleError) throw bundleError;
-
-        // Replace items: delete old, insert new
-        await supabase.from('bundle_items').delete().eq('bundle_id', id);
-
-        if (items.length > 0) {
-            const itemsToInsert = items.map(item => ({
-                bundle_id: id,
-                ...item,
-            }));
-
-            const { error: itemsError } = await supabase
-                .from('bundle_items')
-                .insert(itemsToInsert);
-
-            if (itemsError) throw itemsError;
-        }
-
-        // Recalculate cost
-        await supabase.rpc('calculate_bundle_cost', { p_bundle_id: id });
+        await factoryCommand("update_bundle", { ...fields(bundle, ["code", "name", "description", "min_stock", "bundle_price", "is_active"]), id, items: items.map(item => { const { unit_price, ...component } = commercialItems([item])[0]; return component; }) });
     },
 
     /**
@@ -277,52 +212,21 @@ export const BundlesService = {
         order: { code: string; date: string; notes?: string },
         items: { bundle_id: number; quantity: number }[]
     ): Promise<BundleAssemblyOrder> => {
-        // Create order
-        const { data: newOrder, error: orderError } = await supabase
-            .from('bundle_assembly_orders')
-            .insert(order)
-            .select()
-            .single();
-
-        if (orderError) throw orderError;
-
-        // Create items
-        const itemsToInsert = items.map(item => ({
-            assembly_order_id: newOrder.id,
-            ...item,
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('bundle_assembly_order_items')
-            .insert(itemsToInsert);
-
-        if (itemsError) {
-            await supabase.from('bundle_assembly_orders').delete().eq('id', newOrder.id);
-            throw itemsError;
-        }
-
-        return newOrder as BundleAssemblyOrder;
+        return factoryCommand<BundleAssemblyOrder>("create_bundle_assembly_order", { ...fields(order, ["code", "date", "notes"]), items });
     },
 
     /**
      * Complete assembly order (atomic operation)
      */
     completeAssemblyOrder: async (orderId: number): Promise<void> => {
-        const { error } = await supabase.rpc('complete_bundle_assembly_order_atomic', {
-            p_order_id: orderId
-        });
-        if (error) throw error;
+        await factoryCommand("complete_bundle_assembly_order", { id: orderId });
     },
 
     /**
      * Cancel assembly order
      */
     cancelAssemblyOrder: async (orderId: number): Promise<{ success: boolean; message: string }> => {
-        const { data, error } = await supabase.rpc('cancel_bundle_assembly_order', {
-            p_order_id: orderId
-        });
-        if (error) throw error;
-        return data as { success: boolean; message: string };
+        await factoryCommand("cancel_bundle_assembly_order", { id: orderId }); return { success: true, message: "تم إلغاء أمر التجميع" };
     },
 
     /**

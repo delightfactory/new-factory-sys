@@ -15,6 +15,8 @@ import Login from "./pages/auth/Login";
 import ProtectedLayout from "./components/ProtectedLayout";
 import SettingsRoutes from "./pages/settings";
 import ReportsRoutes from "./pages/reports";
+import { FactoryOAuthConsent } from "./pages/auth/FactoryOAuthConsent";
+import { supabase } from "./integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +31,7 @@ function App() {
 
               <Route path="/" element={<ProtectedLayout />}>
                 <Route index element={<Dashboard />} />
+                <Route path="mcp/consent" element={<FactoryOAuthConsent supabase={supabase} appOrigin={import.meta.env.VITE_MCP_APP_ORIGIN ?? ""} />} />
                 <Route path="inventory/*" element={<InventoryRoutes />} />
                 <Route path="production/*" element={<ProductionRoutes />} />
                 <Route path="packaging/*" element={<PackagingRoutes />} />

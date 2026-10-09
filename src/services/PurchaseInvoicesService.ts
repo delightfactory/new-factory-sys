@@ -1,3 +1,4 @@
+import { commercialCommand, factoryCommand } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface PurchaseInvoice {
@@ -72,54 +73,15 @@ export const PurchaseInvoicesService = {
     },
 
     createInvoice: async (invoice: Partial<PurchaseInvoice>, items: PurchaseInvoiceItem[]) => {
-        // 0. Auto-generate invoice_number if not provided
-        if (!invoice.invoice_number) {
-            const { data: code } = await supabase.rpc('get_next_code', {
-                table_name: 'purchase_invoices',
-                prefix: 'PI'
-            });
-            invoice.invoice_number = code;
-        }
-
-        // 1. Create Header
-        const { data: header, error: headerError } = await supabase
-            .from('purchase_invoices')
-            .insert(invoice)
-            .select()
-            .single();
-
-        if (headerError) throw headerError;
-        if (!header) throw new Error("Failed to create invoice header");
-
-        // 2. Prepare Items
-        const itemsToInsert = items.map(item => ({
-            ...item,
-            invoice_id: header.id,
-            // Calculate total if missing
-            total_price: item.quantity * item.unit_price
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('purchase_invoice_items')
-            .insert(itemsToInsert);
-
-        if (itemsError) {
-            // Rollback header? (Manually delete)
-            await supabase.from('purchase_invoices').delete().eq('id', header.id);
-            throw itemsError;
-        }
-
-        return header;
+        return commercialCommand<PurchaseInvoice>("purchase", "invoice", invoice, items);
     },
 
     processInvoice: async (id: number) => {
-        const { error } = await supabase.rpc('process_purchase_invoice', { p_invoice_id: id });
-        if (error) throw error;
+        await factoryCommand("post_purchase_invoice", { id });
     },
 
     voidInvoice: async (id: number) => {
-        const { error } = await supabase.rpc('void_purchase_invoice', { p_invoice_id: id });
-        if (error) throw error;
+        await factoryCommand("void_purchase_invoice", { id });
     },
 
     deleteInvoice: async (id: number) => {

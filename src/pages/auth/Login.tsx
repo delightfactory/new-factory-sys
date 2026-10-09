@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 
 export default function Login() {
@@ -16,12 +16,16 @@ export default function Login() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { session } = useAuth();
     const navigate = useNavigate();
+    const location = useLocation();
+    const from = location.state?.from;
+    const returnTo = typeof from?.pathname === "string" && from.pathname.startsWith("/") && !from.pathname.startsWith("//")
+        ? from.pathname + (from.search ?? "") : "/";
 
     useEffect(() => {
         if (session) {
-            navigate("/", { replace: true });
+            navigate(returnTo, { replace: true });
         }
-    }, [session, navigate]);
+    }, [session, navigate, returnTo]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,7 +43,7 @@ export default function Login() {
                 });
             } else {
                 toast.success("تم تسجيل الدخول بنجاح");
-                navigate("/");
+                navigate(returnTo);
             }
         } catch (err) {
             toast.error("حدث خطأ غير متوقع");

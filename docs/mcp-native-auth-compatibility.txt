@@ -1,0 +1,17 @@
+Γ£ö native profile read/name remains; direct role/activity escalation fails (4809.974ms)
+Γ£ö live native admin RPC definitions retain name/role/activity/delete after profile ACL hardening (59.0716ms)
+Γ£ö viewer cannot execute admin writes; existing server role can finalize a newly created profile (36.9894ms)
+Γ£ö native initial/refreshed claims are byte-equivalent; expired native session rejects commands (81.227ms)
+Γ£ö persistent policy supports finite token renewal/read-to-write/revocation without reconnect (162.5329ms)
+Γ£ö native SQL rollback restores live function definitions and profile UPDATE ACL without deleting evidence (75.1749ms)
+Γ£ö consent displays revocable permanent access and refuses malformed/expired dates (1.3635ms)
+Γ£ö native user deletion keeps audit receipts; native session/client cleanup cannot be blocked by MCP FKs (66.8023ms)
+Γ£ö create-user accepts only a previously verified unexpired native identity, never MCP OAuth tokens (11.1539ms)
+Γä╣ tests 9
+Γä╣ suites 0
+Γä╣ pass 9
+Γä╣ fail 0
+Γä╣ cancelled 0
+Γä╣ skipped 0
+Γä╣ todo 0
+Γä╣ duration_ms 5884.4205

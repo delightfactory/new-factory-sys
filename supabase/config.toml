@@ -1,0 +1,5 @@
+# REVIEW DRAFT. Required for asymmetric user JWTs; create-user verifies the
+# token with Auth.getUser, then enforces native audience/client + active admin.
+# This does not change the existing scheduled-backup deployment/configuration.
+[functions.create-user]
+verify_jwt = false

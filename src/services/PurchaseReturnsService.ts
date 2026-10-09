@@ -1,3 +1,4 @@
+import { commercialCommand, factoryCommand } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface ReturnItem {
@@ -48,42 +49,11 @@ export const PurchaseReturnsService = {
     },
 
     createReturn: async (returnData: Partial<PurchaseReturn>, items: ReturnItem[]) => {
-        // 1. Generate Return Number
-        const { data: code } = await supabase.rpc('get_next_code', {
-            table_name: 'purchase_returns',
-            prefix: 'PR-'
-        });
-
-        // 2. Create Return Header
-        const { data: ret, error: retError } = await supabase
-            .from('purchase_returns')
-            .insert({
-                ...returnData,
-                return_number: code
-            })
-            .select()
-            .single();
-
-        if (retError) throw retError;
-
-        // 2. Create Items
-        const itemsWithId = items.map(item => ({
-            ...item,
-            return_id: ret.id
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('purchase_return_items')
-            .insert(itemsWithId);
-
-        if (itemsError) throw itemsError;
-
-        return ret;
+        return commercialCommand<PurchaseReturn>("purchase", "return", returnData, items);
     },
 
     processReturn: async (id: number) => {
-        const { error } = await supabase.rpc('process_purchase_return', { p_return_id: id });
-        if (error) throw error;
+        await factoryCommand("post_purchase_return", { id });
     },
 
     deleteReturn: async (id: number) => {
@@ -93,8 +63,6 @@ export const PurchaseReturnsService = {
 
     // Void a posted purchase return (reverses inventory and balance)
     voidReturn: async (id: number) => {
-        const { data, error } = await supabase.rpc('void_purchase_return', { p_return_id: id });
-        if (error) throw error;
-        if (data && !data.success) throw new Error(data.message);
+        await factoryCommand("void_purchase_return", { id });
     }
 };
