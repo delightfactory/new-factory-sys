@@ -1,0 +1,64 @@
+{
+  "project": "cgqunqczuvwfvuzlsvyy",
+  "read_date": "2026-10-09",
+  "mutations": false,
+  "edge_functions": [
+    {
+      "id": "4a4a9179-4b11-4216-80aa-8b8722f2d2ea",
+      "slug": "create-user",
+      "name": "create-user",
+      "status": "ACTIVE",
+      "version": 1,
+      "created_at": 1766064977102,
+      "updated_at": 1766064977102,
+      "verify_jwt": true,
+      "import_map": false,
+      "entrypoint_path": "file:///tmp/user_fn_cgqunqczuvwfvuzlsvyy_4a4a9179-4b11-4216-80aa-8b8722f2d2ea_1/source/index.ts",
+      "ezbr_sha256": "341b1137e3f0242536dcea90efa7fd919fed677145f21dbb4d5ba37566cd66d7"
+    },
+    {
+      "id": "09764019-bc31-4a12-804f-d6547c6c315e",
+      "slug": "scheduled-backup",
+      "name": "scheduled-backup",
+      "status": "ACTIVE",
+      "version": 1,
+      "created_at": 1767622386724,
+      "updated_at": 1767622386724,
+      "verify_jwt": false,
+      "import_map": false,
+      "entrypoint_path": "file:///tmp/user_fn_cgqunqczuvwfvuzlsvyy_09764019-bc31-4a12-804f-d6547c6c315e_1/source/index.ts",
+      "ezbr_sha256": "414443deec5377321e713cbafa35f28dba031623451b5c4bd39394d4c83a9a3f"
+    }
+  ],
+  "create_user_baseline_source": "rollback/create-user/index.ts",
+  "public_discovery": {
+    "status": 200,
+    "issuer": "https://cgqunqczuvwfvuzlsvyy.supabase.co/auth/v1",
+    "grant_types_supported": [
+      "authorization_code",
+      "refresh_token"
+    ],
+    "scopes_supported": [
+      "openid",
+      "profile",
+      "email",
+      "phone",
+      "offline_access"
+    ],
+    "token_endpoint_auth_methods_supported": [
+      "client_secret_basic",
+      "client_secret_post",
+      "none"
+    ],
+    "code_challenge_methods_supported": [
+      "S256",
+      "plain"
+    ]
+  },
+  "public_jwks": {
+    "status": 200,
+    "keys": []
+  },
+  "private_provider_configuration": "Not read; owner must record nonsecret OAuth enablement, DCR, consent URI, hook enabled/URI and signing key IDs/states before any mutation. Do not capture key material or tokens.",
+  "migration_catalog": "supabase_migrations.schema_migrations absent; reconcile using reviewed definitions/hashes; no history deletion or fabrication."
+}

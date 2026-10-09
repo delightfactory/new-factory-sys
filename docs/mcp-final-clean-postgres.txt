@@ -1,0 +1,5 @@
+PASS PostgreSQL17 all four migrations + OAuth consent/hook + readonly authenticated analytics
+PostgreSQL 17.10 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+PASS two sessions, same request: one header, one line, identical receipt
+PASS two sessions, different completion keys: stock and movements changed once
+PASS component cost update versus completion: committed cost snapshot used

@@ -1,3 +1,4 @@
+import { factoryCommand, fields, inventoryCommand } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 import { type RawMaterial, type PackagingMaterial, type SemiFinishedProduct, type FinishedProduct, type ProductionOrder, type PackagingOrder } from "@/types";
 
@@ -27,14 +28,10 @@ export const InventoryService = {
         return data as RawMaterial[];
     },
     createRawMaterial: async (item: Omit<RawMaterial, 'id' | 'created_at' | 'updated_at'>) => {
-        const { data, error } = await supabase.from('raw_materials').insert(item).select().single();
-        if (error) throw error;
-        return data as RawMaterial;
+        return inventoryCommand<RawMaterial>("raw_material", item);
     },
     updateRawMaterial: async (id: number, updates: Partial<RawMaterial>) => {
-        const { data, error } = await supabase.from('raw_materials').update(updates).eq('id', id).select().single();
-        if (error) throw error;
-        return data as RawMaterial;
+        return inventoryCommand<RawMaterial>("raw_material", updates, id);
     },
     deleteRawMaterial: async (id: number) => {
         const { error } = await supabase.from('raw_materials').delete().eq('id', id);
@@ -48,14 +45,10 @@ export const InventoryService = {
         return data as PackagingMaterial[];
     },
     createPackagingMaterial: async (item: Omit<PackagingMaterial, 'id' | 'created_at' | 'updated_at'>) => {
-        const { data, error } = await supabase.from('packaging_materials').insert(item).select().single();
-        if (error) throw error;
-        return data as PackagingMaterial;
+        return inventoryCommand<PackagingMaterial>("packaging_material", item);
     },
     updatePackagingMaterial: async (id: number, updates: Partial<PackagingMaterial>) => {
-        const { data, error } = await supabase.from('packaging_materials').update(updates).eq('id', id).select().single();
-        if (error) throw error;
-        return data as PackagingMaterial;
+        return inventoryCommand<PackagingMaterial>("packaging_material", updates, id);
     },
     deletePackagingMaterial: async (id: number) => {
         const { error } = await supabase.from('packaging_materials').delete().eq('id', id);
@@ -74,35 +67,7 @@ export const InventoryService = {
         product: Omit<SemiFinishedProduct, 'id' | 'created_at' | 'updated_at'>,
         ingredients: { raw_material_id: number; quantity: number; percentage: number }[]
     ) => {
-        // 1. Create Product
-        const { data: newProduct, error: prodError } = await supabase
-            .from('semi_finished_products')
-            .insert(product)
-            .select()
-            .single();
-
-        if (prodError) throw prodError;
-
-        // 2. Add Ingredients
-        if (ingredients.length > 0) {
-            const ingredientsData = ingredients.map(ing => ({
-                semi_finished_id: newProduct.id,
-                raw_material_id: ing.raw_material_id,
-                quantity: ing.quantity,
-                percentage: ing.percentage
-            }));
-
-            const { error: ingError } = await supabase
-                .from('semi_finished_ingredients')
-                .insert(ingredientsData);
-
-            if (ingError) {
-                await supabase.from('semi_finished_products').delete().eq('id', newProduct.id);
-                throw ingError;
-            }
-        }
-
-        return newProduct;
+        return inventoryCommand<SemiFinishedProduct>("semi_finished_product", product, undefined, { ingredients });
     },
 
     // Update Product WITH Ingredients
@@ -111,42 +76,7 @@ export const InventoryService = {
         product: Partial<SemiFinishedProduct>,
         ingredients: { raw_material_id: number; quantity: number; percentage: number }[]
     ) => {
-        // 1. Update Product Details
-        const { data: updatedProduct, error: prodError } = await supabase
-            .from('semi_finished_products')
-            .update(product)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (prodError) throw prodError;
-
-        // 2. Update Ingredients (Delete all and re-insert)
-        // A. Delete existing
-        const { error: delError } = await supabase
-            .from('semi_finished_ingredients')
-            .delete()
-            .eq('semi_finished_id', id);
-
-        if (delError) throw delError;
-
-        // B. Insert new
-        if (ingredients.length > 0) {
-            const ingredientsData = ingredients.map(ing => ({
-                semi_finished_id: id,
-                raw_material_id: ing.raw_material_id,
-                quantity: ing.quantity,
-                percentage: ing.percentage
-            }));
-
-            const { error: ingError } = await supabase
-                .from('semi_finished_ingredients')
-                .insert(ingredientsData);
-
-            if (ingError) throw ingError;
-        }
-
-        return updatedProduct;
+        return inventoryCommand<SemiFinishedProduct>("semi_finished_product", product, id, { ingredients });
     },
 
     getSemiFinishedIngredients: async (semiFinishedId: number) => {
@@ -243,43 +173,14 @@ export const InventoryService = {
         return data as FinishedProduct[];
     },
     createFinishedProduct: async (item: Omit<FinishedProduct, 'id' | 'created_at' | 'updated_at'>) => {
-        const { data, error } = await supabase.from('finished_products').insert(item).select().single();
-        if (error) throw error;
-        return data as FinishedProduct;
+        return inventoryCommand<FinishedProduct>("finished_product", item);
     },
 
     createFinishedProductWithPackaging: async (
         product: Omit<FinishedProduct, 'id' | 'created_at' | 'updated_at'>,
         packaging: { packaging_material_id: number; quantity: number }[]
     ) => {
-        // 1. Create Product
-        const { data: newProduct, error: prodError } = await supabase
-            .from('finished_products')
-            .insert(product)
-            .select()
-            .single();
-
-        if (prodError) throw prodError;
-
-        // 2. Add Packaging Materials
-        if (packaging.length > 0) {
-            const packagingData = packaging.map(pkg => ({
-                finished_product_id: newProduct.id,
-                packaging_material_id: pkg.packaging_material_id,
-                quantity: pkg.quantity
-            }));
-
-            const { error: pkgError } = await supabase
-                .from('finished_product_packaging')
-                .insert(packagingData);
-
-            if (pkgError) {
-                await supabase.from('finished_products').delete().eq('id', newProduct.id);
-                throw pkgError;
-            }
-        }
-
-        return newProduct;
+        return inventoryCommand<FinishedProduct>("finished_product", product, undefined, { packaging });
     },
 
     getFinishedProductPackaging: async (finishedProductId: number) => {
@@ -297,39 +198,7 @@ export const InventoryService = {
         product: Partial<FinishedProduct>,
         packaging: { packaging_material_id: number; quantity: number }[]
     ) => {
-        // 1. Update Product Details
-        const { data: updatedProduct, error: prodError } = await supabase
-            .from('finished_products')
-            .update(product)
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (prodError) throw prodError;
-
-        // 2. Update Packaging (Delete all and re-insert)
-        const { error: delError } = await supabase
-            .from('finished_product_packaging')
-            .delete()
-            .eq('finished_product_id', id);
-
-        if (delError) throw delError;
-
-        if (packaging.length > 0) {
-            const packagingData = packaging.map(pkg => ({
-                finished_product_id: id,
-                packaging_material_id: pkg.packaging_material_id,
-                quantity: pkg.quantity
-            }));
-
-            const { error: pkgError } = await supabase
-                .from('finished_product_packaging')
-                .insert(packagingData);
-
-            if (pkgError) throw pkgError;
-        }
-
-        return updatedProduct;
+        return inventoryCommand<FinishedProduct>("finished_product", product, id, { packaging });
     },
 
     deleteFinishedProduct: async (id: number) => {
@@ -360,61 +229,17 @@ export const InventoryService = {
         order: Omit<ProductionOrder, 'id' | 'created_at' | 'updated_at'>,
         items: { semi_finished_id: number; quantity: number; unit_cost?: number; total_cost?: number }[]
     ) => {
-        // 1. Create Order Header
-        const { data: newOrder, error: orderError } = await supabase
-            .from('production_orders')
-            .insert(order)
-            .select()
-            .single();
-
-        if (orderError) throw orderError;
-
-        // 2. Add Items
-        if (items.length > 0) {
-            const itemsData = items.map(item => ({
-                production_order_id: newOrder.id,
-                semi_finished_id: item.semi_finished_id,
-                quantity: item.quantity,
-                unit_cost: item.unit_cost || 0,
-                total_cost: item.total_cost || 0
-            }));
-
-            const { error: itemsError } = await supabase
-                .from('production_order_items')
-                .insert(itemsData);
-
-            if (itemsError) {
-                await supabase.from('production_orders').delete().eq('id', newOrder.id);
-                throw itemsError;
-            }
-        }
-
-        return newOrder;
+        return factoryCommand<ProductionOrder>("create_production_order", { ...fields(order, ["code", "date", "notes"]), items: items.map(item => fields(item, ["semi_finished_id", "quantity"])) });
     },
 
     updateProductionOrderStatus: async (id: number, status: 'pending' | 'inProgress' | 'completed' | 'cancelled') => {
-        // If completing, we might want to run the stock deduction logic here or in a separate specific method.
-        // For now, simple status update. The comprehensive stock logic is complex to do purely client-side transactionally without RPC.
-        // We will assume "Completed" triggers the stock movement.
-
-        const { data, error } = await supabase
-            .from('production_orders')
-            .update({ status })
-            .eq('id', id)
-            .select()
-            .single();
-
-        if (error) throw error;
-        return data;
+        const verb = status === "inProgress" ? "start" : status === "completed" ? "complete" : status === "cancelled" ? "cancel" : null; if (!verb) throw new Error("Invalid order transition"); return factoryCommand<ProductionOrder>(verb + "_production_order", { id });
     },
 
     // Special method to Execute Order (Deduct Raw, Add Semi-Finished)
     // Atomic Execution using RPC
     completeProductionOrder: async (orderId: number) => {
-        const { error } = await supabase.rpc('complete_production_order_atomic', { p_order_id: orderId });
-        if (error) throw error;
-
-        // No manual logging needed, RPC handles it.
+        await factoryCommand("complete_production_order", { id: orderId });
     },
 
     // --- Packaging Orders ---
@@ -431,35 +256,7 @@ export const InventoryService = {
         order: { code: string; date: string; notes: string; status: string; total_cost: number },
         items: { finished_product_id: number; quantity: number; unit_cost?: number; total_cost?: number }[]
     ) => {
-        // 1. Create Order Header
-        const { data: newOrder, error: orderError } = await supabase
-            .from('packaging_orders')
-            .insert(order)
-            .select()
-            .single();
-
-        if (orderError) throw orderError;
-
-        // 2. Add Items
-        if (items.length > 0) {
-            const itemsData = items.map(item => ({
-                packaging_order_id: newOrder.id,
-                finished_product_id: item.finished_product_id,
-                quantity: item.quantity,
-                unit_cost: item.unit_cost || 0,
-                total_cost: item.total_cost || 0
-            }));
-
-            const { error: itemsError } = await supabase
-                .from('packaging_order_items')
-                .insert(itemsData);
-
-            if (itemsError) {
-                await supabase.from('packaging_orders').delete().eq('id', newOrder.id);
-                throw itemsError;
-            }
-        }
-        return newOrder;
+        return factoryCommand<PackagingOrder>("create_packaging_order", { ...fields(order, ["code", "date", "notes"]), items: items.map(item => fields(item, ["finished_product_id", "quantity"])) });
     },
 
     getPackagingOrderItems: async (orderId: number) => {
@@ -472,29 +269,22 @@ export const InventoryService = {
     },
 
     updatePackagingOrderStatus: async (id: number, status: string) => {
-        const { data, error } = await supabase
-            .from('packaging_orders')
-            .update({ status })
-            .eq('id', id)
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
+        const verb = status === "inProgress" ? "start" : status === "completed" ? "complete" : status === "cancelled" ? "cancel" : null; if (!verb) throw new Error("Invalid order transition"); return factoryCommand<PackagingOrder>(verb + "_packaging_order", { id });
     },
 
     // Atomic Execution using RPC
     completePackagingOrder: async (orderId: number) => {
-        const { error } = await supabase.rpc('complete_packaging_order_atomic', { p_order_id: orderId });
-        if (error) throw error;
+        await factoryCommand("complete_packaging_order", { id: orderId });
+    },
 
-        // No manual logging needed, RPC handles it.
+    completePackagingOrderAllowShortage: async (orderId: number) => {
+        await factoryCommand("complete_packaging_order_allow_shortage", { id: orderId });
     },
 
 
     // Cancel Production Order (Atomic RPC)
     cancelProductionOrder: async (orderId: number) => {
-        const { error } = await supabase.rpc('cancel_production_order_atomic', { p_order_id: orderId });
-        if (error) throw error;
+        await factoryCommand("cancel_production_order", { id: orderId });
     },
 
     createPackagingOrderWithItems: async (
@@ -504,8 +294,7 @@ export const InventoryService = {
 
     // Cancel Packaging Order (Atomic RPC)
     cancelPackagingOrder: async (orderId: number) => {
-        const { error } = await supabase.rpc('cancel_packaging_order_atomic', { p_order_id: orderId });
-        if (error) throw error;
+        await factoryCommand("cancel_packaging_order", { id: orderId });
     },
 
     // --- SMART CASCADE: Analyze and Auto-Create Production ---
@@ -549,49 +338,14 @@ export const InventoryService = {
         items: { semi_finished_id: number; quantity: number }[],
         notes: string = 'أمر إنتاج تلقائي - لتغطية نقص في أمر تعبئة'
     ) => {
-        // Get next code
-        const code = await InventoryService.getNextCode('production_orders', 'PR');
-        const today = new Date().toISOString().split('T')[0];
-
-        // Create production order
-        const { data: order, error: orderError } = await supabase
-            .from('production_orders')
-            .insert({
-                code,
-                date: today,
-                notes,
-                status: 'pending',
-                total_cost: 0
-            })
-            .select()
-            .single();
-
-        if (orderError) throw orderError;
-
-        // Create order items
-        const orderItems = items.map(item => ({
-            production_order_id: order.id,
-            semi_finished_id: item.semi_finished_id,
-            quantity: item.quantity,
-            unit_cost: 0,
-            total_cost: 0
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('production_order_items')
-            .insert(orderItems);
-
-        if (itemsError) throw itemsError;
-
-        return order;
+        return factoryCommand<ProductionOrder>("create_production_order", { date: new Date().toISOString().slice(0, 10), notes, items });
     },
 
     /**
      * Complete a production order (atomic)
      */
     completeProductionOrderById: async (orderId: number) => {
-        const { error } = await supabase.rpc('complete_production_order_atomic', { p_order_id: orderId });
-        if (error) throw error;
+        await factoryCommand("complete_production_order", { id: orderId });
     },
 
     // --- SMART AVAILABILITY: Calculate pending demands ---

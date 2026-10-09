@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/check-mcp-deployment.mjs && tsc -b && vite build",
+    "mcp:check-deployment": "node scripts/check-mcp-deployment.mjs",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "mcp:start": "npm --prefix mcp start",
+    "mcp:test": "npm --prefix mcp test"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -1,0 +1,10 @@
+Γ£ö MCP atomic stock edit preserves retry, quantity and cost in one intent (1715.5357ms)
+Γ£ö protected deletion gives exact native route and blocks linked finance reversal (15.9164ms)
+Γä╣ tests 2
+Γä╣ suites 0
+Γä╣ pass 2
+Γä╣ fail 0
+Γä╣ cancelled 0
+Γä╣ skipped 0
+Γä╣ todo 0
+Γä╣ duration_ms 1864.1056

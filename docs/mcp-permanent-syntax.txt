@@ -1,0 +1,4 @@
+src/lib/mcp-access-expiry.ts: 0 syntax diagnostics
+src/pages/auth/FactoryOAuthConsent.tsx: 0 syntax diagnostics
+supabase/functions/create-user/native-token.ts: 0 syntax diagnostics
+supabase/functions/create-user/index.ts: 0 syntax diagnostics

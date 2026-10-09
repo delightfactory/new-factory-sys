@@ -1,3 +1,4 @@
+import { factoryCommand, fields } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface Transaction {
@@ -16,6 +17,13 @@ export interface Transaction {
     party?: { name: string };
 }
 
+export interface FinancialReversalPlan {
+    id: number;
+    amount: number;
+    requires_pair: boolean;
+    candidates: { id: number; treasury_name: string; amount: number; description: string; date: string }[];
+}
+
 export const FinancialService = {
     // --- Categories Management ---
     getCategories: async (type?: 'income' | 'expense') => {
@@ -28,13 +36,7 @@ export const FinancialService = {
     },
 
     createCategory: async (category: { name: string, type: 'income' | 'expense' }) => {
-        const { data, error } = await supabase
-            .from('financial_categories')
-            .insert(category)
-            .select()
-            .single();
-        if (error) throw error;
-        return data;
+        return factoryCommand("create_financial_category", category);
     },
 
     deleteCategory: async (id: number) => {
@@ -105,57 +107,21 @@ export const FinancialService = {
         description: string;
         transaction_date: string;
     }) => {
-        const { data: treasury } = await supabase.from('treasuries').select('balance').eq('id', transaction.treasury_id).single();
-        if (!treasury) throw new Error("الخزينة غير موجودة");
-
-        if (transaction.transaction_type === 'expense' && treasury.balance < transaction.amount) {
-            throw new Error("رصيد الخزينة غير كافٍ");
-        }
-
-        // 1. Insert Transaction
-        const { data, error } = await supabase
-            .from('financial_transactions')
-            .insert(transaction)
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        // 2. Update Treasury Balance
-        if (transaction.transaction_type === 'expense') {
-            await supabase.rpc('decrement_treasury_balance', {
-                p_treasury_id: transaction.treasury_id,
-                p_amount: transaction.amount
-            });
-        } else {
-            await supabase.rpc('increment_treasury_balance', {
-                p_treasury_id: transaction.treasury_id,
-                p_amount: transaction.amount
-            });
-        }
-
-        return data;
+        return factoryCommand("record_financial_transaction", { ...fields(transaction, ["treasury_id", "amount", "category", "description"]), type: transaction.transaction_type, date: transaction.transaction_date });
     },
 
     deleteTransaction: async (id: number) => {
-        const { data: trx } = await supabase.from('financial_transactions').select('*').eq('id', id).single();
-        if (!trx) throw new Error("Transaction not found");
+        await factoryCommand("delete_financial_transaction", { id });
+    },
 
-        const { error } = await supabase.from('financial_transactions').delete().eq('id', id);
-        if (error) throw error;
+    getReversalPlan: async (id: number): Promise<FinancialReversalPlan> => {
+        const { data, error } = await supabase.rpc("factory_native_financial_reversal_plan", { p_id: id });
+        if (error) throw new Error("تعذر تحميل تفاصيل الحركة. أعد المحاولة قبل تأكيد الإلغاء.");
+        return data as FinancialReversalPlan;
+    },
 
-        // Revert Balance
-        if (trx.transaction_type === 'expense') {
-            await supabase.rpc('increment_treasury_balance', {
-                p_treasury_id: trx.treasury_id,
-                p_amount: trx.amount
-            });
-        } else {
-            await supabase.rpc('decrement_treasury_balance', {
-                p_treasury_id: trx.treasury_id,
-                p_amount: trx.amount
-            });
-        }
+    reverseTransaction: async ({ id, pairId }: { id: number; pairId?: number }) => {
+        return factoryCommand("delete_financial_transaction", { id, ...(pairId === undefined ? {} : { pair_id: pairId }) });
     },
 
     // Kept for backward compatibility but using new logic

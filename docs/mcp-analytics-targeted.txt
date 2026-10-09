@@ -1,0 +1,31 @@
+Γû╢ structured analytical reads use bounded full-input aggregation and native RLS
+  Γ£ö complete stock value aggregation precedes pagination (34.3571ms)
+  Γ£ö linked invoice customer and items, grouped historical COGS (18.492ms)
+  Γ£ö grouping output count and sum are complete; row limit has lookahead (14.0938ms)
+  Γ£ö numeric product does not accept text columns (8.5297ms)
+  Γ£ö one-to-many header amount explicitly preserves join multiplicity (9.3728ms)
+  Γ£ö bound textual SQL-looking value is data, never execution (9.0122ms)
+  Γ£ö auth table blocked (6.2379ms)
+  Γ£ö unsafe ledger view blocked (6.4872ms)
+  Γ£ö profile credentials/admin metadata blocked (6.8754ms)
+  Γ£ö arbitrary secret column blocked (15.2849ms)
+  Γ£ö unknown top-level sql key blocked (10.0504ms)
+  Γ£ö arbitrary function blocked (9.2149ms)
+  Γ£ö join raw predicate blocked (7.2357ms)
+  Γ£ö unrelated relationship blocked (9.516ms)
+  Γ£ö unregistered alias blocked (11.5638ms)
+  Γ£ö unregistered order alias blocked (8.1848ms)
+  Γ£ö ungrouped mixed column/aggregate blocked (7.655ms)
+  Γ£ö unbounded result page blocked (7.6612ms)
+  Γ£ö schema reflects role; raw CTE, multistatement and function syntax rejected (41.7189ms)
+  Γ£ö source RLS restrictive policy denies even administrator-profile rows (9.902ms)
+  Γ£ö read-write transaction and non-gateway invocation refused (2.9758ms)
+Γ£ö structured analytical reads use bounded full-input aggregation and native RLS (2081.1794ms)
+Γä╣ tests 22
+Γä╣ suites 0
+Γä╣ pass 22
+Γä╣ fail 0
+Γä╣ cancelled 0
+Γä╣ skipped 0
+Γä╣ todo 0
+Γä╣ duration_ms 2325.9159

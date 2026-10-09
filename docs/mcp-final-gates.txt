@@ -1,0 +1,129 @@
+Γû╢ structured analytical reads use bounded full-input aggregation and native RLS
+  Γ£ö complete stock value aggregation precedes pagination (60.9651ms)
+  Γ£ö linked invoice customer and items, grouped historical COGS (35.7364ms)
+  Γ£ö grouping output count and sum are complete; row limit has lookahead (17.0823ms)
+  Γ£ö numeric product does not accept text columns (11.1339ms)
+  Γ£ö one-to-many header amount explicitly preserves join multiplicity (11.9752ms)
+  Γ£ö bound textual SQL-looking value is data, never execution (10.4588ms)
+  Γ£ö auth table blocked (6.8222ms)
+  Γ£ö unsafe ledger view blocked (10.3571ms)
+  Γ£ö profile credentials/admin metadata blocked (11.65ms)
+  Γ£ö arbitrary secret column blocked (9.4504ms)
+  Γ£ö unknown top-level sql key blocked (7.4051ms)
+  Γ£ö arbitrary function blocked (9.5779ms)
+  Γ£ö join raw predicate blocked (10.3604ms)
+  Γ£ö unrelated relationship blocked (6.4898ms)
+  Γ£ö unregistered alias blocked (8.8594ms)
+  Γ£ö unregistered order alias blocked (9.3848ms)
+  Γ£ö ungrouped mixed column/aggregate blocked (10.2772ms)
+  Γ£ö unbounded result page blocked (7.2802ms)
+  Γ£ö schema reflects role; raw CTE, multistatement and function syntax rejected (72.9363ms)
+  Γ£ö source RLS restrictive policy denies even administrator-profile rows (19.7871ms)
+  Γ£ö read-write transaction and non-gateway invocation refused (4.7352ms)
+Γ£ö structured analytical reads use bounded full-input aggregation and native RLS (2156.9841ms)
+Γ£ö purchase, partial settlement across treasuries and void preserve ledgers and replay (2203.0354ms)
+Γ£ö linked partial returns enforce aggregate original quantities and rollback excess (60.0322ms)
+Γ£ö production reversal uses execution effects after recipe edit and preserves original cost value (42.0153ms)
+Γ£ö assembly costs preserve prior WACO and completed reversal is explicitly unsupported (37.3719ms)
+Γ£ö stocktake delta preserves later stock changes and cost, then repeats once (24.9234ms)
+Γ£ö packaging shortage journey creates production and completes packaging atomically with repeat safety (35.056ms)
+Γ£ö failed packaging phase rolls back shortage production, stock and child receipts (23.4778ms)
+Γ£ö role checks deny financial/inventory/production cross-domain writes and restore receipts on failure (4.4774ms)
+Γ£ö native edit requires an existing id and preserves stock valuation while changing recipe (6.5333ms)
+Γ£ö recipe rejects nonnumeric quantities atomically without deleting existing components (14.0856ms)
+Γ£ö report PNL nets posted returns, historical COGS and exact configured categories (17.1591ms)
+Γ£ö report cash flow matches source invoice-date paid totals and exposes overlap basis (18.8966ms)
+Γ£ö report aging buckets use exact 30/31/60/61/90/91 boundaries and party scope (14.6688ms)
+Γ£ö report pricing uses current component cost rather than bundle WACO and sales-price denominator (14.7892ms)
+Γ£ö report decision support preserves executive gross-sale formula and nonempty alerts and coverage (19.0782ms)
+Γ£ö report production efficiency includes every selected order and type (7.39ms)
+Γ£ö all eighteen named reports execute actual source schema and expose complete summaries (66.6618ms)
+Γ£ö report pagination above 1000 rows retains full totals and a frozen owner-bound snapshot (167.0064ms)
+Γ£ö statements include opening balances and all rows; protected admin handoff cannot execute (19.5218ms)
+Γ£ö record child pages freeze header and bundle parent filtering matches the correct key (10.1006ms)
+Γ£ö backup pages share one frozen multi-table snapshot and unsupported filters are rejected (13.1271ms)
+Γ£ö movement type filter maps domain kind to stored movement table type (5.6147ms)
+Γ£ö native commands need no MCP grant and retain displayed codes; manual deletion reverses once (8.6952ms)
+Γ£û MCP atomic stock edit preserves retry, quantity and cost in one intent (3.0062ms)
+Γ£û protected deletion gives exact native route and blocks linked finance reversal (7.4655ms)
+Γ£ö retry preserves number and creates one invoice with server totals (2346.0594ms)
+Γ£ö same key with changed intent is rejected before a second write (15.4075ms)
+Γ£ö invalid later line rolls back header lines audit and receipt (10.3328ms)
+Γ£ö completion with new keys and direct UI retry moves stock once and retains WACO (22.1101ms)
+Γ£ö packaging completion preserves component costs and is repeat-safe (37.2446ms)
+Γ£ö posting invoice preserves COGS and party balance exactly once (19.7149ms)
+Γ£ö inactive user revoked grant expired session read-only grant and wrong resource are denied (51.1046ms)
+Γ£ö gateway has no table access and user cannot elevate own role (10.6161ms)
+Γ£ö cancelled and nonexistent orders cannot be completed (23.4046ms)
+Γ£ö full consent/token/signed SDK journey persists commands, results, paging and live role/consent denial (2792.5088ms)
+Γ£ö OAuth hook preserves native claims and fails closed with empty policies (1779.0681ms)
+Γ£ö approved OAuth emits isolated audience/role/expiry and live commands reject revoked consent (54.3547ms)
+Γ£ö changed callback and unapproved scope deny issuance; resource role has no authenticator membership (23.1695ms)
+Γ£ö signed token is bound to resource issuer client and real user claims (11.2132ms)
+Γ£ö SDK discovers tools and returns real operation structure; HTTP guards deny untrusted requests (115.131ms)
+Γä╣ tests 62
+Γä╣ suites 0
+Γä╣ pass 60
+Γä╣ fail 2
+Γä╣ cancelled 0
+Γä╣ skipped 0
+Γä╣ todo 0
+Γä╣ duration_ms 13883.3861
+
+Γ£û failing tests:
+
+test at factory-mcp\mcp\tests\comprehensive.test.mjs:175:1
+Γ£û MCP atomic stock edit preserves retry, quantity and cost in one intent (3.0062ms)
+  error: MCP_INPUT_INVALID
+      at pe.Ue (file:///C:/Users/DELL/Documents/Codex/2026-10-09/task/factory-mcp/mcp/node_modules/@electric-sql/pglite/dist/chunk-2BOC2OMW.js:1:17959)
+      at pe.tt (file:///C:/Users/DELL/Documents/Codex/2026-10-09/task/factory-mcp/mcp/node_modules/@electric-sql/pglite/dist/chunk-2BOC2OMW.js:1:15347)
+      at pe.parse (file:///C:/Users/DELL/Documents/Codex/2026-10-09/task/factory-mcp/mcp/node_modules/@electric-sql/pglite/dist/chunk-2BOC2OMW.js:1:14021)
+      at N.qe (file:///C:/Users/DELL/Documents/Codex/2026-10-09/task/factory-mcp/mcp/node_modules/@electric-sql/pglite/dist/index.js:5:1762)
+      at file:///C:/Users/DELL/Documents/Codex/2026-10-09/task/factory-mcp/mcp/node_modules/@electric-sql/pglite/dist/index.js:5:1155
+      at wasm://wasm/0267bb86:wasm-function[10930]:0x5a5ccf
+      at wasm://wasm/0267bb86:wasm-function[3585]:0x27eaeb
+      at wasm://wasm/0267bb86:wasm-function[3627]:0x2869d1
+      at wasm://wasm/0267bb86:wasm-function[3637]:0x286c2d
+      at wasm://wasm/0267bb86:wasm-function[9914]:0x54fd4d {
+    length: 460,
+    severity: 'ERROR',
+    code: 'P0001',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: `PL/pgSQL function factory_private.assert_keys(jsonb,text[]) line 7 at RAISE\nSQL statement "SELECT factory_private.assert_keys(p_payload,fields||ARRAY['id'])"\nPL/pgSQL function factory_private.save_master(text,jsonb,uuid) line 7 at PERFORM\nPL/pgSQL function factory_write(text,jsonb,uuid) line 55 at assignment\nPL/pgSQL function factory_mcp_write(text,jsonb,uuid) line 4 at RETURN`,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'pl_exec.c',
+    line: '3923',
+    routine: 'exec_stmt_raise',
+    query: 'select factory_mcp_write($1,$2::jsonb,$3::uuid) result',
+    params: [ 'edit_raw_material', '{"id":1,"name":"Atomic remote name","quantity":120,"unit_cost":3,"reason":"Approved correction"}', '37a4487b-ec77-46c5-9b5f-f092de8944ea' ],
+    queryOptions: undefined
+  }
+
+test at factory-mcp\mcp\tests\comprehensive.test.mjs:187:1
+Γ£û protected deletion gives exact native route and blocks linked finance reversal (7.4655ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '/inventory'
+  - '/inventory/raw-materials'
+               ^
+
+      at file:///C:/Users/DELL/Documents/Codex/2026-10-09/task/factory-mcp/mcp/tests/comprehensive.test.mjs:188:153
+      at async isolated (file:///C:/Users/DELL/Documents/Codex/2026-10-09/task/factory-mcp/mcp/tests/comprehensive.test.mjs:15:226)
+      at async Test.run (node:internal/test_runner/test:1313:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:897:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '/inventory',
+    expected: '/inventory/raw-materials',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

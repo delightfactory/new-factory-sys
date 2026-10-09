@@ -4,6 +4,7 @@
 // Requires SUPABASE_SERVICE_ROLE_KEY in environment
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.47.10";
+import { isNativeAccessToken } from './native-token.ts';
 
 // CORS headers for browser requests
 const corsHeaders = {
@@ -63,7 +64,7 @@ Deno.serve(async (req: Request) => {
         const token = authHeader.replace("Bearer ", "");
         const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
-        if (authError || !requestingUser) {
+        if (authError || !requestingUser || !isNativeAccessToken(token, requestingUser.id)) {
             return new Response(
                 JSON.stringify({ error: "Invalid token" }),
                 { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -73,11 +74,11 @@ Deno.serve(async (req: Request) => {
         // Check if requesting user is admin
         const { data: profile, error: profileError } = await supabaseAdmin
             .from("profiles")
-            .select("role")
+            .select("role,is_active")
             .eq("id", requestingUser.id)
             .single();
 
-        if (profileError || !profile || profile.role !== "admin") {
+        if (profileError || !profile || profile.role !== "admin" || !profile.is_active) {
             return new Response(
                 JSON.stringify({ error: "Access denied. Only admins can create users." }),
                 { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }

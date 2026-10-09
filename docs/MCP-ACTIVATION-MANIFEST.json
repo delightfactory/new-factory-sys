@@ -1,0 +1,51 @@
+{
+  "branch": "feat/remote-mcp-foundation",
+  "base": "8b2422eeb0bcd59f5ada330835da2979213b1f6e",
+  "live_mutations": false,
+  "files": [
+    {
+      "path": "supabase/migrations/20261009130620_remote_mcp_foundation.sql",
+      "sha256": "1b6902e1782b7f98d8042f45ee2c4edbf076538dbf4f8067e5525a3f7f75a820"
+    },
+    {
+      "path": "supabase/migrations/20261009140827_comprehensive_mcp_operations.sql",
+      "sha256": "c05959adc75770116a90cbcdeccbc10ab1857513f358e8e784ec14648b64c159"
+    },
+    {
+      "path": "supabase/migrations/20261009152500_factory_mcp_oauth.sql",
+      "sha256": "2a839ee59d5c980102a8af21a312b8868d50e02dc3d57089edf4bb180c6db580"
+    },
+    {
+      "path": "supabase/migrations/20261009161500_readonly_mcp_analytics.sql",
+      "sha256": "f4a75e52d0a05090ed73a6ca2bbfc6ac8f5f0eb56411d8bf5045e8ef5577b8bb"
+    },
+    {
+      "path": "supabase/functions/create-user/index.ts",
+      "sha256": "e185636c23eb45ed6aa60da9aa73d21844dbb6499c9e42e151fc58d37f375829"
+    },
+    {
+      "path": "supabase/functions/create-user/native-token.ts",
+      "sha256": "a8d37f2acff2f5a056b449d72bbc9e0d93294bc15aef6b87b635df56d14b2aca"
+    },
+    {
+      "path": "supabase/config.toml",
+      "sha256": "babbf3a7deb3c628720c797994bdcbb12213114ddb81579622a2d072857601dc"
+    },
+    {
+      "path": "docs/MCP-NATIVE-ROLLBACK.sql",
+      "sha256": "a1f34036d708a3c3f152a243a6d063f0a694715974933213bd6ecf785ff18b71"
+    },
+    {
+      "path": "docs/MCP-NATIVE-ROLLBACK-SNAPSHOT.json",
+      "sha256": "42057f87a58c56b669433ef21be14c17f394d1520f82f1178138c1965dcc7232"
+    },
+    {
+      "path": "docs/rollback/create-user/index.ts",
+      "sha256": "2071cf50ce36c01c1655858668b56dfd3cad20bca45cf158fe978ea206662797"
+    },
+    {
+      "path": "docs/rollback/create-user/config.toml",
+      "sha256": "359f614a3c9e83781bc1cdf6f926924ffbd0c97794f6236ec24a49a2c58f155c"
+    }
+  ]
+}

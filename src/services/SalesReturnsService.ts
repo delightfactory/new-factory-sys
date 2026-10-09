@@ -1,3 +1,4 @@
+import { commercialCommand, factoryCommand } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface SalesReturnItem {
@@ -49,40 +50,11 @@ export const SalesReturnsService = {
     },
 
     createReturn: async (returnData: Partial<SalesReturn>, items: SalesReturnItem[]) => {
-        // Generate Return Number
-        const { data: code } = await supabase.rpc('get_next_code', {
-            table_name: 'sales_returns',
-            prefix: 'SR-'
-        });
-
-        const { data: ret, error: retError } = await supabase
-            .from('sales_returns')
-            .insert({
-                ...returnData,
-                return_number: code
-            })
-            .select()
-            .single();
-
-        if (retError) throw retError;
-
-        const itemsWithId = items.map(item => ({
-            ...item,
-            return_id: ret.id
-        }));
-
-        const { error: itemsError } = await supabase
-            .from('sales_return_items')
-            .insert(itemsWithId);
-
-        if (itemsError) throw itemsError;
-
-        return ret;
+        return commercialCommand<SalesReturn>("sales", "return", returnData, items);
     },
 
     processReturn: async (id: number) => {
-        const { error } = await supabase.rpc('process_sales_return', { p_return_id: id });
-        if (error) throw error;
+        await factoryCommand("post_sales_return", { id });
     },
 
     deleteReturn: async (id: number) => {
@@ -92,8 +64,6 @@ export const SalesReturnsService = {
 
     // Void a posted sales return (reverses inventory and balance)
     voidReturn: async (id: number) => {
-        const { data, error } = await supabase.rpc('void_sales_return', { p_return_id: id });
-        if (error) throw error;
-        if (data && !data.success) throw new Error(data.message);
+        await factoryCommand("void_sales_return", { id });
     }
 };

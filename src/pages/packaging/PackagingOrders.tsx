@@ -176,7 +176,7 @@ export default function PackagingOrders() {
 
     // Complete Mutation
     const completeMutation = useMutation({
-        mutationFn: InventoryService.completePackagingOrder,
+        mutationFn: InventoryService.completePackagingOrderAllowShortage,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['packagingOrders'] });
             toast.success("تم اكتمال الأمر وتحديث المخزون");

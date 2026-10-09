@@ -1,0 +1,14 @@
+Γ£ö runtime loads bundled CA and keeps verified TLS and writes closed (16.1457ms)
+Γ£ö existing explicit CA override works and a missing file fails closed (3.3304ms)
+Γ£ö URL TLS overrides and an unapproved database identity remain rejected (0.8291ms)
+Γ£ö signed token is bound to resource issuer client and real user claims (168.8955ms)
+Γ£ö SDK discovers tools and returns real operation structure; HTTP guards deny untrusted requests (1419.6781ms)
+Γ£ö configured staged deployment refuses writes before dispatch and permits reads with the same consent (148.8161ms)
+Γä╣ tests 6
+Γä╣ suites 0
+Γä╣ pass 6
+Γä╣ fail 0
+Γä╣ cancelled 0
+Γä╣ skipped 0
+Γä╣ todo 0
+Γä╣ duration_ms 16014.1458

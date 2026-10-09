@@ -1,0 +1,2 @@
+
+{"totalExistingProjectDiagnostics":1,"changedFileDiagnostics":0}

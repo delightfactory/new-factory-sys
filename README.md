@@ -1,5 +1,9 @@
 # React + TypeScript + Vite
 
+Production application updates must preserve the integrated MCP release. See
+[MCP deployment protection](docs/MCP-DEPLOYMENT-PROTECTION.md) for the local
+build gate, post-deployment verification and rollback boundary.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

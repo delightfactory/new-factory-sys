@@ -1,0 +1,23 @@
+{
+  "project_id": "cgqunqczuvwfvuzlsvyy",
+  "read_date": "2026-10-09",
+  "read_channel": "Existing signed-in Supabase dashboard; settings read only",
+  "oauth_server_enabled": false,
+  "oauth_dcr": "Not visible while OAuth server is disabled; keep OFF during activation",
+  "oauth_consent_path": "Not visible while OAuth server is disabled",
+  "auth_hooks": [],
+  "signing": "Legacy JWT secret; signing-key migration not yet performed; no secret read",
+  "access_token_expiry_seconds": 3600,
+  "single_session_per_user": false,
+  "session_timebox_hours": 0,
+  "session_inactivity_hours": 0,
+  "refresh_reuse_detection": true,
+  "refresh_reuse_interval_seconds": 10,
+  "site_url": "http://localhost:3000",
+  "redirect_urls": [],
+  "create_user_baseline_version": 1,
+  "create_user_verify_jwt": true,
+  "rollback_production_deployment_id": "dpl_AKUsRqyWo9c9AiL6hxFy4CAG3987",
+  "rollback_production_deployment_url": "new-factory-9yv06zft0-ahmed-salamas-projects-0ee0a828.vercel.app",
+  "rollback_production_sha": "8b2422eeb0bcd59f5ada330835da2979213b1f6e"
+}
