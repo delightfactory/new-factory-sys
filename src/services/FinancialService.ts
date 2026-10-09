@@ -17,6 +17,13 @@ export interface Transaction {
     party?: { name: string };
 }
 
+export interface FinancialReversalPlan {
+    id: number;
+    amount: number;
+    requires_pair: boolean;
+    candidates: { id: number; treasury_name: string; amount: number; description: string; date: string }[];
+}
+
 export const FinancialService = {
     // --- Categories Management ---
     getCategories: async (type?: 'income' | 'expense') => {
@@ -105,6 +112,16 @@ export const FinancialService = {
 
     deleteTransaction: async (id: number) => {
         await factoryCommand("delete_financial_transaction", { id });
+    },
+
+    getReversalPlan: async (id: number): Promise<FinancialReversalPlan> => {
+        const { data, error } = await supabase.rpc("factory_native_financial_reversal_plan", { p_id: id });
+        if (error) throw new Error("تعذر تحميل تفاصيل الحركة. أعد المحاولة قبل تأكيد الإلغاء.");
+        return data as FinancialReversalPlan;
+    },
+
+    reverseTransaction: async ({ id, pairId }: { id: number; pairId?: number }) => {
+        return factoryCommand("delete_financial_transaction", { id, ...(pairId === undefined ? {} : { pair_id: pairId }) });
     },
 
     // Kept for backward compatibility but using new logic

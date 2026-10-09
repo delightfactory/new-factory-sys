@@ -6,6 +6,9 @@
 -- ONLY THEN restore the prior Auth hook setting in the owner dashboard;
 -- disable the gateway login and terminate its own sessions in an owner channel.
 -- Preserve audit receipts and business data. No DROP CASCADE / Auth restore.
+-- If compatibility SQL5 is present, run MCP-COMPATIBILITY-ROLLBACK.sql FIRST
+-- to restore all 12 cached RPCs and remove its finance statement trigger.
+-- Coordinate the frontend rollback during that approved recovery window.
 BEGIN;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='30s';

@@ -1,5 +1,30 @@
 # Final local verification — 2026-10-09
 
+Current compatibility closure: **96/96 tests passed**, concurrency 1, 22.630s,
+including historical/native/cached RPC behavior, six roles, financial payment
+bounds and restoration of all 12 native RPC definitions/owners/grants. Evidence:
+workspace `native-final-tests.txt`. Actual production finance dialog + services
+against local SQL passed at 390/768/1280px: both transfer legs restore, failure
+preserves selection and all balances. Browser Auth is synthetic; evidence:
+workspace `native-compatibility-ui/evidence.json` and screenshots.
+The real production service/toast also passed: deficient raw quantity -1 and
+order cost 2 are persisted and the warning shows the actual item and quantity.
+Production original-vs-native cost/WACO, replay/cached completion, strict MCP
+and both historical purchase-return policies are covered by the current suite.
+Details and one-pass analogous audit: `MCP-NATIVE-PRODUCTION-CLOSURE.md`.
+
+Final production build passed: TypeScript + Vite 7.2.6 + PWA generation (24
+precache entries). Evidence: workspace `native-final-build.txt`. Existing large
+bundle and stale Browserslist warnings remain; no dependency update was added.
+The actual browser harness also asserts the SDK sends one exact compatibility
+header, and refreshed native financial table writes remain available.
+
+Current live state and approval blocker: `MCP-ACTIVATION-RUN.md`. Only SQL1 is
+applied; no new live SQL, Auth, merge or deploy occurred in this compatibility
+follow-up. Local changes remain uncommitted on `feat/remote-mcp-foundation`.
+Ready linking/recovery sequence and hosted gates: `MCP-COMPATIBILITY-LINKING.md`.
+The prior runs and pre-activation observations below are historical.
+
 Current final suite:73 tests,73 pass,0 fail,36.808s, concurrency1. Focused native Auth/profile/rollback:9/9; actual Edge handler with local Auth substitute:PASS. Final PostgreSQL17.10 migration/concurrency/cost check:PASS. See mcp-permanent-* logs; these supersede the earlier62-count evidence. No hosted Auth issuance/session refresh or deployment performed.
 
 Superseding activation addendum: permanent revocable one-setup plan in MCP-ACTIVATION-APPROVAL.md and MCP-ROLLBACK-AND-COMPATIBILITY.md. The earlier 60-minute proposal is archived, not a user requirement. Nothing live is authorized by these drafts or executed. New bounded native profile/session/Edge checks and rollback replay are in mcp-permanent-activation-tests.txt; old 62-test results below are historical. Live read-only metadata found create-user verify_jwt=true and public JWKS keys=[]; local Edge native-token/active-admin fix and staged default-closed write gate address the reviewed compatibility requirements. Provider config/signing and real OAuth/session/HTTP isolation gates remain pending before live enablement. No secret/credential/grant or production deployment.

@@ -277,6 +277,10 @@ export const InventoryService = {
         await factoryCommand("complete_packaging_order", { id: orderId });
     },
 
+    completePackagingOrderAllowShortage: async (orderId: number) => {
+        await factoryCommand("complete_packaging_order_allow_shortage", { id: orderId });
+    },
+
 
     // Cancel Production Order (Atomic RPC)
     cancelProductionOrder: async (orderId: number) => {

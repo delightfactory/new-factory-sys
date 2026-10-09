@@ -14,12 +14,14 @@ import { Plus, Trash2, TrendingDown, Wallet, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { CategoriesManager } from "@/components/financial/CategoriesManager";
+import { FinancialReversalDialog } from "@/components/financial/FinancialReversalDialog";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/loading-skeleton";
 
 export default function FinancialLog() {
     const [isOpen, setIsOpen] = useState(false);
+    const [reversalId, setReversalId] = useState<number | null>(null);
     const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
     const queryClient = useQueryClient();
 
@@ -28,15 +30,11 @@ export default function FinancialLog() {
         queryFn: () => FinancialService.getTransactions(typeFilter === 'all' ? undefined : { type: typeFilter })
     });
 
-    const deleteMutation = useMutation({
-        mutationFn: FinancialService.deleteTransaction,
-        onSuccess: () => {
-            toast.success("تم حذف المعاملة وعكس الأثر المالي");
-            queryClient.invalidateQueries({ queryKey: ['financial_transactions'] });
-            queryClient.invalidateQueries({ queryKey: ['treasuries'] });
-        },
-        onError: (e) => toast.error(e.message)
-    });
+    const reversalCompleted = () => {
+        setReversalId(null);
+        toast.success("تم إلغاء الحركة وعكس أثرها المالي");
+        queryClient.invalidateQueries();
+    };
 
     // Calculate totals (excluding transfers from expense totals)
     const totalExpenses = transactions?.filter((t: any) => t.transaction_type === 'expense' && !t.category?.includes('transfer')).reduce((sum: number, e: any) => sum + e.amount, 0) || 0;
@@ -146,10 +144,7 @@ export default function FinancialLog() {
                                         </TableCell>
                                         <TableCell>{trx.treasury?.name}</TableCell>
                                         <TableCell>
-                                            <Button variant="ghost" size="icon" className="hover:bg-destructive/10" onClick={() => {
-                                                if (confirm("هل أنت متأكد من الحذف؟ سيتم عكس الأثر المالي."))
-                                                    deleteMutation.mutate(trx.id);
-                                            }}>
+                                            <Button variant="ghost" size="icon" aria-label="إلغاء الحركة المالية" className="hover:bg-destructive/10" onClick={() => setReversalId(trx.id)}>
                                                 <Trash2 className="h-4 w-4 text-destructive" />
                                             </Button>
                                         </TableCell>
@@ -171,6 +166,7 @@ export default function FinancialLog() {
                     )}
                 </CardContent>
             </Card>
+            {reversalId !== null && <FinancialReversalDialog transactionId={reversalId} onClose={() => setReversalId(null)} onSuccess={reversalCompleted} />}
         </div>
     );
 }

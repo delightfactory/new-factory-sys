@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type Payload = Record<string, unknown>;
 const pending = new Map<string, string>();
@@ -7,10 +8,13 @@ function commandMessage(message: string): string {
     if (message.includes("MCP_STOCK_INSUFFICIENT")) return "المخزون لا يكفي لإكمال العملية. راجع الكميات المتاحة؛ لم تُسجل العملية.";
     if (message.includes("MCP_ACCESS_FORBIDDEN") || message.includes("MCP_ACTION_FORBIDDEN")) return "صلاحيات حسابك لا تسمح بهذه العملية. راجع مدير النظام.";
     if (message.includes("MCP_FINANCIAL_REVERSAL_REVIEW_REQUIRED")) return "هذه الحركة مرتبطة بفاتورة أو طرف أو تحويل. راجع العملية الأصلية قبل إلغائها؛ لم يُحذف القيد.";
+    if (message.includes("MCP_FINANCIAL_ALREADY_REVERSED")) return "الحركة عُكست ضمن عملية سابقة. راجع العملية الأصلية؛ لم يتغير أي رصيد.";
+    if (message.includes("MCP_TRANSFER_PAIR_REQUIRED")) return "اختر الحركة المقابلة للتحويل لإلغاء الطرفين معًا. لم يتغير أي رصيد.";
+    if (message.includes("MCP_INVOICE_LINK_INVALID") || message.includes("MCP_SETTLEMENT_AMOUNT_INVALID")) return "تغيرت حالة الفاتورة أو تسويتها. حدّث بياناتها وراجع الحركة قبل الإلغاء؛ لم يتغير أي رصيد.";
     if (message.includes("MCP_TRANSITION_INVALID")) return "تغيرت حالة العملية. حدّث القائمة وراجع حالتها قبل المحاولة مرة أخرى.";
     if (message.includes("MCP_INPUT_INVALID") || message.includes("MCP_TOTAL_INVALID")) return "راجع بيانات العملية والكميات والمبالغ. بيانات النموذج محفوظة.";
     if (message.includes("MCP_REQUEST_CONFLICT")) return "تغيرت بيانات طلب سابق. حدّث الصفحة وراجع العملية قبل إنشاء طلب جديد.";
-    if (message.includes("factory_write") && /not find|does not exist|schema cache/i.test(message)) return "تحديث قاعدة البيانات غير مكتمل. راجع مدير النظام قبل إعادة المحاولة.";
+    if (/factory_(native_)?write/.test(message) && /not find|does not exist|schema cache/i.test(message)) return "تحديث قاعدة البيانات غير مكتمل. راجع مدير النظام قبل إعادة المحاولة.";
     return "تعذر تأكيد نتيجة العملية. أعد المحاولة بنفس البيانات؛ سيُستخدم الطلب نفسه لمنع التكرار.";
 }
 
@@ -51,7 +55,7 @@ export async function factoryCommand<T = Payload>(action: string, payload: Paylo
     const key = requestId ?? pending.get(intent) ?? saved ?? crypto.randomUUID();
     pending.set(intent, key);
     try { sessionStorage.setItem(intent, key); } catch { /* See above. */ }
-    const { data: result, error } = await supabase.rpc("factory_write", {
+    const { data: result, error } = await supabase.rpc("factory_native_write", {
         p_action: action, p_payload: data, p_request_id: key,
     });
     if (error || !result?.record) {
@@ -61,6 +65,14 @@ export async function factoryCommand<T = Payload>(action: string, payload: Paylo
     }
     pending.delete(intent);
     try { if (sessionStorage.getItem(intent) === key) sessionStorage.removeItem(intent); } catch { /* Optional storage. */ }
+    if (result.record.legacy_valuation) toast.info("تم الإلغاء وفق قواعد النظام الأصلية؛ بقيت تكلفة المخزون المسجلة كما هي.");
+    if (Array.isArray(result.record.negative_stock) && result.record.negative_stock.length) {
+        toast.warning("اكتمل الأمر مع أرصدة مخزون سالبة.", {
+            description: result.record.negative_stock.map((item: { name: string; quantity: number; unit: string }) =>
+                `${item.name}: ${item.quantity.toLocaleString()} ${item.unit}`).join("، "),
+            duration: 10000,
+        });
+    }
     return (result.record.record ?? result.record) as T;
 }
 

@@ -1,5 +1,10 @@
 # خطة التراجع والتوافق — محلية، دون تنفيذ حي
 
+تحديث الحالة: هذه الخطة أدلة سابقة. طُبّقت SQL1 فقط لاحقًا، وبقيت SQL2
+محجوبة بالمراجعة الآلية؛ التفاصيل في `MCP-ACTIVATION-RUN.md`. تغييرات التوافق
+الجديدة محلية. تسلسلها الحالي في `MCP-COMPATIBILITY-LINKING.md`، ويلزم تشغيل
+`MCP-COMPATIBILITY-ROLLBACK.sql` قبل التراجع الكامل إذا كانت SQL5 موجودة.
+
 النطاق: `factory-mcp`، فرع `feat/remote-mcp-foundation`، المصنع main `8b2422eeb0bcd59f5ada330835da2979213b1f6e`. لا commit/push/grants/credentials/deployment. لا تتغير النسخة الأصلية في D:.
 
 ## خيارات الإطلاق والتوصية

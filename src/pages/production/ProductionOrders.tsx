@@ -176,7 +176,7 @@ export default function ProductionOrders() {
     };
 
     const handleComplete = (id: number) => {
-        if (confirm("هل أنت متأكد من إتمام هذا الأمر؟ سيتم خصم المواد الخام وإضافة المنتج للمخزون.")) {
+        if (confirm("هل أنت متأكد من إتمام هذا الأمر؟ سيتم خصم المواد الخام وإضافة المنتج للمخزون. عند نقص الخام قد يصبح رصيده سالبًا وفق قواعد النظام الأصلية.")) {
             completeMutation.mutate(id);
         }
     };
