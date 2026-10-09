@@ -1,5 +1,10 @@
 {
     "installCommand": "npm ci && npm --prefix mcp ci --omit=dev --ignore-scripts",
+    "functions": {
+        "api/mcp.js": {
+            "includeFiles": "mcp/certs/supabase-root-2021.crt"
+        }
+    },
     "rewrites": [
         {
             "source": "/.well-known/oauth-protected-resource/api/mcp",

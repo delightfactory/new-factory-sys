@@ -19,7 +19,8 @@ export function readConfig(env) {
       host: database.hostname, port: Number(database.port || 5432),
       user: expectedUser, password: decodeURIComponent(database.password), database: 'postgres',
       ssl: { rejectUnauthorized: true,
-        ...(env.FACTORY_MCP_DATABASE_CA_FILE ? { ca: readFileSync(env.FACTORY_MCP_DATABASE_CA_FILE, 'utf8') } : {}) },
+        ca: readFileSync(env.FACTORY_MCP_DATABASE_CA_FILE ??
+          new URL('./certs/supabase-root-2021.crt', import.meta.url), 'utf8') },
       max: 1, connectionTimeoutMillis: 5000, idleTimeoutMillis: 5000,
       application_name: 'factory-remote-mcp',
     },

@@ -9,6 +9,7 @@ import { generateKeyPair, exportJWK, SignJWT, createLocalJWKSet } from 'jose';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { writes, reads } from '../catalog.mjs';
+import { createHash } from 'node:crypto';
 
 // The actual @vercel/node builder from an installed CLI; no project linking or account access.
 const cliModules=process.env.VERCEL_BUILDER_MODULES;
@@ -19,10 +20,12 @@ const buildUtils=require(join(cliModules,'@vercel/build-utils'));
 const workPath=resolve(new URL('../../',import.meta.url).pathname.replace(/^\/([A-Za-z]:)/,'$1'));
 const outputRoot=resolve(process.argv[2] || join(workPath,'..','vercel-mcp-artifacts'));
 const sourceFiles=Object.assign({},await buildUtils.glob('api/{mcp,oauth-resource}.js',workPath),
-  await buildUtils.glob('mcp/*.mjs',workPath),await buildUtils.glob('package.json',workPath));
+  await buildUtils.glob('mcp/*.mjs',workPath),await buildUtils.glob('mcp/certs/*.crt',workPath),
+  await buildUtils.glob('package.json',workPath));
+const functionConfig=JSON.parse(readFileSync(join(workPath,'vercel.json'),'utf8')).functions;
 for(const entrypoint of ['api/mcp.js','api/oauth-resource.js']) {
   const built=await builder.build({files:sourceFiles,entrypoint,workPath,
-    config:{zeroConfig:true,projectSettings:{installCommand:'',buildCommand:'node -e "process.exit(0)"',nodeVersion:'24.x'}},
+    config:{zeroConfig:true,...functionConfig?.[entrypoint],projectSettings:{installCommand:'',buildCommand:'node -e "process.exit(0)"',nodeVersion:'24.x'}},
     considerBuildCommand:true,meta:{skipDownload:true}});
   const lambda=built.output;
   assert.ok(lambda.files && lambda.handler,'Vercel builder must return a real function artifact');
@@ -50,6 +53,18 @@ for(const entrypoint of ['api/mcp.js','api/oauth-resource.js']) {
 const load=(functionName,file)=>import(pathToFileURL(join(outputRoot,'api',`${functionName}.func`,file)).href);
 const metadataHandler=(await load('oauth-resource','api/oauth-resource.js')).default;
 const mcpHandler=(await load('mcp','api/mcp.js')).default;
+const {readConfig}=await load('mcp','mcp/runtime.mjs');
+const {database:packagedDatabase}=readConfig({
+  FACTORY_MCP_RESOURCE:'https://factory.example/api/mcp',FACTORY_MCP_ISSUER:'https://auth.example/auth/v1',
+  FACTORY_APP_ORIGIN:'https://factory.example',FACTORY_MCP_CLIENT_IDS:'test-client',
+  FACTORY_MCP_DATABASE_HOST:'aws-1-eu-west-2.pooler.supabase.com',
+  FACTORY_MCP_DATABASE_USER:'factory_mcp_gateway.cgqunqczuvwfvuzlsvyy',
+  FACTORY_MCP_DATABASE_URL:'postgresql://factory_mcp_gateway.cgqunqczuvwfvuzlsvyy:synthetic@aws-1-eu-west-2.pooler.supabase.com:6543/postgres',
+});
+assert.equal(packagedDatabase.ssl.rejectUnauthorized,true);
+assert.equal(createHash('sha256').update(packagedDatabase.ssl.ca).digest('hex'),
+  '700723581420dd1ac98fd7e9ac529f0ef210eadcaf87fc868a3ad7d114c2f3b7');
+console.log('PASS emitted MCP runtime loads bundled public CA with verified TLS; no database connection made');
 const publicConfig={resource:'https://factory.example/api/mcp',issuer:'https://auth.example/auth/v1',
   appOrigin:'https://factory.example',clientIds:['test-client']};
 const listener=createServer((req,res)=>{
