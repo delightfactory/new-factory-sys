@@ -1,4 +1,5 @@
 {
+    "buildCommand": "node scripts/check-mcp-deployment.mjs && npm run build",
     "installCommand": "npm ci && npm --prefix mcp ci --omit=dev --ignore-scripts",
     "functions": {
         "api/mcp.js": {
