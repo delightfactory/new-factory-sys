@@ -28,8 +28,21 @@ END $guard$;
 
 ALTER FUNCTION factory_private.report_build(text,jsonb,date) RENAME TO report_build_before_profit_ledger;
 
+-- Preserve legacy nested cost-card and decision-support trend dispatch explicitly.
+-- Hosted postgres is not a superuser; no custom session parameter is required.
+DO $legacy_dispatch$
+DECLARE definition text;
+BEGIN
+ definition:=pg_get_functiondef('factory_private.report_build_before_cash_ledger(text,jsonb,date)'::regprocedure);
+ IF (length(definition)-length(replace(definition,'factory_private.report_build(','')))/length('factory_private.report_build(')<>2 THEN
+  RAISE EXCEPTION 'PROFIT_LEDGER_LEGACY_DISPATCH_DRIFT';
+ END IF;
+ EXECUTE replace(definition,'factory_private.report_build(','factory_private.report_build_before_profit_ledger(');
+END $legacy_dispatch$;
+
+
 CREATE FUNCTION factory_private.report_profit_legacy_context(p_report text,p_filters jsonb,p_asof date) RETURNS jsonb
-LANGUAGE plpgsql  SECURITY DEFINER SET search_path=public,pg_temp SET factory.profit_legacy='on' AS $profit$
+LANGUAGE plpgsql  SECURITY DEFINER SET search_path=public,pg_temp AS $profit$
 BEGIN
  RETURN factory_private.report_build_before_profit_ledger(p_report,p_filters,p_asof);
 END
@@ -116,7 +129,7 @@ CREATE FUNCTION factory_private.report_build(p_report text,p_filters jsonb,p_aso
 LANGUAGE plpgsql  SECURITY DEFINER SET search_path=public,pg_temp AS $profit$
 DECLARE ds date;de date;target numeric;basis jsonb;current_profit jsonb;previous_profit jsonb;cash jsonb;rows jsonb;months jsonb;summary jsonb;result jsonb;key text;previous_net numeric;delta numeric;
 BEGIN
- IF current_setting('factory.profit_legacy',true)='on' THEN RETURN factory_private.report_build_before_profit_ledger(p_report,p_filters,p_asof); END IF;
+
  IF p_report IS NULL OR p_report NOT IN('pnl','trends') THEN RETURN factory_private.report_profit_legacy_context(p_report,p_filters,p_asof); END IF;
  ds:=coalesce((p_filters->>'start_date')::date,p_asof-(coalesce((p_filters->>'period')::int,30)-1));de:=coalesce((p_filters->>'end_date')::date,p_asof);target:=coalesce((p_filters->>'target_margin')::numeric,25);
  IF ds>de OR de>p_asof OR target<0 OR target>=100 THEN RAISE EXCEPTION 'MCP_INPUT_INVALID'; END IF;
