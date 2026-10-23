@@ -13,7 +13,7 @@ export function assertHostedPublicKey(key: string): void {
   } catch { throw new Error('FACTORY_HOSTED_PUBLIC_KEY_REQUIRED'); }
 }
 export function assertHostedEnvironment(env: Record<string, string>): void {
-  if(Object.keys(env).some(name=>name.startsWith('VITE_')&&!['VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY','VITE_MCP_APP_ORIGIN','VITE_VERCEL_OBSERVABILITY_CLIENT_CONFIG'].includes(name))) throw new Error('FACTORY_UNEXPECTED_PUBLIC_ENV');
+  if(Object.keys(env).some(name=>name.startsWith('VITE_')&&!['VITE_SUPABASE_URL','VITE_SUPABASE_ANON_KEY','VITE_MCP_APP_ORIGIN'].includes(name)&&!name.startsWith('VITE_VERCEL_'))) throw new Error('FACTORY_UNEXPECTED_PUBLIC_ENV');
   if(env.VITE_MCP_APP_ORIGIN !== 'https://new-factory-sys.vercel.app') throw new Error('FACTORY_HOSTED_MCP_ORIGIN_REQUIRED');
   assertHostedApiUrl(env.VITE_SUPABASE_URL); assertHostedPublicKey(env.VITE_SUPABASE_ANON_KEY);
 }

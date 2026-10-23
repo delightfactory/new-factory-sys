@@ -9,6 +9,14 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
   assertHostedEnvironment(env);
   return {
+  // Expose only the application's three verified public values. Platform
+  // metadata (including future VITE_VERCEL_* names) is never auto-exposed.
+  envPrefix: [],
+  define: {
+    'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
+    'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
+    'import.meta.env.VITE_MCP_APP_ORIGIN': JSON.stringify(env.VITE_MCP_APP_ORIGIN),
+  },
 
   plugins: [
     { name: 'factory-hosted-csp', transformIndexHtml: () => [
