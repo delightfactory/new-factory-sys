@@ -1,3 +1,4 @@
+import { NumberInput } from '@/components/ui/number-input';
 import { formatQuantity as displayQuantity } from '@/lib/number-format';
 import { useState, type ReactNode } from "react";
 import {
@@ -9,7 +10,6 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, Factory, Package, CheckCircle, Loader2, Edit2 } from "lucide-react";
@@ -250,7 +250,7 @@ export function ShortageAnalysisDialog({
                                         <TableCell className="font-medium">{item.name}</TableCell>
                                         <TableCell className="text-center">
                                             {isEditing ? (
-                                                <Input
+                                                <NumberInput
                                                     type="number"
                                                     min="0"
                                                     step="any"

@@ -1,3 +1,4 @@
+import { FormNumberInput } from '@/components/ui/number-input';
 import { formatAmount as displayAmount, formatQuantity as displayQuantity, formatUnitCost as displayUnitCost } from '@/lib/number-format';
 import { TaskActions } from '@/components/ui/task-actions';
 import { useAuth } from '@/contexts/AuthContext';
@@ -493,11 +494,11 @@ export default function ProductionOrders() {
                                             <div className="flex gap-2 items-end">
                                                 <div className="flex-1 sm:col-span-4 md:col-span-3">
                                                     <FormField label="الكمية المطلوبة" className="space-y-1" error={form.formState.errors.items?.[index]?.quantity?.message}>
-                                                        <Input
+                                                        <FormNumberInput
                                                             aria-label={`كمية المنتج ${index+1}`}
                                                             type="number"
                                                             step="0.01"
-                                                            {...form.register(`items.${index}.quantity` as const, { valueAsNumber: true, required: "مطلوب", min:{value:0.000001,message:"أدخل كمية أكبر من صفر"},max:{value:1e9,message:"الكمية أكبر من الحد المسموح"} })}
+                                                            control={form.control} name={`items.${index}.quantity` as const} rules={{required: "مطلوب", min:{value:0.000001,message:"أدخل كمية أكبر من صفر"}, max:{value:1e9,message:"الكمية أكبر من الحد المسموح"}}}
                                                         />
                                                     </FormField>
                                                 </div>

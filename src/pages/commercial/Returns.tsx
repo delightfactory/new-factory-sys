@@ -1,3 +1,4 @@
+import { NumberInput, FormNumberInput } from '@/components/ui/number-input';
 import { formatAmount as displayAmount } from '@/lib/number-format';
 import {useConfirmation} from '@/hooks/use-confirmation';
 import { useState } from "react";
@@ -543,7 +544,7 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                                             control={control}
                                             rules={{ required: true }}
                                             render={({ field }) => (
-                                                <Input
+                                                <NumberInput
                                                     type="number"
                                                     step="0.01"
                                                     value={field.value || ''}
@@ -561,7 +562,7 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                                             control={control}
                                             rules={{ required: true }}
                                             render={({ field }) => (
-                                                <Input
+                                                <NumberInput formatKind="unitCost"
                                                     type="number"
                                                     step="0.01"
                                                     value={field.value || ''}
@@ -640,10 +641,10 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            <Input type="number" step="0.01" {...register(`items.${index}.quantity`, { required: true, valueAsNumber: true })} placeholder="الكمية" />
+                                            <FormNumberInput type="number" step="0.01" control={control} name={`items.${index}.quantity`} rules={{required: true}} placeholder="الكمية" />
                                         </TableCell>
                                         <TableCell>
-                                            <Input type="number" step="0.01" {...register(`items.${index}.unit_price`, { required: true, valueAsNumber: true })} placeholder="السعر" />
+                                            <FormNumberInput type="number" step="0.01" control={control} name={`items.${index}.unit_price`} rules={{required: true}} placeholder="السعر" />
                                         </TableCell>
                                         <TableCell>
                                             <Button type="button" aria-label="حذف بند المرتجع" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-red-500" /></Button>

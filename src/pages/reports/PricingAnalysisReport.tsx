@@ -1,3 +1,4 @@
+import { NumberInput } from '@/components/ui/number-input';
 import { formatPercentage, formatUnitCostCurrency } from '@/lib/number-format';
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -242,9 +243,9 @@ export default function PricingAnalysisReport() {
                                     </div>
                                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
                                         <span>هامش مستهدف:</span>
-                                        <Input
+                                        <NumberInput
                                             type="number"
-                                            value={targetMargin}
+                                            formatKind="percent" value={targetMargin}
                                             onChange={e => setTargetMargin(Number(e.target.value))}
                                             className="w-16 h-8"
                                         />

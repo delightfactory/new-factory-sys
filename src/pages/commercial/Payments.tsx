@@ -1,3 +1,4 @@
+import { FormNumberInput } from '@/components/ui/number-input';
 import { formatAmount as displayAmount } from '@/lib/number-format';
 import {FinancialService} from '@/services/FinancialService';
 import {paymentCategoryOptions} from '@/features/financial/category-policy';
@@ -92,7 +93,7 @@ function TransactionForm({
     initialParty?: string
 }) {
     const queryClient = useQueryClient();
-    const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({defaultValues:newPaymentValues()});
+    const { control, register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({defaultValues:newPaymentValues()});
     const initialApplied = useRef(false);
 
     // Watch party to fetch invoices
@@ -256,10 +257,10 @@ function TransactionForm({
                     <div className={`p-4 rounded-lg ${bgClass}`}>
                         <FormField label="المبلغ" required error={errors.amount?.message as string}>
                             <div className="relative">
-                                <Input
+                                <FormNumberInput
                                     type="number"
                                     step="0.01"
-                                    {...register('amount', { required: "مطلوب", min: 0.01 })}
+                                    control={control} name={'amount'} rules={{required: "مطلوب", min: 0.01}}
                                     placeholder="0.00"
                                     className="text-lg sm:text-xl font-bold h-12 pr-16"
                                 />

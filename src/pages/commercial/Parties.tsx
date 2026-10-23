@@ -1,3 +1,4 @@
+import { FormNumberInput } from '@/components/ui/number-input';
 import { formatAmount as displayAmount } from '@/lib/number-format';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -151,7 +152,7 @@ export default function Parties() {
 }
 
 function PartyDialog({ open, onOpenChange, defaultType, initialData, onSuccess }: any) {
-    const { register, handleSubmit, reset, formState: { errors } } = useForm<Party>({
+    const { control, register, handleSubmit, reset, formState: { errors } } = useForm<Party>({
         defaultValues: initialData || { balance: 0 }
     });
 
@@ -215,7 +216,7 @@ function PartyDialog({ open, onOpenChange, defaultType, initialData, onSuccess }
 
                     {!initialData && (
                         <FormField label="الرصيد الافتتاحي (دائن/مدين)">
-                            <Input type="number" step="0.01" {...register('balance')} defaultValue={0} />
+                            <FormNumberInput type="number" step="0.01" control={control} name={'balance'} defaultValue={0} />
                             <p className="text-xs text-muted-foreground mt-1">
                                 {defaultType === 'supplier' ? 'سالب = علينا (دائن)، موجب = لنا (مدين/مقدم)' : 'موجب = علينا (مدين)، سالب = له (دائن/مقدم)'}
                             </p>

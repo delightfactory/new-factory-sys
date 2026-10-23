@@ -1,4 +1,5 @@
-import { Fragment, type ChangeEvent } from 'react';
+import { FormNumberInput } from '@/components/ui/number-input';
+import { Fragment } from 'react';
 import { RefreshCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,10 +49,9 @@ export function MaterialEditorDialog({ editor }: { editor: ReturnType<typeof use
                                 <Input {...errorProps('unit')} {...form.register('unit', { validate: value => !!value?.trim() || 'أدخل وحدة الصنف.' })} placeholder="كجم / لتر / قطعة" />
                             </FormField>
                             {numberFields.map(field => <FormField key={field.name} label={field.label} htmlFor={fieldId(field.name)} required={field.name !== 'quantity' || !edit} error={errors[field.name]?.message}>
-                                <Input {...errorProps(field.name)} type="number" step="any" readOnly={edit && field.name === 'quantity'} {...form.register(field.name, {
-                                    valueAsNumber: true, validate: finiteMaterialNumber,
-                                    ...(field.name === 'unit_cost' ? { onChange: (event: ChangeEvent<HTMLInputElement>) => editor.costChanged(event.target.valueAsNumber) } : {}),
-                                })} />
+                                <FormNumberInput {...errorProps(field.name)} type="number" step="any" readOnly={edit && field.name === 'quantity'}
+                                    onChange={event => { if (field.name === 'unit_cost') editor.costChanged(event.target.valueAsNumber); }}
+                                    control={form.control} name={field.name} rules={{validate: value => finiteMaterialNumber(typeof value === 'number' ? value : NaN)}} />
                                 {edit && field.name === 'quantity' && <p className="text-xs text-muted-foreground">تعديل الرصيد يتم عبر التسويات والأوامر؛ لا يُرسل من هذا النموذج.</p>}
                                 {edit && field.name === 'unit_cost' && workspace.overrideCost && <p role="status" className="text-sm text-amber-700">سيُعاد تقييم الرصيد الحالي بالتكلفة التي أدخلتها عند الحفظ.</p>}
                             </FormField>)}

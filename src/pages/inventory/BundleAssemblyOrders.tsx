@@ -1,3 +1,4 @@
+import { FormNumberInput } from '@/components/ui/number-input';
 import { formatAmount as displayAmount, formatUnitCost as displayUnitCost, formatQuantity as displayQuantity } from '@/lib/number-format';
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -515,13 +516,11 @@ export default function BundleAssemblyOrders() {
                                                         </Select>
                                                     </div>
                                                     <div>
-                                                        <Input
+                                                        <FormNumberInput
                                                             type="number"
                                                             min="1"
                                                             placeholder="الكمية"
-                                                            {...form.register(`items.${index}.quantity`, {
-                                                                valueAsNumber: true,
-                                                            })}
+                                                            control={form.control} name={`items.${index}.quantity`}
                                                         />
                                                     </div>
                                                 </div>

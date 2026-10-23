@@ -1,3 +1,4 @@
+import { FormNumberInput } from '@/components/ui/number-input';
 import { formatAmount as displayAmount } from '@/lib/number-format';
 import { useState } from "react";
 import { Link } from 'react-router-dom';
@@ -105,7 +106,7 @@ export default function Treasuries() {
 
 // Sub-Components
 function TransactionDialog({ open, type, treasury, onOpenChange, onSuccess }: any) {
-    const { register, handleSubmit, reset } = useForm();
+    const { control, register, handleSubmit, reset } = useForm();
     const mutation = useMutation({
         mutationFn: type === 'deposit' ? TreasuriesService.deposit : TreasuriesService.withdraw,
         onSuccess: () => {
@@ -136,7 +137,7 @@ function TransactionDialog({ open, type, treasury, onOpenChange, onSuccess }: an
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
                     <FormField label="المبلغ" required>
-                        <Input type="number" step="0.01" {...register('amount', { required: "مطلوب", min: 0.01 })} placeholder="0.00" />
+                        <FormNumberInput type="number" step="0.01" control={control} name={'amount'} rules={{required: "مطلوب", min: 0.01}} placeholder="0.00" />
                     </FormField>
                     <FormField label="الملاحظات / السبب" required>
                         <Input {...register('description', { required: "مطلوب" })} placeholder="سبب العملية" />
@@ -151,7 +152,7 @@ function TransactionDialog({ open, type, treasury, onOpenChange, onSuccess }: an
 }
 
 function TransferDialog({ open, sourceTreasury, allTreasuries, onOpenChange, onSuccess }: any) {
-    const { register, handleSubmit, reset, setValue } = useForm();
+    const { control, register, handleSubmit, reset, setValue } = useForm();
     const mutation = useMutation({
         mutationFn: TreasuriesService.transfer,
         onSuccess: () => {
@@ -195,7 +196,7 @@ function TransferDialog({ open, sourceTreasury, allTreasuries, onOpenChange, onS
                         </Select>
                     </FormField>
                     <FormField label="المبلغ" required>
-                        <Input type="number" step="0.01" {...register('amount', { required: "مطلوب", min: 0.01 })} placeholder="0.00" />
+                        <FormNumberInput type="number" step="0.01" control={control} name={'amount'} rules={{required: "مطلوب", min: 0.01}} placeholder="0.00" />
                     </FormField>
                     <FormField label="ملاحظات">
                         <Input {...register('description')} placeholder="سبب التحويل" />
@@ -210,7 +211,7 @@ function TransferDialog({ open, sourceTreasury, allTreasuries, onOpenChange, onS
 }
 
 function CreateTreasuryDialog({ open, onOpenChange, onSuccess }: any) {
-    const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Treasury>({
+    const { control, register, handleSubmit, reset, setValue, formState: { errors } } = useForm<Treasury>({
         defaultValues: {
             type: 'cash',
             currency: 'EGP',
@@ -261,7 +262,7 @@ function CreateTreasuryDialog({ open, onOpenChange, onSuccess }: any) {
 
                     <FormGrid className="grid-cols-2">
                         <FormField label="الرصيد الافتتاحي">
-                            <Input type="number" step="0.01" {...register('balance', { valueAsNumber: true })} />
+                            <FormNumberInput type="number" step="0.01" control={control} name={'balance'} />
                         </FormField>
                         <FormField label="العملة">
                             <Input {...register('currency')} defaultValue="EGP" />

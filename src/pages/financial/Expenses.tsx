@@ -1,3 +1,4 @@
+import { FormNumberInput } from '@/components/ui/number-input';
 import { formatAmount as displayAmount } from '@/lib/number-format';
 import {factoryBusinessDay} from '@/platform/date/factory-business-day';
 import { useState } from "react";
@@ -175,7 +176,7 @@ export default function FinancialLog() {
 
 function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
     const queryClient = useQueryClient();
-    const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
+    const { control, register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
         defaultValues: {
             transaction_type: 'expense' as 'income' | 'expense',
             amount: 0,
@@ -257,7 +258,7 @@ function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
 
             <FormGrid>
                 <FormField label="المبلغ" required error={errors.amount?.message}>
-                    <Input type="number" step="0.01" {...register('amount', { required: "مطلوب" })} />
+                    <FormNumberInput type="number" step="0.01" control={control} name={'amount'} rules={{required: "مطلوب"}} />
                 </FormField>
                 <FormField label="التاريخ" required error={errors.transaction_date?.message}>
                     <Input type="date" {...register('transaction_date', { required: "مطلوب" })} />

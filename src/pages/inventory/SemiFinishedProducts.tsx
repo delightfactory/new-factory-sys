@@ -1,3 +1,4 @@
+import { FormNumberInput } from '@/components/ui/number-input';
 import { formatPercentage } from '@/lib/number-format';
 import { semiRecipeCost } from '@/features/inventory/recipe-cost';
 import { formatInventoryCost, formatInventoryQuantity } from "@/lib/inventory-format";
@@ -307,10 +308,10 @@ export default function SemiFinishedProducts() {
                                 <Input {...form.register("unit", { required: "مطلوب" })} placeholder="كجم" />
                             </FormField>
                             <FormField label="حد الأمان" error={form.formState.errors.min_stock?.message}>
-                                <Input type="number" step="any" {...form.register("min_stock", { valueAsNumber: true })} />
+                                <FormNumberInput type="number" step="any" control={form.control} name={"min_stock"} />
                             </FormField>
                             <FormField label="سعر البيع" error={form.formState.errors.sales_price?.message}>
-                                <Input type="number" step="any" {...form.register("sales_price", { valueAsNumber: true })} />
+                                <FormNumberInput type="number" step="any" control={form.control} name={"sales_price"} />
                             </FormField>
                         </FormGrid>
 
@@ -321,11 +322,11 @@ export default function SemiFinishedProducts() {
                                     <label className="text-sm font-bold text-primary">حجم التشغيلة القياسي (Batch Size)</label>
                                     <p className="text-xs text-muted-foreground">أدخل الكمية التي تنتجها هذه الوصفة (مثلاً 100 كجم)</p>
                                     <div className="flex items-center gap-2">
-                                        <Input
+                                        <FormNumberInput
                                             type="number"
                                             step="any"
                                             className="text-lg font-bold"
-                                            {...form.register("recipe_batch_size", { valueAsNumber: true, required: "مطلوب", min: { value: 0.000000001, message: "أدخل حجم تشغيلة موجبًا" } })}
+                                            control={form.control} name={"recipe_batch_size"} rules={{required: "مطلوب", min: { value: 0.000000001, message: "أدخل حجم تشغيلة موجبًا" }}}
                                         />
                                         <span className="text-sm font-medium">{form.watch("unit") || "وحدة"}</span>
                                     </div>
@@ -380,10 +381,10 @@ export default function SemiFinishedProducts() {
                                                 </div>
                                                 <div className="col-span-6 sm:col-span-3">
                                                     <FormField label="الكمية في التشغيلة" className="mb-0" error={form.formState.errors.ingredients?.[index]?.quantity?.message}>
-                                                        <Input
+                                                        <FormNumberInput
                                                             type="number"
                                                             step="any" aria-label={`كمية المكوّن ${index + 1}`}
-                                                            {...form.register(`ingredients.${index}.quantity` as const, { valueAsNumber: true, required: "مطلوب" })}
+                                                            control={form.control} name={`ingredients.${index}.quantity` as const} rules={{required: "مطلوب"}}
                                                         />
                                                     </FormField>
                                                 </div>

@@ -1,3 +1,4 @@
+import { FormNumberInput } from '@/components/ui/number-input';
 import { formatPercentage as displayPercent, formatQuantity as displayQuantity, formatAmount as displayAmount, formatUnitCost as displayUnitCost } from '@/lib/number-format';
 
 import { useState, useEffect } from "react";
@@ -394,17 +395,17 @@ export default function Bundles() {
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                             <div>
                                 <label className="text-sm font-medium">سعر البيع</label>
-                                <Input
+                                <FormNumberInput
                                     type="number"
                                     step="0.01"
-                                    {...form.register("bundle_price", { valueAsNumber: true })}
+                                    control={form.control} name={"bundle_price"}
                                 />
                             </div>
                             <div>
                                 <label className="text-sm font-medium">الحد الأدنى</label>
-                                <Input
+                                <FormNumberInput
                                     type="number"
-                                    {...form.register("min_stock", { valueAsNumber: true })}
+                                    control={form.control} name={"min_stock"}
                                 />
                             </div>
                             <div className="flex items-end">
@@ -495,14 +496,12 @@ export default function Bundles() {
                                                         />
                                                     </div>
                                                     <div className="sm:col-span-3">
-                                                        <Input
+                                                        <FormNumberInput
                                                             type="number"
                                                             min="0.01"
                                                             step="0.01"
                                                             placeholder="الكمية"
-                                                            {...form.register(`items.${index}.quantity`, {
-                                                                valueAsNumber: true,
-                                                            })}
+                                                            control={form.control} name={`items.${index}.quantity`}
                                                         />
                                                     </div>
                                                     <div className="sm:col-span-3 flex items-center justify-between sm:justify-end">

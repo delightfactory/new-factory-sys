@@ -1,3 +1,4 @@
+import { FormNumberInput } from '@/components/ui/number-input';
 import { finishedRecipeCost } from '@/features/inventory/recipe-cost';
 import { formatInventoryCost, formatInventoryQuantity } from "@/lib/inventory-format";
 import { ReferenceReadNotice } from '@/components/inventory/ReferenceReadNotice';
@@ -309,10 +310,10 @@ export default function FinishedProducts() {
                                 <Input {...form.register("unit", { required: "مطلوب" })} placeholder="كرتونة / قطعة" />
                             </FormField>
                             <FormField label="سعر البيع" error={form.formState.errors.sales_price?.message}>
-                                <Input type="number" step="any" {...form.register("sales_price", { valueAsNumber: true })} />
+                                <FormNumberInput type="number" step="any" control={form.control} name={"sales_price"} />
                             </FormField>
                             <FormField label="الكمية الحالية">
-                                <Input type="number" step="any" {...form.register("quantity", { valueAsNumber: true })} disabled={isEditMode} />
+                                <FormNumberInput type="number" step="any" control={form.control} name={"quantity"} disabled={isEditMode} />
                             </FormField>
                         </FormGrid>
 
@@ -335,7 +336,7 @@ export default function FinishedProducts() {
                                     />
                                 </FormField>
                                 <FormField label="الكمية المطلوبة (لكل وحدة نهائية)" required error={form.formState.errors.semi_finished_quantity?.message}>
-                                    <Input type="number" step="any" {...form.register("semi_finished_quantity", { valueAsNumber: true, required: "مطلوب" })} />
+                                    <FormNumberInput type="number" step="any" control={form.control} name={"semi_finished_quantity"} rules={{required: "مطلوب"}} />
                                 </FormField>
                             </FormGrid>
                         </div>
@@ -385,10 +386,10 @@ export default function FinishedProducts() {
                                         </div>
                                         <div className="w-24">
                                             <FormField label="الكمية" className="mb-0" error={form.formState.errors.packaging?.[index]?.quantity?.message}>
-                                                <Input
+                                                <FormNumberInput
                                                     type="number"
                                                     step="any" aria-label={`كمية مادة التعبئة ${index + 1}`}
-                                                    {...form.register(`packaging.${index}.quantity` as const, { valueAsNumber: true, required: "مطلوب" })}
+                                                    control={form.control} name={`packaging.${index}.quantity` as const} rules={{required: "مطلوب"}}
                                                 />
                                             </FormField>
                                         </div>
