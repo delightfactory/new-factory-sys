@@ -1,5 +1,6 @@
 import { factoryCommand, fields, inventoryCommand } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
+import { readCompleteRows } from '@/platform/data/read-complete-rows';
 import { type RawMaterial, type PackagingMaterial, type SemiFinishedProduct, type FinishedProduct, type ProductionOrder, type PackagingOrder } from "@/types";
 
 export interface SemiFinishedIngredient {
@@ -23,11 +24,17 @@ export const InventoryService = {
 
     // --- Raw Materials ---
     getRawMaterials: async () => {
-        const { data, error } = await supabase.from('raw_materials').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as RawMaterial[];
+        return readCompleteRows<RawMaterial>(async (from, to) => {
+            const { data, error, count } = await supabase.from('raw_materials').select('*', { count: 'exact' }).order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to);
+            return { rows: data as RawMaterial[] | null, error, count };
+        }, 'RAW_MATERIALS');
     },
-    createRawMaterial: async (item: Omit<RawMaterial, 'id' | 'created_at' | 'updated_at'>) => {
+    getRawMaterial: async (id: number) => {
+        const { data, error } = await supabase.from('raw_materials').select('*').eq('id', id).single();
+        if (error) throw error;
+        return data as RawMaterial;
+    },
+    createRawMaterial: async (item: Omit<RawMaterial, 'id' | 'created_at' | 'updated_at' | 'importance'> & { importance?: number }) => {
         return inventoryCommand<RawMaterial>("raw_material", item);
     },
     updateRawMaterial: async (id: number, updates: Partial<RawMaterial>) => {
@@ -40,9 +47,15 @@ export const InventoryService = {
 
     // --- Packaging Materials ---
     getPackagingMaterials: async () => {
-        const { data, error } = await supabase.from('packaging_materials').select('*').order('created_at', { ascending: false });
+        return readCompleteRows<PackagingMaterial>(async (from, to) => {
+            const { data, error, count } = await supabase.from('packaging_materials').select('*', { count: 'exact' }).order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to);
+            return { rows: data as PackagingMaterial[] | null, error, count };
+        }, 'PACKAGING_MATERIALS');
+    },
+    getPackagingMaterial: async (id: number) => {
+        const { data, error } = await supabase.from('packaging_materials').select('*').eq('id', id).single();
         if (error) throw error;
-        return data as PackagingMaterial[];
+        return data as PackagingMaterial;
     },
     createPackagingMaterial: async (item: Omit<PackagingMaterial, 'id' | 'created_at' | 'updated_at'>) => {
         return inventoryCommand<PackagingMaterial>("packaging_material", item);
@@ -57,9 +70,10 @@ export const InventoryService = {
 
     // --- Semi Finished Products ---
     getSemiFinishedProducts: async () => {
-        const { data, error } = await supabase.from('semi_finished_products').select('*').order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as SemiFinishedProduct[];
+        return readCompleteRows<SemiFinishedProduct>(async (from, to) => {
+            const { data, error, count } = await supabase.from('semi_finished_products').select('*', { count: 'exact' }).order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to);
+            return { rows: data as SemiFinishedProduct[] | null, error, count };
+        }, 'SEMI_FINISHED_PRODUCTS');
     },
 
     // Create Product WITH Ingredients (Transaction)
@@ -168,9 +182,10 @@ export const InventoryService = {
 
     // --- Finished Products ---
     getFinishedProducts: async () => {
-        const { data, error } = await supabase.from('finished_products').select('*, semi_finished_products(name)').order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as FinishedProduct[];
+        return readCompleteRows<FinishedProduct>(async (from, to) => {
+            const { data, error, count } = await supabase.from('finished_products').select('*, semi_finished_products(name)', { count: 'exact' }).order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to);
+            return { rows: data as FinishedProduct[] | null, error, count };
+        }, 'FINISHED_PRODUCTS');
     },
     createFinishedProduct: async (item: Omit<FinishedProduct, 'id' | 'created_at' | 'updated_at'>) => {
         return inventoryCommand<FinishedProduct>("finished_product", item);
@@ -195,7 +210,7 @@ export const InventoryService = {
 
     updateFinishedProductWithPackaging: async (
         id: number,
-        product: Partial<FinishedProduct>,
+        product: Partial<Omit<FinishedProduct, 'semi_finished_id'>> & { semi_finished_id?: number | null },
         packaging: { packaging_material_id: number; quantity: number }[]
     ) => {
         return inventoryCommand<FinishedProduct>("finished_product", product, id, { packaging });
@@ -354,7 +369,7 @@ export const InventoryService = {
      * Calculate raw materials reserved by pending/inProgress production orders
      * Returns Map<raw_material_id, reserved_quantity>
      */
-    getPendingProductionDemand: async (): Promise<Map<number, number>> => {
+    getPendingProductionDemand: async (excludeOrderId?: number): Promise<Map<number, number>> => {
         const demandMap = new Map<number, number>();
 
         // Get all pending/inProgress production orders with their items
@@ -367,7 +382,8 @@ export const InventoryService = {
         if (!pendingOrders || pendingOrders.length === 0) return demandMap;
 
         // Get all items for these orders
-        const orderIds = pendingOrders.map(o => o.id);
+        const orderIds = pendingOrders.filter(o => o.id !== excludeOrderId).map(o => o.id);
+        if(orderIds.length===0)return demandMap;
         const { data: items, error: itemsError } = await supabase
             .from('production_order_items')
             .select('semi_finished_id, quantity')
@@ -384,7 +400,7 @@ export const InventoryService = {
                 .eq('id', item.semi_finished_id)
                 .single();
 
-            if (recipeError || !recipe) continue;
+            if (recipeError || !recipe) throw recipeError ?? new Error("تعذر تحميل وصفة لحساب الحجوزات");
 
             const batchSize = recipe.recipe_batch_size || 100;
             const ratio = item.quantity / batchSize;
@@ -405,7 +421,7 @@ export const InventoryService = {
      * Calculate packaging materials and semi-finished products reserved by pending packaging orders
      * Returns { packagingDemand: Map, semiFinishedDemand: Map }
      */
-    getPendingPackagingDemand: async (): Promise<{
+    getPendingPackagingDemand: async (excludeOrderId?: number): Promise<{
         packagingDemand: Map<number, number>;
         semiFinishedDemand: Map<number, number>;
     }> => {
@@ -424,7 +440,8 @@ export const InventoryService = {
         }
 
         // Get all items for these orders
-        const orderIds = pendingOrders.map(o => o.id);
+        const orderIds = pendingOrders.filter(o => o.id !== excludeOrderId).map(o => o.id);
+        if(orderIds.length===0)return {packagingDemand,semiFinishedDemand};
         const { data: items, error: itemsError } = await supabase
             .from('packaging_order_items')
             .select('finished_product_id, quantity')
@@ -443,7 +460,7 @@ export const InventoryService = {
                 .eq('id', item.finished_product_id)
                 .single();
 
-            if (productError || !product) continue;
+            if (productError || !product) throw productError ?? new Error("تعذر تحميل متطلبات منتج لحساب الحجوزات");
 
             // Semi-finished demand
             if (product.semi_finished_id) {

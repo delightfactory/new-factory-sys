@@ -9,6 +9,7 @@ interface FormFieldProps {
     description?: string;
     children: React.ReactNode;
     className?: string;
+    htmlFor?: string;
 }
 
 export function FormField({
@@ -18,19 +19,20 @@ export function FormField({
     description,
     children,
     className,
+    htmlFor,
 }: FormFieldProps) {
     return (
         <div className={cn("space-y-2", className)}>
-            <Label className="flex items-center gap-1">
+            <Label htmlFor={htmlFor} className="flex items-center gap-1">
                 {label}
-                {required && <span className="text-destructive">*</span>}
+                {required && <span aria-hidden={htmlFor ? true : undefined} className="text-destructive">*</span>}
             </Label>
             {children}
             {description && !error && (
                 <p className="text-xs text-muted-foreground">{description}</p>
             )}
             {error && (
-                <p className="text-xs text-destructive">{error}</p>
+                <p id={htmlFor ? `${htmlFor}-error` : undefined} role={htmlFor ? 'alert' : undefined} className="text-xs text-destructive">{error}</p>
             )}
         </div>
     );

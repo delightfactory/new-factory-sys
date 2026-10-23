@@ -1,219 +1,55 @@
-import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Link, useParams } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { TreasuriesService } from '@/services/TreasuriesService';
+import { useAuth } from '@/contexts/AuthContext';
+import { buildTreasuryStatement, treasuryCurrency, cashCategory, cashDirection, cashInvoiceHref, type CashEntry } from '@/features/treasuries/treasury-statement';
+import { statementMoney } from '@/features/parties/party-statement';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-    ArrowLeft,
-    Wallet,
-    Calendar,
-    TrendingUp,
-    TrendingDown,
-    Banknote,
-    ArrowUpCircle,
-    ArrowDownCircle
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
+import { Input } from '@/components/ui/input';
+import { PrintButton } from '@/components/print/PrintLayout';
+import { FinancialReversalDialog } from '@/components/financial/FinancialReversalDialog';
+import TreasuryStatementPrint from '@/components/print/templates/TreasuryStatementPrint';
 
-interface Treasury {
-    id: number;
-    name: string;
-    balance: number;
-    created_at: string;
+function CashMovement({ row }: { row: CashEntry }) {
+    const href = cashInvoiceHref(row);
+    return <div className="min-w-0 space-y-1"><p className="font-medium">{cashCategory(row.category)}</p><p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">{row.description || 'بدون بيان'}</p>{row.party_id && <Link className="block text-sm underline" to={`/commercial/parties/${row.party_id}`}>{row.party?.name || 'عرض الطرف'}</Link>}{href && <Link className="block text-sm underline" to={href}>عرض الفاتورة المرتبطة</Link>}</div>;
 }
-
-interface Transaction {
-    id: number;
-    amount: number;
-    transaction_type: 'income' | 'expense';
-    category: string;
-    description: string;
-    transaction_date: string;
-}
-
 export default function TreasuryDetails() {
-    const { id } = useParams<{ id: string }>();
-    const navigate = useNavigate();
-
-    // Fetch treasury details
-    const { data: treasury, isLoading: treasuryLoading } = useQuery({
-        queryKey: ['treasury', id],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('treasuries')
-                .select('*')
-                .eq('id', id)
-                .single();
-            if (error) throw error;
-            return data as Treasury;
-        },
-        enabled: !!id
-    });
-
-    // Fetch recent transactions
-    const { data: transactions } = useQuery({
-        queryKey: ['treasury-transactions', id],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('financial_transactions')
-                .select('*')
-                .eq('treasury_id', id)
-                .order('transaction_date', { ascending: false })
-                .limit(20);
-            if (error) throw error;
-            return data as Transaction[];
-        },
-        enabled: !!id
-    });
-
-    // Calculate stats
-    const totalIncome = transactions?.filter(t => t.transaction_type === 'income').reduce((s, t) => s + (t.amount || 0), 0) || 0;
-    const totalExpense = transactions?.filter(t => t.transaction_type === 'expense').reduce((s, t) => s + (t.amount || 0), 0) || 0;
-
-    if (treasuryLoading) {
-        return (
-            <div className="p-6 space-y-6">
-                <div className="h-16 bg-muted/30 rounded-lg animate-pulse" />
-                <CardGridSkeleton count={3} />
-            </div>
-        );
-    }
-
-    if (!treasury) {
-        return (
-            <div className="p-6 text-center">
-                <p className="text-muted-foreground">الخزينة غير موجودة</p>
-                <Button onClick={() => navigate(-1)} className="mt-4">
-                    <ArrowLeft className="ml-2 h-4 w-4" /> عودة
-                </Button>
-            </div>
-        );
-    }
-
-    return (
-        <div className="p-4 sm:p-6 space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-                        <ArrowLeft className="h-5 w-5" />
-                    </Button>
-                    <div className="flex items-center gap-3">
-                        <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
-                            <Wallet className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-                        </div>
-                        <div>
-                            <h1 className="text-xl sm:text-2xl font-bold">{treasury.name}</h1>
-                            <span className="text-sm text-muted-foreground">خزينة</span>
-                        </div>
-                    </div>
-                </div>
-                <div className={`text-2xl font-bold ${treasury.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {treasury.balance.toLocaleString('ar-EG')} ج.م
-                    <span className="block text-xs font-normal text-muted-foreground">الرصيد الحالي</span>
-                </div>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20 border-emerald-200 dark:border-emerald-800">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Banknote className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                            <span className="text-sm text-emerald-700 dark:text-emerald-300">الرصيد</span>
-                        </div>
-                        <p className="text-xl font-bold text-emerald-900 dark:text-emerald-100">{treasury.balance.toLocaleString()}</p>
-                        <p className="text-xs text-emerald-600 dark:text-emerald-400">ج.م</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border-green-200 dark:border-green-800">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
-                            <span className="text-sm text-green-700 dark:text-green-300">إجمالي الإيرادات</span>
-                        </div>
-                        <p className="text-xl font-bold text-green-900 dark:text-green-100">{totalIncome.toLocaleString()}</p>
-                        <p className="text-xs text-green-600 dark:text-green-400">ج.م</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/30 dark:to-red-800/20 border-red-200 dark:border-red-800">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
-                            <span className="text-sm text-red-700 dark:text-red-300">إجمالي المصروفات</span>
-                        </div>
-                        <p className="text-xl font-bold text-red-900 dark:text-red-100">{totalExpense.toLocaleString()}</p>
-                        <p className="text-xs text-red-600 dark:text-red-400">ج.م</p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Recent Transactions */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-lg">آخر المعاملات</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    {transactions && transactions.length > 0 ? (
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>التاريخ</TableHead>
-                                        <TableHead>النوع</TableHead>
-                                        <TableHead>البند</TableHead>
-                                        <TableHead>الوصف</TableHead>
-                                        <TableHead>المبلغ</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {transactions.map(trx => (
-                                        <TableRow key={trx.id}>
-                                            <TableCell>{format(new Date(trx.transaction_date), 'dd/MM/yyyy')}</TableCell>
-                                            <TableCell>
-                                                {trx.transaction_type === 'income' ? (
-                                                    <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                                                        <ArrowDownCircle className="h-4 w-4" />
-                                                        <span>إيراد</span>
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center gap-1 text-red-600 dark:text-red-400">
-                                                        <ArrowUpCircle className="h-4 w-4" />
-                                                        <span>مصروف</span>
-                                                    </div>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline">{trx.category}</Badge>
-                                            </TableCell>
-                                            <TableCell className="max-w-[200px] truncate">{trx.description || '-'}</TableCell>
-                                            <TableCell className={`font-bold ${trx.transaction_type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                                {trx.transaction_type === 'income' ? '+' : '-'}{trx.amount.toLocaleString()} ج.م
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    ) : (
-                        <div className="p-8 text-center text-muted-foreground">
-                            <Banknote className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                            <p>لا توجد معاملات</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Meta info */}
-            <div className="text-xs text-muted-foreground flex items-center gap-2">
-                <Calendar className="h-3 w-3" />
-                <span>تاريخ الإنشاء: {format(new Date(treasury.created_at), 'dd/MM/yyyy')}</span>
-            </div>
-        </div>
-    );
+    const { id } = useParams(), valid = !!id && /^\d+$/.test(id) && Number.isSafeInteger(Number(id)) && Number(id) > 0;
+    const [from, setFrom] = useState(''), [to, setTo] = useState(''), [page, setPage] = useState(0), [selected, setSelected] = useState<CashEntry | null>(null);
+    const { hasRole } = useAuth(), client = useQueryClient();
+    const query = useQuery({ queryKey: ['treasury-workspace', id], queryFn: () => TreasuriesService.getStatement(Number(id)), enabled: valid, retry: false, refetchOnWindowFocus: false });
+    if (!valid) return <p role="alert">رابط الخزنة غير صحيح. <Link to="/commercial/treasuries">العودة للخزن</Link></p>;
+    if (query.isPending || query.isFetching) return <p role="status">جارٍ تحميل الخزنة وكامل حركاتها…</p>;
+    if (query.isError || !query.data) return <div role="alert" className="space-y-3 rounded-lg border p-5"><p>تعذر تحميل الخزنة وكشفها كاملًا. لم نعرض أرصدة أو مجاميع جزئية.</p><Button onClick={() => void query.refetch()}>إعادة المحاولة</Button><Button variant="outline" asChild><Link to="/commercial/treasuries">العودة للخزن</Link></Button></div>;
+    const { treasury, entries } = query.data;
+    const currency = treasuryCurrency(treasury.currency);
+    let summary, statement, periodError = false;
+    try { summary = buildTreasuryStatement(entries, treasury.balance); } catch { summary = null; }
+    try { statement = buildTreasuryStatement(entries, treasury.balance, { from, to }); } catch (error) { statement = null; periodError = error instanceof Error && error.message === 'CASH_PERIOD_INVALID'; }
+    const rows = statement?.rows ?? entries, currentPage = Math.min(page, Math.max(0, Math.ceil(rows.length / 50) - 1)), start = currentPage * 50;
+    const visible = rows.slice().reverse().slice(start, start + 50);
+    const canReverse = hasRole(['admin', 'manager', 'accountant']);
+    const afterReversal = () => {
+        setSelected(null);
+        toast.success('أُلغيت الحركة وأُعيد أثرها على الأرصدة وحُذفت من الكشف الجاري.');
+        for (const key of ['treasury-workspace', 'treasury', 'treasury-transactions', 'treasuries', 'financial_transactions', 'financial-reversal', 'party-workspace', 'parties', 'unpaid_invoices', 'invoice', 'sales_invoices', 'purchase_invoices', 'dashboard-stats']) void client.invalidateQueries({ queryKey: [key] });
+    };
+    return <div className="min-w-0 space-y-6">
+      <div className="print:hidden space-y-6">
+        <header className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><Link className="text-sm underline text-muted-foreground" to="/commercial/treasuries">الخزن والبنوك</Link><h1 className="mt-2 text-2xl font-bold break-words">كشف {treasury.name}</h1><p className="text-sm text-muted-foreground">{treasury.type === 'bank' ? 'حساب بنكي' : 'خزنة نقدية'} · {entries.length} حركة مسجلة</p></div><div className="flex flex-wrap gap-2"><Button variant="outline" onClick={() => void query.refetch()}>تحديث الكشف</Button>{statement && <PrintButton label="طباعة الكشف"/>}</div></header>
+        {summary ? <section aria-label="مطابقة رصيد الخزنة" className="rounded-xl border bg-card p-5"><dl className="grid gap-4 sm:grid-cols-3">{[['الرصيد الحالي المسجل', summary.recorded], ['صافي جميع الحركات', summary.net], ['الفرق بين الرصيد والحركات', summary.difference]].map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 text-2xl font-semibold break-words">{statementMoney(value)} <span className="text-sm">{currency}</span></dd></div>)}</dl><p className="mt-4 border-t pt-3 text-sm text-muted-foreground">الفرق قد يشمل رصيدًا افتتاحيًا أو تعديلات قديمة أو فجوات تسجيل؛ لا نعتبره رصيدًا افتتاحيًا موثقًا. الوارد والصادر حركات نقدية تشمل التحويلات. القراءة ليست لقطة واحدة؛ إذا سُجلت حركة أثناء التحميل فقد يظهر فرق مؤقت، فحدّث الكشف.</p></section> : <p role="alert" className="rounded-lg border border-destructive p-4">تعذر حساب الكشف؛ هناك حركة تحتاج مراجعة اتجاهها أو مبلغها. أوقفنا المجاميع والطباعة حتى المراجعة، وتظهر الحركات المقروءة أدناه دون فلترة.</p>}
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4"><label className="flex-1 min-w-0 space-y-1">من تاريخ<Input aria-label="كشف الخزنة من تاريخ" type="date" value={from} onChange={e => { setFrom(e.target.value); setPage(0); }}/></label><label className="flex-1 min-w-0 space-y-1">إلى تاريخ<Input aria-label="كشف الخزنة إلى تاريخ" type="date" value={to} onChange={e => { setTo(e.target.value); setPage(0); }}/></label><Button variant="outline" onClick={() => { setFrom(''); setTo(''); setPage(0); }}>كل الفترة</Button></div>
+        {periodError && <p role="alert" className="text-destructive">راجع الفترة: تاريخ البداية يجب أن يسبق تاريخ النهاية. تظهر الحركات أدناه دون فلترة حتى تصحيح الفترة.</p>}
+        {statement && <dl className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[['رصيد الحركات السابق للفترة', statement.broughtForward], ['وارد الفترة', statement.incoming], ['صادر الفترة', statement.outgoing], ['رصيد الحركات بنهاية الفترة', statement.closing]].map(([label, value]) => <div key={label} className="border rounded-lg p-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-2 text-lg font-semibold break-words">{statementMoney(value)}</dd></div>)}</dl>}
+        <section className="rounded-xl border bg-card p-4 space-y-3"><h2 className="text-lg font-semibold">الحركات ({rows.length})</h2><p className="text-sm text-muted-foreground">الأحدث أولًا. الرصيد المتراكم محسوب من الأقدم، ويخص الحركات وحدها.</p><div className="hidden md:block"><table className="w-full text-sm"><thead><tr className="border-b">{['التاريخ', 'الحركة والبيان', 'الاتجاه', 'المبلغ', 'رصيد الحركات', 'المراجعة'].map(label => <th key={label} className="text-right p-3">{label}</th>)}</tr></thead><tbody>{visible.map(row => <tr key={row.id} className="border-b"><td className="p-3 whitespace-nowrap">{row.transaction_date}</td><td className="p-3 max-w-sm"><CashMovement row={row}/></td><td className="p-3">{cashDirection(row) === 'in' ? 'وارد' : cashDirection(row) === 'out' ? 'صادر' : 'يحتاج مراجعة'}</td><td className="p-3">{Number.isFinite(Number(row.amount)) ? statementMoney(row.amount) : 'مبلغ غير صالح'}</td><td className="p-3">{'runningBalance' in row ? statementMoney(String(row.runningBalance)) : '—'}</td><td className="p-3">{canReverse && <Button variant="outline" size="sm" onClick={() => setSelected(row)}>مراجعة الإلغاء</Button>}</td></tr>)}</tbody></table></div>
+        <div className="md:hidden divide-y">{visible.map(row => <article key={row.id} className="space-y-3 py-4"><time className="text-xs text-muted-foreground">{row.transaction_date}</time><CashMovement row={row}/><p>{cashDirection(row) === 'in' ? 'وارد' : cashDirection(row) === 'out' ? 'صادر' : 'اتجاه يحتاج مراجعة'} · {Number.isFinite(Number(row.amount)) ? statementMoney(row.amount) : 'مبلغ غير صالح'} {currency}</p>{'runningBalance' in row && <p>رصيد الحركات: {statementMoney(String(row.runningBalance))}</p>}{canReverse && <Button variant="outline" onClick={() => setSelected(row)}>مراجعة الإلغاء</Button>}</article>)}</div>{!rows.length && <p className="py-6 text-muted-foreground">{entries.length ? 'لا توجد حركات في الفترة المختارة.' : 'لا توجد حركات مسجلة لهذه الخزنة.'}</p>}</section>
+        {rows.length > 0 && <div className="flex flex-wrap justify-between items-center gap-3"><p>عرض {start + 1}–{Math.min(start + 50, rows.length)} من {rows.length}</p><div className="flex gap-2"><Button variant="outline" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>السابق</Button><Button variant="outline" disabled={start + 50 >= rows.length} onClick={() => setPage(currentPage + 1)}>التالي</Button></div></div>}
+        <p className="text-xs text-muted-foreground">الكشف يعرض السجل الجاري؛ الحركات الملغاة قد تُحذف منه بعد إعادة أثرها على الأرصدة، مع حفظ دليلها في سجل التدقيق.</p>
+      </div>
+      {statement && <div className="hidden print:block"><TreasuryStatementPrint name={treasury.name} currency={currency} statement={statement}/></div>}
+      {selected && <FinancialReversalDialog key={selected.id} transactionId={selected.id} context={{ treasury: treasury.name, currency, row: selected }} onClose={() => setSelected(null)} onSuccess={afterReversal}/>}
+    </div>;
 }

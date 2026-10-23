@@ -1,8 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
+import { readCompleteBackupTable } from "@/platform/backup/read-complete-table";
 
 /**
- * Backup Service - Handles full database export, import, and factory reset
- * Uses client-side JSON files for maximum security and user control
+ * Exports selected public business tables for inspection and archiving.
+ * Full recovery requires the maintenance procedure, including private journals, Auth and Storage.
  */
 
 // Table dependency order (must respect FK relationships)
@@ -64,29 +65,19 @@ const TABLES_EXPORT_ONLY: string[] = [
 // Combined list for export (includes EXPORT_ONLY tables at the end)
 const ALL_EXPORT_TABLES = [...TABLE_EXPORT_ORDER, ...TABLES_EXPORT_ONLY];
 
-// Tables that use UUID as primary key (not BIGINT)
-const UUID_TABLES = ['parties', 'profiles'];
-
-// Generated columns that cannot be inserted (computed by database)
-// These columns are automatically calculated and must be excluded during restore
-const GENERATED_COLUMNS: Record<string, string[]> = {
-    'inventory_count_items': ['difference'], // difference = counted_quantity - system_quantity
-};
-
-// Tables to reset (reverse order for FK compliance) - EXCLUDES EXPORT_ONLY tables
-const TABLE_RESET_ORDER = [...TABLE_EXPORT_ORDER].reverse();
-
 export interface BackupMetadata {
     version: string;
     createdAt: string;
     tableCount: number;
     recordCount: number;
     appName: string;
+    scope?: 'business-tables-export';
+    recoveryCompatible?: false;
 }
 
 export interface BackupData {
     metadata: BackupMetadata;
-    tables: Record<string, any[]>;
+    tables: Record<string, Record<string, unknown>[]>;
 }
 
 export interface BackupProgress {
@@ -97,33 +88,20 @@ export interface BackupProgress {
     message?: string;
 }
 
-/**
- * Helper to delete all records from a table
- * Handles both UUID and BIGINT primary keys
- */
-async function deleteAllFromTable(tableName: string): Promise<{ error: any }> {
-    if (UUID_TABLES.includes(tableName)) {
-        // For UUID tables, use a different approach - delete where id is not null
-        return await supabase
-            .from(tableName)
-            .delete()
-            .not('id', 'is', null);
-    } else {
-        // For BIGINT tables, use gte(0) which covers all positive IDs
-        return await supabase
-            .from(tableName)
-            .delete()
-            .gte('id', 0);
-    }
+export const BACKUP_MAINTENANCE_NOTICE = 'استعادة البيانات وإعادة ضبطها متوقفتان من داخل التطبيق لحماية ترابط الفواتير والمخزون وسجلات العمليات. الاستعادة الكاملة ينفذها مسؤول النظام أثناء صيانة مخططة.';
+
+function requireMaintenance(onProgress?: (progress: BackupProgress) => void) {
+    onProgress?.({ currentTable: '', currentIndex: 0, totalTables: TABLE_EXPORT_ORDER.length,
+        status: 'error', message: BACKUP_MAINTENANCE_NOTICE });
+    return { success: false, errors: [BACKUP_MAINTENANCE_NOTICE] };
 }
 
 export const BackupService = {
     /**
-     * Create a full backup of all data
-     * Uses ALL_EXPORT_TABLES to include export-only tables like profiles
+     * Export selected public business tables. This is not a full recovery snapshot.
      */
     createBackup: async (onProgress?: (progress: BackupProgress) => void): Promise<BackupData> => {
-        const tables: Record<string, any[]> = {};
+        const tables: Record<string, Record<string, unknown>[]> = {};
         let totalRecords = 0;
 
         for (let i = 0; i < ALL_EXPORT_TABLES.length; i++) {
@@ -138,20 +116,26 @@ export const BackupService = {
             });
 
             try {
-                const { data, error } = await supabase
-                    .from(tableName)
-                    .select('*');
-
-                if (error) {
-                    console.warn(`Warning: Could not export ${tableName}:`, error.message);
-                    tables[tableName] = [];
-                } else {
-                    tables[tableName] = data || [];
-                    totalRecords += (data?.length || 0);
-                }
-            } catch (e) {
-                console.warn(`Warning: Table ${tableName} might not exist`);
-                tables[tableName] = [];
+                const rows = await readCompleteBackupTable(async (from, to) => {
+                    const { data, error, count } = await supabase
+                        .from(tableName)
+                        .select('*', { count: 'exact' })
+                        .order('id', { ascending: true })
+                        .range(from, to);
+                    return { rows: data, error, count };
+                });
+                tables[tableName] = rows;
+                totalRecords += rows.length;
+            } catch (error) {
+                const message = "لم تكتمل النسخة الاحتياطية، ولم يتم إنشاء ملف ناقص. أعد المحاولة بعد انتهاء العمليات الجارية والتأكد من الاتصال.";
+                onProgress?.({
+                    currentTable: tableName,
+                    currentIndex: i + 1,
+                    totalTables: ALL_EXPORT_TABLES.length,
+                    status: 'error',
+                    message
+                });
+                throw new Error(message, { cause: error });
             }
         }
 
@@ -161,7 +145,9 @@ export const BackupService = {
                 createdAt: new Date().toISOString(),
                 tableCount: Object.keys(tables).length,
                 recordCount: totalRecords,
-                appName: 'المصنع الذكي'
+                appName: 'المصنع الذكي',
+                scope: 'business-tables-export',
+                recoveryCompatible: false
             },
             tables
         };
@@ -201,7 +187,7 @@ export const BackupService = {
     /**
      * Validate backup file structure
      */
-    validateBackup: (data: any): { valid: boolean; errors: string[] } => {
+    validateBackup: (data: unknown): { valid: boolean; errors: string[] } => {
         const errors: string[] = [];
 
         if (!data || typeof data !== 'object') {
@@ -209,175 +195,31 @@ export const BackupService = {
             return { valid: false, errors };
         }
 
-        if (!data.metadata) {
+        const backup = data as Partial<BackupData>;
+        if (!backup.metadata) {
             errors.push('بيانات التعريف (metadata) مفقودة');
         } else {
-            if (!data.metadata.version) errors.push('رقم الإصدار مفقود');
-            if (!data.metadata.createdAt) errors.push('تاريخ الإنشاء مفقود');
+            if (!backup.metadata.version) errors.push('رقم الإصدار مفقود');
+            if (!backup.metadata.createdAt) errors.push('تاريخ الإنشاء مفقود');
         }
 
-        if (!data.tables || typeof data.tables !== 'object') {
+        if (!backup.tables || typeof backup.tables !== 'object') {
             errors.push('بيانات الجداول مفقودة');
         }
 
         return { valid: errors.length === 0, errors };
     },
 
-    /**
-     * Restore backup (CAUTION: This will overwrite existing data)
-     * First deletes all existing data in reverse order, then inserts in correct order
-     */
+    // Preserve the existing method contract, with no read or write request.
     restoreBackup: async (
-        backup: BackupData,
+        _backup: BackupData,
         onProgress?: (progress: BackupProgress) => void
-    ): Promise<{ success: boolean; errors: string[] }> => {
-        const errors: string[] = [];
+    ): Promise<{ success: boolean; errors: string[] }> => requireMaintenance(onProgress),
 
-        // Validate first
-        const validation = BackupService.validateBackup(backup);
-        if (!validation.valid) {
-            return { success: false, errors: validation.errors };
-        }
-
-        // Step 1: Delete ALL existing data in reverse order (children first)
-        for (let i = 0; i < TABLE_RESET_ORDER.length; i++) {
-            const tableName = TABLE_RESET_ORDER[i];
-
-            onProgress?.({
-                currentTable: tableName,
-                currentIndex: i + 1,
-                totalTables: TABLE_RESET_ORDER.length + TABLE_EXPORT_ORDER.length,
-                status: 'importing',
-                message: `جاري مسح ${tableName}...`
-            });
-
-            try {
-                const { error } = await deleteAllFromTable(tableName);
-                if (error) {
-                    console.warn(`Warning deleting ${tableName}:`, error.message);
-                }
-            } catch (e: any) {
-                console.warn(`Error deleting ${tableName}:`, e.message);
-            }
-        }
-
-        // Step 2: Insert new data in correct order (parents first)
-        for (let i = 0; i < TABLE_EXPORT_ORDER.length; i++) {
-            const tableName = TABLE_EXPORT_ORDER[i];
-            const tableData = backup.tables[tableName];
-
-            onProgress?.({
-                currentTable: tableName,
-                currentIndex: TABLE_RESET_ORDER.length + i + 1,
-                totalTables: TABLE_RESET_ORDER.length + TABLE_EXPORT_ORDER.length,
-                status: 'importing',
-                message: `جاري استيراد ${tableName}...`
-            });
-
-            if (!tableData || tableData.length === 0) {
-                continue;
-            }
-
-            try {
-                // Insert new data in batches
-                const batchSize = 50;
-                for (let j = 0; j < tableData.length; j += batchSize) {
-                    const batch = tableData.slice(j, j + batchSize);
-
-                    // Remove auto-generated timestamps and generated columns (computed by DB)
-                    const cleanedBatch = batch.map((row: any) => {
-                        const cleaned = { ...row };
-                        delete cleaned.created_at;
-                        delete cleaned.updated_at;
-
-                        // Remove generated columns for this table
-                        const generatedCols = GENERATED_COLUMNS[tableName];
-                        if (generatedCols) {
-                            for (const col of generatedCols) {
-                                delete cleaned[col];
-                            }
-                        }
-
-                        return cleaned;
-                    });
-
-                    const { error } = await supabase.from(tableName).insert(cleanedBatch);
-
-                    if (error) {
-                        errors.push(`خطأ في ${tableName}: ${error.message}`);
-                        console.error(`Error inserting into ${tableName}:`, error);
-                    }
-                }
-            } catch (e: any) {
-                errors.push(`فشل استيراد ${tableName}: ${e.message}`);
-            }
-        }
-
-        onProgress?.({
-            currentTable: '',
-            currentIndex: TABLE_RESET_ORDER.length + TABLE_EXPORT_ORDER.length,
-            totalTables: TABLE_RESET_ORDER.length + TABLE_EXPORT_ORDER.length,
-            status: errors.length > 0 ? 'error' : 'complete',
-            message: errors.length > 0
-                ? `تم الاستيراد مع ${errors.length} أخطاء`
-                : 'تم استيراد النسخة الاحتياطية بنجاح'
-        });
-
-        return { success: errors.length === 0, errors };
-    },
-
-    /**
-     * Factory Reset - Delete ALL data (DANGER!)
-     * Preserves table structure but removes all records
-     */
     factoryReset: async (
-        confirmationCode: string,
+        _confirmationCode: string,
         onProgress?: (progress: BackupProgress) => void
-    ): Promise<{ success: boolean; errors: string[] }> => {
-        // Safety check
-        if (confirmationCode !== 'FACTORY_RESET_CONFIRM') {
-            return {
-                success: false,
-                errors: ['رمز التأكيد غير صحيح']
-            };
-        }
-
-        const errors: string[] = [];
-
-        // Delete in reverse order (children before parents)
-        for (let i = 0; i < TABLE_RESET_ORDER.length; i++) {
-            const tableName = TABLE_RESET_ORDER[i];
-
-            onProgress?.({
-                currentTable: tableName,
-                currentIndex: i + 1,
-                totalTables: TABLE_RESET_ORDER.length,
-                status: 'resetting',
-                message: `جاري حذف ${tableName}...`
-            });
-
-            try {
-                const { error } = await deleteAllFromTable(tableName);
-
-                if (error) {
-                    console.warn(`Warning deleting ${tableName}:`, error.message);
-                    errors.push(`تحذير: ${tableName} - ${error.message}`);
-                }
-            } catch (e: any) {
-                errors.push(`فشل حذف ${tableName}: ${e.message}`);
-            }
-        }
-
-        onProgress?.({
-            currentTable: '',
-            currentIndex: TABLE_RESET_ORDER.length,
-            totalTables: TABLE_RESET_ORDER.length,
-            status: 'complete',
-            message: 'تم إعادة ضبط المصنع بنجاح. جميع البيانات تم حذفها.'
-        });
-
-        return { success: errors.length === 0, errors };
-    },
+    ): Promise<{ success: boolean; errors: string[] }> => requireMaintenance(onProgress),
 
     /**
      * Get backup statistics for preview

@@ -42,6 +42,8 @@ export function BottomNav({ onOpenSidebar }: BottomNavProps) {
     const location = useLocation();
     const [isFabOpen, setIsFabOpen] = useState(false);
     const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+    const createTriggerRef = useRef<HTMLButtonElement>(null);
+    const inventoryTriggerRef = useRef<HTMLAnchorElement>(null);
     const inventoryLongPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inventoryTouchStart = useRef<number>(0);
 
@@ -55,6 +57,8 @@ export function BottomNav({ onOpenSidebar }: BottomNavProps) {
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
             if (e.key === "Escape") {
+                if (document.activeElement?.closest("#bottom-create-menu")) createTriggerRef.current?.focus();
+                if (document.activeElement?.closest("#bottom-inventory-menu")) inventoryTriggerRef.current?.focus();
                 setIsFabOpen(false);
                 setIsInventoryOpen(false);
             }
@@ -111,7 +115,7 @@ export function BottomNav({ onOpenSidebar }: BottomNavProps) {
             )}
 
             {/* FAB Menu - Centered dropdown */}
-            <div
+            <div id="bottom-create-menu" inert={!isFabOpen} aria-hidden={!isFabOpen}
                 className={cn(
                     "fixed z-[70] md:hidden",
                     "bottom-[88px] left-1/2 -translate-x-1/2",
@@ -150,7 +154,7 @@ export function BottomNav({ onOpenSidebar }: BottomNavProps) {
             </div>
 
             {/* Inventory Submenu - Positioned above Inventory button (4th item from left = ~75% from left) */}
-            <div
+            <div id="bottom-inventory-menu" inert={!isInventoryOpen} aria-hidden={!isInventoryOpen}
                 className={cn(
                     "fixed z-[70] md:hidden",
                     "bottom-[88px]",
@@ -243,6 +247,11 @@ export function BottomNav({ onOpenSidebar }: BottomNavProps) {
 
                         {/* FAB - New Action Button (Center) - Improved contrast */}
                         <button
+                            type="button"
+                            ref={createTriggerRef}
+                            aria-label={isFabOpen ? "إغلاق اختصارات الإنشاء" : "إنشاء جديد"}
+                            aria-expanded={isFabOpen}
+                            aria-controls="bottom-create-menu"
                             onClick={() => {
                                 setIsFabOpen(!isFabOpen);
                                 setIsInventoryOpen(false);
@@ -265,6 +274,7 @@ export function BottomNav({ onOpenSidebar }: BottomNavProps) {
 
                         {/* Inventory Button (with long-press) */}
                         <Link
+                            ref={inventoryTriggerRef}
                             to="/inventory/raw-materials"
                             onTouchStart={handleInventoryTouchStart}
                             onTouchEnd={handleInventoryTouchEnd}

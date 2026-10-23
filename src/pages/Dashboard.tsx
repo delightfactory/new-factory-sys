@@ -28,6 +28,17 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 
+function ChangeChip({ value }: { value: number | null }) {
+    if (value === null) return <span className="text-xs text-muted-foreground">المقارنة النسبية غير متاحة</span>;
+    if (value === 0) return null;
+    return (
+        <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${value > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+            {value > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+            {formatNumber(Math.abs(value))}%
+        </span>
+    );
+}
+
 export default function Dashboard() {
     const startDate = format(startOfMonth(new Date()), 'yyyy-MM-dd');
     const endDate = format(endOfMonth(new Date()), 'yyyy-MM-dd');
@@ -37,20 +48,21 @@ export default function Dashboard() {
     const prevMonthEnd = format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd');
 
     // 1. Fetch aggregated real-time stats
-    const { data: stats, isLoading: loadingStats } = useQuery({
+    const { data: stats, isLoading: loadingStats, isError: statsError, isFetching: fetchingStats, refetch: retryStats } = useQuery({
         queryKey: ['dashboard-stats'],
         queryFn: DashboardService.getStats,
-        refetchInterval: 30000
+        refetchInterval: 30000,
+        retry: false
     });
 
     // 2. Fetch P&L Summary
-    const { data: pnl, isLoading: loadingPnL } = useQuery({
+    const { data: pnl, isLoading: loadingPnL, isError: pnlError, refetch: retryPnL } = useQuery({
         queryKey: ['dashboard-pnl', startDate, endDate],
         queryFn: () => FinancialService.getPnLReport(startDate, endDate)
     });
 
     // 3. Previous month P&L for comparison
-    const { data: prevPnl } = useQuery({
+    const { data: prevPnl, isError: prevPnlError, isFetching: prevFetching } = useQuery({
         queryKey: ['dashboard-prev-pnl', prevMonthStart, prevMonthEnd],
         queryFn: () => FinancialService.getPnLReport(prevMonthStart, prevMonthEnd)
     });
@@ -102,21 +114,11 @@ export default function Dashboard() {
 
     // Calculate changes
     const revenueChange = prevPnl?.revenue && prevPnl.revenue > 0 && pnl
-        ? ((pnl.revenue - prevPnl.revenue) / prevPnl.revenue) * 100 : 0;
-    const profitChange = prevPnl?.netProfit && prevPnl.netProfit !== 0 && pnl
-        ? ((pnl.netProfit - prevPnl.netProfit) / Math.abs(prevPnl.netProfit)) * 100 : 0;
+        ? ((pnl.revenue - prevPnl.revenue) / prevPnl.revenue) * 100 : null;
+    const profitChange = prevPnl?.netProfit && prevPnl.netProfit > 0 && pnl
+        ? ((pnl.netProfit - prevPnl.netProfit) / prevPnl.netProfit) * 100 : null;
     const grossMarginPercent = pnl && pnl.revenue > 0
         ? ((pnl.revenue - pnl.cogs) / pnl.revenue) * 100 : 0;
-
-    const ChangeChip = ({ value }: { value: number }) => {
-        if (value === 0) return null;
-        return (
-            <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${value > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                {value > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                {formatNumber(Math.abs(value))}%
-            </span>
-        );
-    };
 
     return (
         <div className="space-y-6">
@@ -126,18 +128,28 @@ export default function Dashboard() {
                 icon={LayoutDashboard}
             />
 
-            {isLoading ? (
+            {statsError || pnlError ? (
+                <Card role="alert" className="border-destructive/30">
+                    <CardHeader><CardTitle>تعذر إكمال ملخص المصنع والأرباح</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-muted-foreground">لم نتمكن من التحقق من الأرقام الحالية. أعد المحاولة لعرض لوحة التحكم.</p>
+                        <Button onClick={() => {void retryStats(); void retryPnL();}} disabled={fetchingStats}>
+                            {fetchingStats ? "جارٍ إعادة المحاولة..." : "إعادة المحاولة"}
+                        </Button>
+                    </CardContent>
+                </Card>
+            ) : isLoading ? (
                 <CardGridSkeleton count={4} />
             ) : (
                 <div className="space-y-6">
                     {/* Row 1: Main KPIs */}
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <StatCard
-                            title="إيرادات اليوم"
+                            title="مبيعات اليوم"
                             value={`${stats?.daily_sales.toLocaleString()} ج.م`}
                             icon={TrendingUp}
                             iconColor="text-green-500"
-                            description="مبيعات الفواتير المعتمدة اليوم"
+                            description="فواتير معتمدة بتاريخ اليوم، قبل خصم المرتجعات"
                             href="/commercial/selling"
                         />
                         <StatCard
@@ -247,7 +259,7 @@ export default function Dashboard() {
                                         <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-100">
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className="text-xs text-muted-foreground">الإيرادات</span>
-                                                <ChangeChip value={revenueChange} />
+                                                <ChangeChip value={prevPnlError || prevFetching ? null : revenueChange} />
                                             </div>
                                             <div className="text-lg font-bold text-blue-600">{pnl?.revenue.toLocaleString()}</div>
                                         </div>
@@ -262,7 +274,7 @@ export default function Dashboard() {
                                         <div className={`p-4 rounded-lg border ${(pnl?.netProfit || 0) >= 0 ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-950/20' : 'bg-red-50 border-red-100 dark:bg-red-950/20'}`}>
                                             <div className="flex items-center justify-between mb-1">
                                                 <span className="text-xs text-muted-foreground">صافي الربح</span>
-                                                <ChangeChip value={profitChange} />
+                                                <ChangeChip value={prevPnlError || prevFetching ? null : profitChange} />
                                             </div>
                                             <div className={`text-lg font-bold ${(pnl?.netProfit || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                                                 {pnl?.netProfit.toLocaleString()}

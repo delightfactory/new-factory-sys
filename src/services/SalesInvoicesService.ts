@@ -1,3 +1,4 @@
+import {readCompleteRows} from '@/platform/data/read-complete-rows';
 import { commercialCommand, factoryCommand } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -33,35 +34,24 @@ export interface SalesInvoiceItem {
 }
 
 export const SalesInvoicesService = {
-    getInvoices: async () => {
-        const { data, error } = await supabase
-            .from('sales_invoices')
-            .select('*, customer:parties!customer_id(name)') // Join customer
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as SalesInvoice[];
-    },
+    getInvoices: async () => readCompleteRows<SalesInvoice>(async (from, to) => {
+        const {data, count, error} = await supabase.from('sales_invoices')
+            .select('*, customer:parties!customer_id(name)', {count: 'exact'})
+            .order('created_at', {ascending: false}).order('id', {ascending: false}).range(from, to);
+        return {rows: data as SalesInvoice[] | null, count, error};
+    }),
 
     getUnpaidInvoices: async (customerId: string) => {
-        const { data, error } = await supabase
-            .from('sales_invoices')
-            .select('*')
-            .eq('customer_id', customerId)
-            .eq('status', 'posted');
-        if (error) throw error;
-        return (data as SalesInvoice[]).filter(inv => inv.total_amount > inv.paid_amount);
+        const invoices = await SalesInvoicesService.getPostedInvoices(customerId);
+        return invoices.filter(invoice => invoice.total_amount > invoice.paid_amount);
     },
 
-    getPostedInvoices: async (customerId: string) => {
-        const { data, error } = await supabase
-            .from('sales_invoices')
-            .select('*')
-            .eq('customer_id', customerId)
-            .eq('status', 'posted')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as SalesInvoice[];
-    },
+    getPostedInvoices: async (customerId: string) => readCompleteRows<SalesInvoice>(async (from, to) => {
+        const {data, count, error} = await supabase.from('sales_invoices').select('*', {count: 'exact'})
+            .eq('customer_id', customerId).eq('status', 'posted')
+            .order('created_at', {ascending: false}).order('id', {ascending: false}).range(from, to);
+        return {rows: data as SalesInvoice[] | null, count, error};
+    }),
 
     getInvoice: async (id: number) => {
         const { data, error } = await supabase
@@ -86,7 +76,8 @@ export const SalesInvoicesService = {
     },
 
     deleteInvoice: async (id: number) => {
-        const { error } = await supabase.from('sales_invoices').delete().eq('id', id).eq('status', 'draft');
+        const { data, error } = await supabase.from('sales_invoices').delete().eq('id', id).eq('status', 'draft').select('id');
         if (error) throw error;
+        if (data?.length !== 1 || data[0].id !== id) throw new Error('لم تُحذف المسودة. قد تكون حالتها تغيّرت؛ حدّث القائمة وراجع المستند.');
     }
 };

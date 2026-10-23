@@ -1,3 +1,6 @@
+import {readFinancialCategories} from './FinancialCategoryService';
+import {readProfitReport} from './ProfitReportService';
+import {legacyProfitResult} from '@/features/reports/profit-ledger';
 import { factoryCommand, fields } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -26,22 +29,16 @@ export interface FinancialReversalPlan {
 
 export const FinancialService = {
     // --- Categories Management ---
-    getCategories: async (type?: 'income' | 'expense') => {
-        let query = supabase.from('financial_categories').select('*').order('name');
-        if (type) query = query.eq('type', type);
-
-        const { data, error } = await query;
-        if (error) throw error;
-        return data;
-    },
+    getCategories: readFinancialCategories,
 
     createCategory: async (category: { name: string, type: 'income' | 'expense' }) => {
         return factoryCommand("create_financial_category", category);
     },
 
     deleteCategory: async (id: number) => {
-        const { error } = await supabase.from('financial_categories').delete().eq('id', id);
+        const { data, error } = await supabase.from('financial_categories').delete().eq('id', id).select('id');
         if (error) throw error;
+        if (data?.length !== 1 || data[0].id !== id) throw new Error('لم يُؤكد حذف البند. حدّث القائمة وراجع صلاحيته قبل إعادة المحاولة.');
     },
 
     // --- Transactions Management ---
@@ -117,7 +114,10 @@ export const FinancialService = {
     getReversalPlan: async (id: number): Promise<FinancialReversalPlan> => {
         const { data, error } = await supabase.rpc("factory_native_financial_reversal_plan", { p_id: id });
         if (error) throw new Error("تعذر تحميل تفاصيل الحركة. أعد المحاولة قبل تأكيد الإلغاء.");
-        return data as FinancialReversalPlan;
+        const plan = data as FinancialReversalPlan | null;
+        if (!plan || plan.id !== id || !Number.isFinite(plan.amount) || plan.amount <= 0 || typeof plan.requires_pair !== 'boolean' || !Array.isArray(plan.candidates) || plan.candidates.some(candidate => !Number.isSafeInteger(candidate.id) || candidate.id <= 0 || !Number.isFinite(candidate.amount) || candidate.amount <= 0 || typeof candidate.treasury_name !== 'string' || typeof candidate.date !== 'string'))
+            throw new Error('تعذر التحقق من تفاصيل الحركة. أعد تحميلها قبل الإلغاء.');
+        return plan;
     },
 
     reverseTransaction: async ({ id, pairId }: { id: number; pairId?: number }) => {
@@ -137,100 +137,6 @@ export const FinancialService = {
 
     // --- Reports (P&L) ---
     getPnLReport: async (startDate: string, endDate: string) => {
-        // 1. Revenue (Posted Sales Invoices)
-        const { data: sales, error: salesError } = await supabase
-            .from('sales_invoices')
-            .select('total_amount')
-            .eq('status', 'posted')
-            .gte('transaction_date', startDate)
-            .lte('transaction_date', endDate);
-
-        if (salesError) throw salesError;
-        const salesRevenue = sales?.reduce((sum, inv) => sum + inv.total_amount, 0) || 0;
-
-        // 1.b Sales Returns (Posted) - Reduce Revenue
-        const { data: returns, error: returnsError } = await supabase
-            .from('sales_returns')
-            .select('total_amount')
-            .eq('status', 'posted')
-            .gte('return_date', startDate)
-            .lte('return_date', endDate);
-
-        if (returnsError) throw returnsError;
-        const returnsAmount = returns?.reduce((sum, r) => sum + r.total_amount, 0) || 0;
-
-        // 1.c Manual Income (Revenue Categories)
-        const { data: incomeConfig } = await supabase.from('financial_categories').select('name').eq('type', 'income');
-        const incomeCategories = incomeConfig?.map(c => c.name) || [];
-
-        const { data: otherIncome, error: incomeError } = await supabase
-            .from('financial_transactions')
-            .select('amount')
-            .eq('transaction_type', 'income')
-            .in('category', incomeCategories)
-            .gte('transaction_date', startDate)
-            .lte('transaction_date', endDate);
-
-        if (incomeError) throw incomeError;
-        const manualRevenue = otherIncome?.reduce((sum, t) => sum + t.amount, 0) || 0;
-
-        // Net Revenue = Sales - Returns + Manual Income
-        const totalRevenue = salesRevenue - returnsAmount + manualRevenue;
-
-        // 2. COGS (Posted Sales)
-        const { data: cogsData, error: cogsError } = await supabase
-            .from('sales_invoice_items')
-            .select('quantity, unit_cost_at_sale, sales_invoices!inner(status, transaction_date)')
-            .eq('sales_invoices.status', 'posted')
-            .gte('sales_invoices.transaction_date', startDate)
-            .lte('sales_invoices.transaction_date', endDate);
-
-        if (cogsError) throw cogsError;
-        const salesCOGS = cogsData?.reduce((sum, item: any) => sum + (item.quantity * (item.unit_cost_at_sale || 0)), 0) || 0;
-
-        // 2.b Return COGS (reduce COGS since returned items add back to inventory)
-        const { data: returnCogsData, error: returnCogsError } = await supabase
-            .from('sales_return_items')
-            .select('quantity, unit_cost_at_return, sales_returns!inner(status, return_date)')
-            .eq('sales_returns.status', 'posted')
-            .gte('sales_returns.return_date', startDate)
-            .lte('sales_returns.return_date', endDate);
-
-        if (returnCogsError) throw returnCogsError;
-        const returnCOGS = returnCogsData?.reduce((sum, item: any) => sum + (item.quantity * (item.unit_cost_at_return || 0)), 0) || 0;
-
-        // Net COGS = Sales COGS - Return COGS
-        const totalCOGS = salesCOGS - returnCOGS;
-
-        // 3. Expenses
-        const { data: expenseConfig } = await supabase.from('financial_categories').select('name').eq('type', 'expense');
-        const expenseCategories = expenseConfig?.map(c => c.name) || [];
-
-        const { data: expenses, error: expError } = await supabase
-            .from('financial_transactions')
-            .select('amount')
-            .eq('transaction_type', 'expense')
-            .in('category', expenseCategories)
-            .gte('transaction_date', startDate)
-            .lte('transaction_date', endDate);
-
-        if (expError) throw expError;
-        const totalExpenses = expenses?.reduce((sum, t) => sum + t.amount, 0) || 0;
-
-        const grossProfit = totalRevenue - totalCOGS;
-        const netProfit = grossProfit - totalExpenses;
-
-        return {
-            revenue: totalRevenue,
-            cogs: totalCOGS,
-            grossProfit,
-            expenses: totalExpenses,
-            netProfit,
-            salesRevenue,
-            manualRevenue,
-            returnsAmount,    // NEW: for detailed display
-            salesCOGS,        // NEW: for detailed display
-            returnCOGS        // NEW: for detailed display
-        };
+        return legacyProfitResult(await readProfitReport({from: startDate, to: endDate}));
     }
 };

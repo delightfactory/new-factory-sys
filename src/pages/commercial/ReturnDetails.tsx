@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,10 +18,13 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
+import { readCompleteRows } from '@/platform/data/read-complete-rows';
 
 interface Return {
     id: number;
-    code: string;
+    return_number: string;
+    customer_id?: string;
+    supplier_id?: string;
     return_type: 'sales' | 'purchase';
     party_id: string;
     invoice_id?: number;
@@ -42,43 +45,50 @@ interface ReturnItem {
     unit_price: number;
     total_price: number;
     item_name?: string;
+    raw?: {name:string}|null;
+    packaging?: {name:string}|null;
+    semi?: {name:string}|null;
+    finished?: {name:string}|null;
+    bundle?: {name:string}|null;
 }
 
 export default function ReturnDetails() {
     const { id, type } = useParams<{ id: string; type: string }>();
     const navigate = useNavigate();
+    const valid = ['sales','purchase'].includes(type??'') && Number.isSafeInteger(Number(id)) && Number(id)>0;
 
     const tableName = type === 'sales' ? 'sales_returns' : 'purchase_returns';
     const itemsTable = type === 'sales' ? 'sales_return_items' : 'purchase_return_items';
 
     // Fetch return details
-    const { data: returnData, isLoading: returnLoading } = useQuery({
+    const returnQuery = useQuery({
         queryKey: ['return', type, id],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from(tableName)
-                .select('*, party:parties(name)')
+                .select(type==='sales'?'*, party:parties!customer_id(name)':'*, party:parties!supplier_id(name)')
                 .eq('id', id)
                 .single();
             if (error) throw error;
             return data as Return;
         },
-        enabled: !!id && !!type
+        enabled: valid, retry:false
     });
+    const returnData = returnQuery.data;
 
     // Fetch return items
-    const { data: items } = useQuery({
+    const itemQuery = useQuery({
         queryKey: ['return-items', type, id],
         queryFn: async () => {
-            const { data, error } = await supabase
+            return readCompleteRows<ReturnItem>(async(from,to)=>{const { data, error, count } = await supabase
                 .from(itemsTable)
-                .select('*')
-                .eq('return_id', id);
-            if (error) throw error;
-            return data as ReturnItem[];
+                .select('*,raw:raw_materials(name),packaging:packaging_materials(name),semi:semi_finished_products(name),finished:finished_products(name)'+(type==='sales'?',bundle:product_bundles(name)':''), {count:'exact'})
+                .eq('return_id', id).order('id').range(from,to);
+            return {rows:data as ReturnItem[]|null,error,count};}, 'RETURN_ITEMS');
         },
-        enabled: !!id && !!type
+        enabled: valid, retry:false
     });
+    const items = itemQuery.data;
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -91,7 +101,9 @@ export default function ReturnDetails() {
         }
     };
 
-    if (returnLoading) {
+    if (!valid) return <p role="alert">رابط المرتجع غير صحيح. <Link to="/commercial/returns">العودة للمرتجعات</Link></p>;
+    if (returnQuery.isError || itemQuery.isError) return <div role="alert" className="p-5 space-y-3"><p>تعذر تحميل المرتجع وبنوده كاملًا. لم نعرض بيانات جزئية.</p><Button onClick={()=>{void returnQuery.refetch();void itemQuery.refetch();}}>إعادة المحاولة</Button></div>;
+    if (returnQuery.isPending || itemQuery.isPending || returnQuery.isFetching || itemQuery.isFetching) {
         return (
             <div className="p-6 space-y-6">
                 <div className="h-16 bg-muted/30 rounded-lg animate-pulse" />
@@ -112,6 +124,7 @@ export default function ReturnDetails() {
     }
 
     const totalItems = items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0;
+    const partyId = type === 'sales' ? returnData.customer_id : returnData.supplier_id;
 
     return (
         <div className="p-4 sm:p-6 space-y-6">
@@ -127,7 +140,7 @@ export default function ReturnDetails() {
                         </div>
                         <div>
                             <h1 className="text-xl sm:text-2xl font-bold">
-                                مرتجع {type === 'sales' ? 'مبيعات' : 'مشتريات'} #{returnData.code}
+                                مرتجع {type === 'sales' ? 'مبيعات' : 'مشتريات'} <span className="break-all">{returnData.return_number || `#${returnData.id}`}</span>
                             </h1>
                             <div className="flex items-center gap-2 mt-1">
                                 {getStatusBadge(returnData.status)}
@@ -155,12 +168,11 @@ export default function ReturnDetails() {
                                 <span className="font-medium">{format(new Date(returnData.return_date), 'dd/MM/yyyy')}</span>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50"
-                            onClick={() => returnData.party_id && navigate(`/commercial/parties/${returnData.party_id}`)}>
+                        <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
                             <User className="h-5 w-5 text-muted-foreground" />
                             <div>
                                 <span className="text-xs text-muted-foreground block">{type === 'sales' ? 'العميل' : 'المورد'}</span>
-                                <span className="font-medium text-primary">{returnData.party?.name || '-'}</span>
+                                {partyId ? <Link className="font-medium text-primary underline underline-offset-4" to={`/commercial/parties/${partyId}`}>{returnData.party?.name || 'عرض الطرف'}</Link> : <span>الطرف غير محدد</span>}
                             </div>
                         </div>
                         <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
@@ -240,7 +252,7 @@ export default function ReturnDetails() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>النوع</TableHead>
+                                        <TableHead>الصنف</TableHead><TableHead>النوع</TableHead>
                                         <TableHead>الكمية</TableHead>
                                         <TableHead>سعر الوحدة</TableHead>
                                         <TableHead>الإجمالي</TableHead>
@@ -249,8 +261,9 @@ export default function ReturnDetails() {
                                 <TableBody>
                                     {items.map(item => (
                                         <TableRow key={item.id}>
+                                            <TableCell>{item.raw?.name||item.packaging?.name||item.semi?.name||item.finished?.name||item.bundle?.name||'اسم الصنف غير متاح'}</TableCell>
                                             <TableCell>
-                                                <Badge variant="outline">{item.item_type}</Badge>
+                                                <Badge variant="outline">{({raw_material:'مادة خام',packaging_material:'مادة تعبئة',semi_finished:'نصف مصنع',finished_product:'منتج تام',bundle:'باقة'} as Record<string,string>)[item.item_type]||'صنف آخر'}</Badge>
                                             </TableCell>
                                             <TableCell>{item.quantity.toLocaleString()}</TableCell>
                                             <TableCell>{(item.unit_price || 0).toLocaleString()} ج.م</TableCell>

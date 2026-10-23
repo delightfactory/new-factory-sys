@@ -232,7 +232,8 @@ export function GlobalSearch() {
             {/* Search Trigger Button */}
             <Button
                 variant="outline"
-                className="relative h-9 w-9 p-0 xl:h-9 xl:w-60 xl:justify-start xl:px-3"
+                className="relative h-11 w-11 p-0 sm:h-9 sm:w-9 xl:h-9 xl:w-60 xl:justify-start xl:px-3"
+                aria-label="البحث في التطبيق"
                 onClick={() => setIsOpen(true)}
             >
                 <Search className="h-4 w-4 xl:mr-2" />
@@ -268,7 +269,7 @@ export function GlobalSearch() {
                                 className="border-0 focus-visible:ring-0 h-12 text-base"
                             />
                             {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                            <Button variant="ghost" size="icon" onClick={handleClose} className="shrink-0">
+                            <Button aria-label="إغلاق البحث" variant="ghost" size="icon" onClick={handleClose} className="shrink-0">
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>

@@ -20,7 +20,7 @@ export default function ExecutiveAnalytics() {
     const prevStart = format(startOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd');
     const prevEnd = format(endOfMonth(subMonths(new Date(), 1)), 'yyyy-MM-dd');
 
-    const { data: analytics, isLoading } = useQuery({
+    const { data: analytics, isLoading, isError, refetch } = useQuery({
         queryKey: ['executive-analytics-enhanced'],
         queryFn: async () => {
             // 1. Products for margins
@@ -85,7 +85,7 @@ export default function ExecutiveAnalytics() {
 
             // 10. Revenue change
             const revenueChange = prevPnl.revenue > 0
-                ? ((pnl.revenue - prevPnl.revenue) / prevPnl.revenue) * 100 : 0;
+                ? ((pnl.revenue - prevPnl.revenue) / prevPnl.revenue) * 100 : null;
 
             // Top product by margin percentage (not absolute margin)
             const topProduct = [...(products || [])]
@@ -105,7 +105,7 @@ export default function ExecutiveAnalytics() {
                 cogs: pnl.cogs,
                 expenses: pnl.expenses,
                 netProfit: pnl.netProfit,
-                revenueChange: Math.round(revenueChange),
+                revenueChange: revenueChange === null ? null : Math.round(revenueChange),
                 grossMarginPercent: pnl.revenue > 0 ? Math.round(((pnl.revenue - pnl.cogs) / pnl.revenue) * 100) : 0,
                 avgMarginPercent: Math.round(avgMarginPercent),
                 efficiency: Math.round(efficiency),
@@ -140,10 +140,10 @@ export default function ExecutiveAnalytics() {
                     </Button>
                     <PageHeader title="تحليلات تنفيذية" description="ملخص شامل لأداء المصنع مع تقييم صحة المصنع والتوصيات" icon={Activity} />
                 </div>
-                <PrintButton label="طباعة التقرير" />
+                {!isError && !isLoading && <PrintButton label="طباعة التقرير" />}
             </div>
 
-            {isLoading ? <CardGridSkeleton count={4} /> : (
+            {isError ? <div role="alert"><p>تعذر إكمال التقرير وحساب الأرباح.</p><Button onClick={() => void refetch()}>إعادة المحاولة</Button></div> : isLoading ? <CardGridSkeleton count={4} /> : (
                 <div className="space-y-6">
                     {/* Health Score + KPIs Row */}
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
@@ -176,7 +176,7 @@ export default function ExecutiveAnalytics() {
                                 <CardHeader className="pb-2">
                                     <CardTitle className="text-sm text-muted-foreground flex items-center justify-between">
                                         إيرادات الشهر
-                                        <ChangeIndicator value={analytics?.revenueChange || 0} />
+                                        {analytics?.revenueChange == null ? <span className="text-xs">المقارنة النسبية غير متاحة</span> : <ChangeIndicator value={analytics.revenueChange} />}
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent>

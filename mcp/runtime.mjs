@@ -28,6 +28,10 @@ export function readConfig(env) {
 }
 
 export function createDatabasePool(settings) {
+  const ref = 'cgqunqczuvwfvuzlsvyy';
+  const direct = settings.host === `db.${ref}.supabase.co` && settings.user === 'factory_mcp_gateway';
+  const pooler = settings.host === 'aws-1-eu-west-2.pooler.supabase.com' && settings.user === `factory_mcp_gateway.${ref}`;
+  if (!direct && !pooler) throw new Error('FACTORY_HOSTED_DATABASE_REQUIRED');
   const pool = new pg.Pool(settings);
   pool.on('error', () => {}); // Connection errors can contain credentials.
   return pool;

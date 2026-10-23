@@ -1,4 +1,7 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { factoryBusinessDay } from "@/platform/date/factory-business-day";
+import { countStatus } from "@/features/stocktaking/count-workspace";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StocktakingService, type InventorySession } from "@/services/StocktakingService";
 import { DataTable } from "@/components/ui/data-table";
@@ -8,31 +11,25 @@ import { Plus, ArrowRight, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import StocktakingSession from "./StocktakingSession"; // We will create this next
+
 
 export default function Stocktaking() {
-    const [activeSessionId, setActiveSessionId] = useState<number | null>(null);
+    const navigate = useNavigate();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [draftDay] = useState(factoryBusinessDay);
     const queryClient = useQueryClient();
 
     // Fetch Sessions
-    const { data: sessions } = useQuery({
+    const { data: sessions, isPending, isError, refetch } = useQuery({
         queryKey: ['stocktakingSessions'],
-        queryFn: StocktakingService.getSessions
+        queryFn: StocktakingService.getSessions, retry:false
     });
 
     // Create Session Logic
-    const [filters, setFilters] = useState({
-        raw: true,
-        packaging: true,
-        semi: false,
-        finished: false
-    });
+
 
     const createMutation = useMutation({
         mutationFn: async () => {
@@ -40,23 +37,18 @@ export default function Stocktaking() {
             const session = await StocktakingService.createSession({
                 type: 'partial', // We can derive this if all checked
                 status: 'draft',
-                date: new Date().toISOString()
+                date: draftDay
             });
-            // 2. Generate Snapshot
-            await StocktakingService.startSession(session.id, filters);
+            return session;
         },
-        onSuccess: () => {
+        onSuccess: (session) => {
             queryClient.invalidateQueries({ queryKey: ['stocktakingSessions'] });
             setIsCreateOpen(false);
-            toast.success("تم بدء جلسة الجرد بنجاح");
+            toast.success("أُنشئت المسودة. اختر الأقسام وابدأ العد من ورقة الجرد.");
+            navigate(`/inventory/stocktaking/${session.id}`);
         },
         onError: (e) => toast.error(e.message)
     });
-
-    // If active session selected, show Detail View
-    if (activeSessionId) {
-        return <StocktakingSession sessionId={activeSessionId} onBack={() => setActiveSessionId(null)} />;
-    }
 
     const columns: ColumnDef<InventorySession>[] = [
         { accessorKey: "code", header: "رقم الجلسة" },
@@ -71,14 +63,14 @@ export default function Stocktaking() {
             cell: ({ row }) => {
                 const s = row.getValue('status') as string;
                 return <Badge variant={s === 'completed' ? 'default' : s === 'in_progress' ? 'secondary' : 'outline'}>
-                    {s === 'completed' ? 'مكتمل' : s === 'in_progress' ? 'جاري' : s}
+                    {countStatus(s)}
                 </Badge>
             }
         },
         {
             id: 'actions',
             cell: ({ row }) => (
-                <Button variant="ghost" size="sm" onClick={() => setActiveSessionId(row.original.id)}>
+                <Button variant="ghost" size="sm" onClick={() => navigate(`/inventory/stocktaking/${row.original.id}`)}>
                     <ArrowRight className="w-4 h-4 mr-1" /> فتح
                 </Button>
             )
@@ -98,11 +90,11 @@ export default function Stocktaking() {
                 }
             />
 
-            {sessions && sessions.length > 0 ? (
+            {isPending ? <p role="status">جارٍ تحميل جلسات الجرد…</p> : isError ? <div role="alert"><p>تعذر تحميل جلسات الجرد كاملة.</p><Button onClick={()=>void refetch()}>إعادة المحاولة</Button></div> : sessions && sessions.length > 0 ? (
                 <DataTable
                     columns={columns}
                     data={sessions}
-                    onRowClick={(session) => setActiveSessionId(session.id)}
+                    onRowClick={(session) => navigate(`/inventory/stocktaking/${session.id}`)}
                 />
             ) : (
                 <EmptyState
@@ -117,38 +109,17 @@ export default function Stocktaking() {
                 />
             )}
 
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <Dialog open={isCreateOpen} onOpenChange={open=>{if(!createMutation.isPending)setIsCreateOpen(open);}}>
                 <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
-                        <DialogTitle>بدء جلسة جرد جديدة</DialogTitle>
+                        <DialogTitle>إنشاء مسودة جرد</DialogTitle>
                         <DialogDescription>
-                            اختر الأقسام التي تريد جردها لبدء جلسة جديدة. سيتم أخذ نسخة لحظية من الأرصدة الحالية.
+                            احفظ المسودة أولًا، ثم اختر الأقسام وابدأ العد داخل ورقة الجرد. لن تؤخذ لقطة المخزون قبل بدء العد.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <Label>ماذا تريد أن تجرد؟</Label>
-                        <div className="flex flex-col gap-3">
-                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                                <Checkbox id="raw" checked={filters.raw} onCheckedChange={(c: boolean) => setFilters(f => ({ ...f, raw: !!c }))} />
-                                <label htmlFor="raw">المواد الخام</label>
-                            </div>
-                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                                <Checkbox id="pkg" checked={filters.packaging} onCheckedChange={(c: boolean) => setFilters(f => ({ ...f, packaging: !!c }))} />
-                                <label htmlFor="pkg">مواد التعبئة</label>
-                            </div>
-                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                                <Checkbox id="semi" checked={filters.semi} onCheckedChange={(c: boolean) => setFilters(f => ({ ...f, semi: !!c }))} />
-                                <label htmlFor="semi">منتجات نصف مصنعة</label>
-                            </div>
-                            <div className="flex items-center space-x-2 rtl:space-x-reverse">
-                                <Checkbox id="fin" checked={filters.finished} onCheckedChange={(c: boolean) => setFilters(f => ({ ...f, finished: !!c }))} />
-                                <label htmlFor="fin">منتجات نهائية</label>
-                            </div>
-                        </div>
-                    </div>
                     <div className="flex justify-end pt-4 border-t">
                         <Button className="w-full sm:w-auto" onClick={() => createMutation.mutate()} disabled={createMutation.isPending}>
-                            {createMutation.isPending ? "جاري التحضير..." : "بدء الجرد"}
+                            {createMutation.isPending ? "جاري التحضير..." : "إنشاء المسودة"}
                         </Button>
                     </div>
                 </DialogContent>

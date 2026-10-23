@@ -66,7 +66,7 @@ export default function ReportsHub() {
         },
         {
             title: "التدفقات النقدية",
-            description: "تحليل حركة النقد: تدفقات تشغيلية واستثمارية مع تفصيل المصروفات حسب الفئة.",
+            description: "الوارد والصادر المسجل بتاريخ الحركة، مع فصل العملات والتحويلات وربط الحركات بالفواتير.",
             icon: Banknote,
             color: "text-lime-600",
             path: "/reports/cash-flow",

@@ -44,6 +44,8 @@ export default function UsersManager() {
     const [newUserName, setNewUserName] = useState("");
     const [newUserRole, setNewUserRole] = useState<AppRole>('viewer');
     const [isAddingUser, setIsAddingUser] = useState(false);
+    const [incompleteUserId, setIncompleteUserId] = useState<string | null>(null);
+    const [creationError, setCreationError] = useState("");
 
     useEffect(() => {
         fetchUsers();
@@ -145,9 +147,21 @@ export default function UsersManager() {
 
     const handleAddUser = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isAddingUser) return;
         setIsAddingUser(true);
+        setCreationError("");
 
         try {
+            if (incompleteUserId) {
+                const nameResult = await supabase.rpc('update_user_details_by_admin', { target_user_id: incompleteUserId, new_name: newUserName });
+                if (nameResult.error) throw nameResult.error;
+                const roleResult = await supabase.rpc('update_user_role', { target_user_id: incompleteUserId, new_role: newUserRole });
+                if (roleResult.error) throw roleResult.error;
+                const verified = await supabase.from('profiles').select('id,role,full_name').eq('id', incompleteUserId).single();
+                if (verified.error || verified.data?.role !== newUserRole || verified.data?.full_name !== newUserName) {
+                    throw new Error('لم يكتمل حفظ البيانات. يمكنك إعادة المحاولة على الحساب نفسه.');
+                }
+            } else {
             // Get current session for auth token
             const { data: { session } } = await supabase.auth.getSession();
 
@@ -176,11 +190,26 @@ export default function UsersManager() {
 
             const result = await response.json();
 
+            if (response.status === 409 && result.code === 'USER_PROFILE_INCOMPLETE' &&
+                typeof result.user?.id === 'string' && /^[a-f0-9-]{36}$/i.test(result.user.id) &&
+                result.user.email?.toLowerCase() === newUserEmail.trim().toLowerCase()) {
+                setIncompleteUserId(result.user.id);
+                setNewUserPassword("");
+                setCreationError('تم إنشاء الحساب، لكن لم تُحفظ الصلاحية المطلوبة. اضغط «إكمال إعداد الحساب» لإعادة المحاولة على الحساب نفسه.');
+                await fetchUsers();
+                return;
+            }
+
             if (!response.ok) {
                 throw new Error(result.error || "فشل إنشاء المستخدم");
             }
+            if (result.success !== true || result.user?.role !== newUserRole || result.user?.full_name !== newUserName) {
+                throw new Error('تعذر التأكد من اكتمال الحساب. راجع قائمة المستخدمين قبل تكرار الإنشاء.');
+            }
+            }
 
-            toast.success("تم إنشاء المستخدم بنجاح");
+            toast.success(incompleteUserId ? "تم إكمال إعداد الحساب بنجاح" : "تم إنشاء المستخدم بنجاح");
+            setIncompleteUserId(null);
             setIsAddUserOpen(false);
             // Reset form
             setNewUserEmail("");
@@ -188,9 +217,12 @@ export default function UsersManager() {
             setNewUserName("");
             setNewUserRole('viewer');
             fetchUsers();
-        } catch (error: any) {
-            console.error(error);
-            toast.error("فشل إنشاء المستخدم: " + (error.message || ""));
+        } catch {
+            const message = incompleteUserId
+                ? 'لم يكتمل إعداد الحساب. بياناتك محفوظة ويمكنك إعادة المحاولة على الحساب نفسه.'
+                : 'تعذر تأكيد إنشاء الحساب. بياناتك محفوظة؛ راجع قائمة المستخدمين قبل إعادة المحاولة.';
+            setCreationError(message);
+            toast.error(message);
         } finally {
             setIsAddingUser(false);
         }
@@ -261,14 +293,16 @@ export default function UsersManager() {
                             <DialogHeader>
                                 <DialogTitle>إضافة مستخدم جديد</DialogTitle>
                                 <DialogDescription>
-                                    أدخل بيانات المستخدم الجديد. سيتمكن من تسجيل الدخول فوراً.
+                                    {incompleteUserId ? 'أكمل بيانات الحساب الموجود دون إنشائه مرة أخرى.' : 'أدخل بيانات المستخدم وحدد الصلاحية المناسبة.'}
                                 </DialogDescription>
                             </DialogHeader>
                             <form onSubmit={handleAddUser} className="space-y-4 py-4">
+                                {creationError && <p role="alert" className="rounded-md border border-destructive p-3 text-sm">{creationError}</p>}
                                 <div className="space-y-2">
                                     <Label>الاسم الكامل</Label>
                                     <Input
                                         required
+                                        disabled={isAddingUser}
                                         value={newUserName}
                                         onChange={e => setNewUserName(e.target.value)}
                                         placeholder="مثال: أحمد محمد"
@@ -279,6 +313,7 @@ export default function UsersManager() {
                                     <Input
                                         required
                                         type="email"
+                                        disabled={isAddingUser || !!incompleteUserId}
                                         value={newUserEmail}
                                         onChange={e => setNewUserEmail(e.target.value)}
                                         placeholder="name@example.com"
@@ -287,8 +322,9 @@ export default function UsersManager() {
                                 <div className="space-y-2">
                                     <Label>كلمة المرور</Label>
                                     <Input
-                                        required
+                                        required={!incompleteUserId}
                                         type="password"
+                                        disabled={isAddingUser || !!incompleteUserId}
                                         minLength={6}
                                         value={newUserPassword}
                                         onChange={e => setNewUserPassword(e.target.value)}
@@ -297,7 +333,7 @@ export default function UsersManager() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label>الصلاحية</Label>
-                                    <Select value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
+                                    <Select disabled={isAddingUser} value={newUserRole} onValueChange={(v) => setNewUserRole(v as AppRole)}>
                                         <SelectTrigger>
                                             <SelectValue />
                                         </SelectTrigger>
@@ -315,7 +351,7 @@ export default function UsersManager() {
                                     <Button type="button" variant="ghost" onClick={() => setIsAddUserOpen(false)}>إلغاء</Button>
                                     <Button type="submit" disabled={isAddingUser}>
                                         {isAddingUser && <Loader2 className="ml-2 h-4 w-4 animate-spin" />}
-                                        إنشاء المستخدم
+                                        {incompleteUserId ? 'إكمال إعداد الحساب' : 'إنشاء المستخدم'}
                                     </Button>
                                 </DialogFooter>
                             </form>

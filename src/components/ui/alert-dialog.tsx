@@ -27,10 +27,10 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName
 
 const AlertDialogContent = React.forwardRef<
     React.ElementRef<typeof AlertDialogPrimitive.Content>,
-    React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+    React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content> & { raised?: boolean }
+>(({ className, raised = false, ...props }, ref) => (
     <AlertDialogPortal>
-        <AlertDialogOverlay />
+        <AlertDialogOverlay className={raised ? 'z-[160]' : undefined} />
         <AlertDialogPrimitive.Content
             ref={ref}
             className={cn(
@@ -50,6 +50,7 @@ const AlertDialogContent = React.forwardRef<
                 "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
                 "sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",
 
+                raised && "z-[170] pb-6",
                 className
             )}
             {...props}

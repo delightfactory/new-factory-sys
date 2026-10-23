@@ -1,3 +1,5 @@
+import {FinancialService} from '@/services/FinancialService';
+import {paymentCategoryOptions} from '@/features/financial/category-policy';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TreasuriesService } from "@/services/TreasuriesService";
 import { PartiesService } from "@/services/PartiesService";
@@ -9,13 +11,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { ArrowUpCircle, ArrowDownCircle, RefreshCw, CreditCard, Loader2, Wallet } from "lucide-react";
+import { ArrowUpCircle, ArrowDownCircle, RefreshCw, CreditCard, Loader2, Wallet, type LucideIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { FormField } from "@/components/ui/form-field";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams, Link } from "react-router-dom";
+import { factoryBusinessDay, factoryMonthPeriod } from "@/platform/date/factory-business-day";
+
+function newPaymentValues() { return {date:factoryBusinessDay(),treasury_id:'',category:'',party_id:'',invoice_id:'',amount:'',description:''}; }
 
 export default function Payments() {
+    const [params] = useSearchParams();
+    const initialType = params.get('type') === 'expense' ? 'expense' : 'income';
+    const requestedParty = params.get('party') ?? '';
     return (
         <div className="space-y-6">
             <PageHeader
@@ -25,7 +35,7 @@ export default function Payments() {
             />
 
             {/* Tab-based Toggle for Mobile */}
-            <Tabs defaultValue="income" className="w-full">
+            <Tabs key={`${initialType}:${requestedParty}`} defaultValue={initialType} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 h-12">
                     <TabsTrigger value="income" className="text-sm sm:text-base gap-2">
                         <ArrowDownCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -39,6 +49,7 @@ export default function Payments() {
 
                 <TabsContent value="income" className="mt-4">
                     <TransactionForm
+                        initialParty={initialType === 'income' ? requestedParty : ''}
                         type="income"
                         title="سند قبض (استلام نقدية)"
                         icon={ArrowDownCircle}
@@ -49,6 +60,7 @@ export default function Payments() {
 
                 <TabsContent value="expense" className="mt-4">
                     <TransactionForm
+                        initialParty={initialType === 'expense' ? requestedParty : ''}
                         type="expense"
                         title="سند صرف (دفع نقدية)"
                         icon={ArrowUpCircle}
@@ -68,24 +80,39 @@ function TransactionForm({
     title,
     icon: Icon,
     colorClass,
-    bgClass
+    bgClass,
+    initialParty = ''
 }: {
     type: 'income' | 'expense',
     title: string,
-    icon: any,
+    icon: LucideIcon,
     colorClass: string,
-    bgClass: string
+    bgClass: string,
+    initialParty?: string
 }) {
     const queryClient = useQueryClient();
-    const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm();
+    const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({defaultValues:newPaymentValues()});
+    const initialApplied = useRef(false);
 
     // Watch party to fetch invoices
     const selectedPartyId = watch('party_id');
 
+    const categoriesQuery = useQuery({queryKey:['financial_categories',type],queryFn:()=>FinancialService.getCategories(type),retry:false,refetchOnWindowFocus:false});
     // Fetch Data
     const { data: treasuries } = useQuery({ queryKey: ['treasuries'], queryFn: TreasuriesService.getTreasuries });
-    const { data: suppliers } = useQuery({ queryKey: ['suppliers'], queryFn: () => PartiesService.getParties('supplier') });
-    const { data: customers } = useQuery({ queryKey: ['customers'], queryFn: () => PartiesService.getParties('customer') });
+    const supplierQuery = useQuery({ queryKey: ['suppliers'], queryFn: () => PartiesService.getParties('supplier') });
+    const customerQuery = useQuery({ queryKey: ['customers'], queryFn: () => PartiesService.getParties('customer') });
+    const suppliers = supplierQuery.data, customers = customerQuery.data;
+    const initialMatch = [...(suppliers ?? []), ...(customers ?? [])].find(p => p.id === initialParty);
+    useEffect(() => {
+        if (!initialParty || initialApplied.current || !suppliers || !customers) return;
+        initialApplied.current = true;
+        if (initialMatch && !selectedPartyId) {
+            setValue('party_id', initialMatch.id);
+            if ((type === 'income' && initialMatch.type === 'customer') || (type === 'expense' && initialMatch.type === 'supplier'))
+                setValue('category', type === 'income' ? 'receipt' : 'payment');
+        }
+    }, [initialParty, suppliers, customers, initialMatch, selectedPartyId, setValue, type]);
 
     // Fetch Unpaid Invoices if Party Selected
     const { data: unpaidInvoices } = useQuery({
@@ -105,17 +132,19 @@ function TransactionForm({
         mutationFn: TreasuriesService.addTransaction,
         onSuccess: () => {
             toast.success("تم تسجيل العملية بنجاح");
-            reset();
+            reset(newPaymentValues());
             queryClient.invalidateQueries({ queryKey: ['treasuries'] });
             queryClient.invalidateQueries({ queryKey: ['parties'] });
             queryClient.invalidateQueries({ queryKey: ['unpaid_invoices'] });
+            queryClient.invalidateQueries({ queryKey: ['party-workspace'] });
+            queryClient.invalidateQueries({ queryKey: ['financial_transactions'] });
         },
         onError: (e) => toast.error("خطأ: " + e.message)
     });
 
     const allParties = [...(suppliers || []), ...(customers || [])];
 
-    const onSubmit = (data: any) => {
+    const onSubmit = (data: ReturnType<typeof newPaymentValues>) => {
         if (!data.treasury_id || !data.amount || !data.category) {
             toast.error("يرجى ملء الحقول الإجبارية (الخزنة، البند، المبلغ)");
             return;
@@ -130,6 +159,7 @@ function TransactionForm({
 
         mutation.mutate({
             treasury_id: parseInt(data.treasury_id),
+            date: data.date,
             amount: parseFloat(data.amount),
             type: type,
             category: data.category,
@@ -153,7 +183,13 @@ function TransactionForm({
                 </CardDescription>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
+                {(supplierQuery.isError || customerQuery.isError) && <p role="alert" className="mb-3 text-destructive">تعذر تحميل قائمة الأطراف كاملة. <Button type="button" variant="outline" onClick={() => { void supplierQuery.refetch(); void customerQuery.refetch(); }}>إعادة المحاولة</Button></p>}
+                {initialParty && suppliers && customers && !initialMatch && <p role="alert" className="mb-3 text-destructive">لم نجد الطرف المطلوب في القائمة المتاحة لحسابك. اختر الجهة يدويًا.</p>}
+                {initialMatch && <Button variant="link" asChild className="mb-3"><Link to={`/commercial/parties/${initialMatch.id}`}>العودة إلى كشف {initialMatch.name}</Link></Button>}
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField label="تاريخ السند" required error={errors.date?.message}>
+                        <Input aria-label="تاريخ السند" type="date" {...register('date',{required:'اختر تاريخ السند'})}/>
+                    </FormField>
                     {/* Treasury Field */}
                     <FormField label="الخزنة / البنك" required error={errors.treasury_id?.message as string}>
                         <SearchableSelect
@@ -172,21 +208,7 @@ function TransactionForm({
                     {/* Category Field - REQUIRED */}
                     <FormField label="البند" required error={errors.category?.message as string}>
                         <SearchableSelect
-                            options={type === 'income' ? [
-                                { value: 'receipt', label: 'تحصيل من عميل' },
-                                { value: 'sales', label: 'إيراد مبيعات' },
-                                { value: 'refund', label: 'استرداد' },
-                                { value: 'other_income', label: 'إيراد آخر' },
-                            ] : [
-                                { value: 'payment', label: 'سداد مورد' },
-                                { value: 'purchase', label: 'مشتريات' },
-                                { value: 'salary', label: 'رواتب' },
-                                { value: 'rent', label: 'إيجار' },
-                                { value: 'utilities', label: 'مرافق (كهرباء/ماء/غاز)' },
-                                { value: 'maintenance', label: 'صيانة' },
-                                { value: 'transport', label: 'نقل وشحن' },
-                                { value: 'other_expense', label: 'مصروف آخر' },
-                            ]}
+                            options={paymentCategoryOptions(type,categoriesQuery.isError?[]:categoriesQuery.data??[],!!categoriesQuery.data&&!categoriesQuery.isError&&!categoriesQuery.isFetching)}
                             value={watch('category')}
                             onValueChange={(val) => setValue('category', val, { shouldValidate: true })}
                             placeholder="اختر البند *"
@@ -194,6 +216,9 @@ function TransactionForm({
                         />
                     </FormField>
 
+                    {categoriesQuery.isFetching&&<p role="status" className="text-sm">جارٍ قراءة البنود المعدّة؛ خيارات السند الأساسية متاحة.</p>}
+                    {categoriesQuery.isError&&<div role="alert" className="text-sm"><p>تعذر تحميل البنود المعدّة؛ الخيارات الأساسية متاحة، ولا يمكن تأكيد أثرها على الأرباح الآن.</p><Button type="button" variant="outline" onClick={()=>void categoriesQuery.refetch()}>إعادة تحميل البنود</Button></div>}
+                    <p className="text-xs text-muted-foreground">وصف البند يوضح أثره في الأرباح وفق الإعداد الحالي. التحصيل والسداد يظلان مرتبطين بالطرف والفاتورة عند اختيارهما.</p>
                     {/* Party Field */}
                     <FormField label="الجهة (عميل / مورد)">
                         <SearchableSelect
@@ -203,7 +228,7 @@ function TransactionForm({
                                 description: p.type === 'supplier' ? 'مورد' : 'عميل'
                             }))}
                             value={watch('party_id')}
-                            onValueChange={(val) => setValue('party_id', val)}
+                            onValueChange={(val) => { setValue('party_id', val); setValue('invoice_id', ''); }}
                             placeholder="اختر الجهة"
                             searchPlaceholder="ابحث..."
                         />
@@ -213,7 +238,7 @@ function TransactionForm({
                     {selectedPartyId && unpaidInvoices && unpaidInvoices.length > 0 && (
                         <FormField label="ربط بفاتورة (اختياري)">
                             <SearchableSelect
-                                options={unpaidInvoices.map((inv: any) => ({
+                                options={unpaidInvoices.map((inv) => ({
                                     value: inv.id.toString(),
                                     label: `#${inv.invoice_number || inv.id}`,
                                     description: `متبقي: ${(inv.total_amount - inv.paid_amount).toLocaleString()}`
@@ -258,7 +283,7 @@ function TransactionForm({
                         const treasuryId = watch('treasury_id');
                         const category = watch('category');
                         const amount = watch('amount');
-                        const isFormValid = !!treasuryId && !!category && amount > 0;
+                        const isFormValid = !!treasuryId && !!category && Number(amount) > 0;
 
                         return (
                             <Button
@@ -286,37 +311,27 @@ function TransactionForm({
 }
 
 function RecentTransactions() {
-    const { data: transactions, isLoading } = useQuery({
-        queryKey: ['financial_transactions', 'recent'],
-        queryFn: async () => {
-            // Fetch transactions for the current month
-            const now = new Date();
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-            const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+    const period = factoryMonthPeriod();
+    const [page,setPage]=useState(0);
+    const query=useQuery({queryKey:['financial_transactions','recent',period.startDate,period.endDate],queryFn:()=>TreasuriesService.getPartyMonthTransactions(period),retry:false,refetchOnWindowFocus:false});
+    const isLoading=query.isPending||query.isFetching;
+    const transactions=!isLoading&&!query.isError?query.data:undefined;
+    const currentPage=Math.min(page,Math.max(0,Math.ceil((transactions?.length??0)/50)-1));
+    const visible=transactions?.slice(currentPage*50,(currentPage+1)*50)??[];
 
-            // Adjust imports if FinancialService is not imported at top
-            const { FinancialService } = await import("@/services/FinancialService");
-            return FinancialService.getTransactions({
-                startDate: startOfMonth.split('T')[0],
-                endDate: endOfMonth.split('T')[0],
-                excludeTransfers: true,
-                partyRelatedOnly: true
-            });
-        }
-    });
 
     return (
         <Card>
             <CardHeader className="flex flex-row items-center gap-2">
                 <Wallet className="h-5 w-5 text-muted-foreground" />
-                <CardTitle className="text-base sm:text-lg">آخر العمليات (هذا الشهر)</CardTitle>
+                <CardTitle className="text-base sm:text-lg">حركات الأطراف هذا الشهر</CardTitle><Button variant="outline" size="sm" disabled={isLoading} onClick={()=>void query.refetch()}>تحديث الحركات</Button>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
                     <div className="flex justify-center p-4">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                     </div>
-                ) : !transactions || transactions.length === 0 ? (
+                ) : query.isError ? <div role="alert"><p>تعذر تحميل الحركات كاملة. أعد المحاولة؛ لم نعرض قائمة جزئية أو قديمة.</p><Button onClick={()=>void query.refetch()}>إعادة المحاولة</Button></div> : !transactions || transactions.length === 0 ? (
                     <p className="text-muted-foreground text-sm text-center py-4">لا توجد عمليات مسجلة هذا الشهر.</p>
                 ) : (
                     <div className="overflow-x-auto">
@@ -332,7 +347,7 @@ function RecentTransactions() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {transactions.map((t) => (
+                                {visible.map((t) => (
                                     <tr key={t.id} className="border-b last:border-0 hover:bg-muted/20 transition-colors">
                                         <td className="p-3">{t.transaction_date}</td>
                                         <td className="p-3">
@@ -343,7 +358,7 @@ function RecentTransactions() {
                                                 {t.transaction_type === 'income' ? 'قبض' : 'صرف'}
                                             </span>
                                         </td>
-                                        <td className="p-3">{t.category}</td>
+                                        <td className="p-3">{transactionCategoryLabel(t.category)}</td>
                                         <td className={`p-3 font-bold ${t.transaction_type === 'income' ? 'text-green-600' : 'text-red-600'
                                             }`}>
                                             {t.amount.toLocaleString()} ج.م
@@ -356,6 +371,7 @@ function RecentTransactions() {
                                 ))}
                             </tbody>
                         </table>
+                        <div className="flex flex-wrap items-center justify-between gap-3 py-3"><p>عرض {currentPage*50+1}–{Math.min((currentPage+1)*50,transactions.length)} من {transactions.length} حركة</p><div className="flex gap-2"><Button variant="outline" disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>السابق</Button><Button variant="outline" disabled={(currentPage+1)*50>=transactions.length} onClick={()=>setPage(currentPage+1)}>التالي</Button></div></div>
                     </div>
                 )}
             </CardContent>
@@ -363,3 +379,8 @@ function RecentTransactions() {
     );
 }
 
+
+function transactionCategoryLabel(category:string){
+ const labels:Record<string,string>={receipt:'تحصيل',payment:'سداد',purchase:'مشتريات',sales:'مبيعات',refund:'استرداد',sales_payment:'دفعة فاتورة بيع',purchase_payment:'دفعة فاتورة شراء',sales_void_refund:'رد دفعة إلغاء بيع',purchase_void_refund:'استرداد إلغاء شراء',salary:'رواتب',rent:'إيجار',utilities:'مرافق',maintenance:'صيانة',transport:'نقل وشحن',other_income:'إيراد آخر',other_expense:'مصروف آخر'};
+ return category.startsWith('reversal_')?'عكس حركة':labels[category]??'حركة أخرى';
+}

@@ -1,13 +1,24 @@
 import path from "path"
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
+import { assertHostedEnvironment, hostedConnectPolicy } from './src/platform/hosted-environment'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
+  assertHostedEnvironment(env);
+  return {
+
   plugins: [
+    { name: 'factory-hosted-csp', transformIndexHtml: () => [
+      { tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: hostedConnectPolicy }, injectTo: 'head-prepend' }
+    ] },
     react(),
     VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       registerType: 'autoUpdate',
       includeAssets: [
         'favicon.ico',
@@ -58,24 +69,8 @@ export default defineConfig({
           }
         ]
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/cgqunqczuvwfvuzlsvyy\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api-cache',
-              expiration: {
-                maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
       },
       devOptions: {
         enabled: false // Disable in dev to avoid issues
@@ -87,5 +82,5 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  }
 })
-

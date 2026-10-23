@@ -1,5 +1,8 @@
 import { factoryCommand, fields } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
+import { readCompleteRows } from "@/platform/data/read-complete-rows";
+import type { Transaction } from "./FinancialService";
+import type { CashEntry } from '@/features/treasuries/treasury-statement';
 
 export interface Treasury {
     id: number;
@@ -13,6 +16,27 @@ export interface Treasury {
 }
 
 export const TreasuriesService = {
+    getStatement: async (id: number) => {
+        const treasury = await TreasuriesService.getTreasury(id);
+        const entries = await readCompleteRows<CashEntry>(async (from, to) => {
+            const { data, error, count } = await supabase.from('financial_transactions')
+                .select('*,party:parties(name)', { count: 'exact' }).eq('treasury_id', id)
+                .order('transaction_date').order('created_at').order('id').range(from, to);
+            return { rows: data as CashEntry[] | null, error, count };
+        }, 'TREASURY_STATEMENT');
+        return { treasury, entries };
+    },
+    getPartyMonthTransactions: async (period: {startDate: string; endDate: string}) =>
+        readCompleteRows<Transaction>(async (from,to) => {
+            const {data,error,count}=await supabase.from('financial_transactions')
+                .select('*,treasury:treasuries(name)', {count:'exact'})
+                .not('category','ilike','%transfer%').neq('transaction_type','transfer')
+                .or('party_id.not.is.null,category.in.(receipt,payment,purchase,sales,refund,purchase_payment)')
+                .gte('transaction_date',period.startDate).lte('transaction_date',period.endDate)
+                .order('transaction_date',{ascending:false}).order('created_at',{ascending:false}).order('id',{ascending:false})
+                .range(from,to);
+            return {rows:data as Transaction[]|null,error,count};
+        }, 'PARTY_MONTH_TRANSACTIONS'),
     // Get all treasuries
     getTreasuries: async () => {
         const { data, error } = await supabase
@@ -60,6 +84,7 @@ export const TreasuriesService = {
     // Unified Transaction Entry (Receipts/Payments with Party Link)
     addTransaction: async (data: {
         treasury_id: number,
+        date?: string,
         amount: number,
         type: 'income' | 'expense',
         category: string,

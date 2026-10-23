@@ -6,6 +6,7 @@ import TreasuryDetails from "./TreasuryDetails";
 import PurchaseInvoices from "./PurchaseInvoices";
 import SalesInvoices from "./SalesInvoices";
 import InvoiceDetails from "./InvoiceDetails";
+import EditInvoice from "./EditInvoice";
 import Payments from "./Payments";
 import Returns from "./Returns";
 import ReturnDetails from "./ReturnDetails";
@@ -22,8 +23,10 @@ const CommercialRoutes = () => {
             <Route path="returns/:type/:id" element={<ReturnDetails />} />
             <Route path="buying" element={<PurchaseInvoices />} />
             <Route path="buying/:id" element={<InvoiceDetails />} />
+            <Route path="buying/:id/edit" element={<EditInvoice />} />
             <Route path="selling" element={<SalesInvoices />} />
             <Route path="selling/:id" element={<InvoiceDetails />} />
+            <Route path="selling/:id/edit" element={<EditInvoice />} />
         </Routes>
     );
 };

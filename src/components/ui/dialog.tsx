@@ -29,12 +29,28 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef<
     React.ElementRef<typeof DialogPrimitive.Content>,
-    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+    React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { task?: boolean }
+>(({ className, children, task = false, onOpenAutoFocus, onCloseAutoFocus, ...props }, ref) => {
+    const returnFocus = React.useRef<HTMLElement | null>(null);
+    return (
     <DialogPortal>
-        <DialogOverlay />
+        <DialogOverlay className={task ? 'z-[110]' : undefined} />
         <DialogPrimitive.Content
             ref={ref}
+            onOpenAutoFocus={event => {
+                const active = document.activeElement;
+                returnFocus.current = active instanceof HTMLElement && active !== document.body ? active : null;
+                onOpenAutoFocus?.(event);
+            }}
+            onCloseAutoFocus={event => {
+                onCloseAutoFocus?.(event);
+                const target = returnFocus.current;
+                // Controlled task dialogs may have no Radix Trigger to restore.
+                if (!event.defaultPrevented && target?.isConnected && !target.closest('[inert]') && target.getClientRects().length) {
+                    target.focus();
+                    if (document.activeElement === target) event.preventDefault();
+                }
+            }}
             className={cn(
                 // Base styles (Glassmorphism & Performance)
                 "fixed z-50 grid gap-4 border border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl duration-300 ease-in-out will-change-transform",
@@ -56,6 +72,7 @@ const DialogContent = React.forwardRef<
 
                 // Overflow handling
                 "overflow-y-auto",
+                task && "inset-0 z-[120] max-h-[100dvh] rounded-none pb-6 sm:inset-auto sm:rounded-2xl",
                 className
             )}
             {...props}
@@ -63,13 +80,14 @@ const DialogContent = React.forwardRef<
             {/* Mobile drag handle & Accent */}
             <div className="absolute top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 rounded-full bg-muted-foreground/20 sm:hidden" />
             {children}
-            <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+            <DialogPrimitive.Close className="absolute left-3 top-3 flex h-11 w-11 items-center justify-center rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
                 <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
+                <span className="sr-only">إغلاق</span>
             </DialogPrimitive.Close>
         </DialogPrimitive.Content>
     </DialogPortal>
-))
+    )
+})
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
 const DialogHeader = ({
@@ -78,7 +96,7 @@ const DialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
     <div
         className={cn(
-            "flex flex-col space-y-1.5 text-center sm:text-left",
+            "flex flex-col space-y-1.5 text-start",
             className
         )}
         {...props}

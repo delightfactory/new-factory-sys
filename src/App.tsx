@@ -1,53 +1,55 @@
 
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { createBrowserRouter, RouterProvider, Routes, Route, Navigate } from "react-router-dom";
+import { lazy } from 'react';
+import { PageLoadBoundary } from './components/routing/PageLoadBoundary';
+import { ActorQueryBoundary } from './components/auth/ActorQueryBoundary';
 import { Toaster } from "sonner";
-import Dashboard from "./pages/Dashboard";
-import InventoryRoutes from "./pages/inventory";
-import ProductionRoutes from "./pages/production";
-import PackagingRoutes from "./pages/packaging";
-import CommercialRoutes from "./pages/commercial";
-import FinancialRoutes from "./pages/financial";
 
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./components/theme-provider";
 import Login from "./pages/auth/Login";
 import ProtectedLayout from "./components/ProtectedLayout";
-import SettingsRoutes from "./pages/settings";
-import ReportsRoutes from "./pages/reports";
 import { FactoryOAuthConsent } from "./pages/auth/FactoryOAuthConsent";
 import { supabase } from "./integrations/supabase/client";
 
-const queryClient = new QueryClient();
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const InventoryRoutes = lazy(() => import('./pages/inventory'));
+const ProductionRoutes = lazy(() => import('./pages/production'));
+const PackagingRoutes = lazy(() => import('./pages/packaging'));
+const CommercialRoutes = lazy(() => import('./pages/commercial'));
+const FinancialRoutes = lazy(() => import('./pages/financial'));
+const ReportsRoutes = lazy(() => import('./pages/reports'));
+const SettingsRoutes = lazy(() => import('./pages/settings'));
 
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="light" storageKey="factory-theme">
-        <AuthProvider>
-          <BrowserRouter>
-            <Routes>
+function ApplicationRoutes() { return (            <Routes>
               <Route path="/login" element={<Login />} />
 
               <Route path="/" element={<ProtectedLayout />}>
-                <Route index element={<Dashboard />} />
+                <Route index element={<PageLoadBoundary><Dashboard /></PageLoadBoundary>} />
                 <Route path="mcp/consent" element={<FactoryOAuthConsent supabase={supabase} appOrigin={import.meta.env.VITE_MCP_APP_ORIGIN ?? ""} />} />
-                <Route path="inventory/*" element={<InventoryRoutes />} />
-                <Route path="production/*" element={<ProductionRoutes />} />
-                <Route path="packaging/*" element={<PackagingRoutes />} />
-                <Route path="commercial/*" element={<CommercialRoutes />} />
-                <Route path="financial/*" element={<FinancialRoutes />} />
-                <Route path="reports/*" element={<ReportsRoutes />} />
-                <Route path="settings/*" element={<SettingsRoutes />} />
+                <Route path="inventory/*" element={<PageLoadBoundary><InventoryRoutes /></PageLoadBoundary>} />
+                <Route path="production/*" element={<PageLoadBoundary><ProductionRoutes /></PageLoadBoundary>} />
+                <Route path="packaging/*" element={<PageLoadBoundary><PackagingRoutes /></PageLoadBoundary>} />
+                <Route path="commercial/*" element={<PageLoadBoundary><CommercialRoutes /></PageLoadBoundary>} />
+                <Route path="financial/*" element={<PageLoadBoundary><FinancialRoutes /></PageLoadBoundary>} />
+                <Route path="reports/*" element={<PageLoadBoundary><ReportsRoutes /></PageLoadBoundary>} />
+                <Route path="settings/*" element={<PageLoadBoundary><SettingsRoutes /></PageLoadBoundary>} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
+            </Routes>); }
+const router = createBrowserRouter([{path:'*',element:<ApplicationRoutes/>}]);
+
+function App() {
+  return (
+      <ThemeProvider defaultTheme="light" storageKey="factory-theme">
+        <AuthProvider>
+          <ActorQueryBoundary>
+            <RouterProvider router={router} />
           <Toaster position="top-left" richColors />
+          </ActorQueryBoundary>
         </AuthProvider>
       </ThemeProvider>
-    </QueryClientProvider>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { ProductionReportService } from "@/services/ProductionReportService";
+import {filterProductionReport,type OrderType,type OrderStats,type ReportOrder as Order,type StatusFilter} from "@/features/reports/production-report";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,79 +25,17 @@ import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
 import { format } from "date-fns";
 import { PrintButton } from "@/components/print/PrintLayout";
 
-type OrderType = 'production' | 'packaging';
-
-interface OrderStats {
-    total: number;
-    completed: number;
-    inProgress: number;
-    pending: number;
-    cancelled: number;
-    efficiencyRate: number;
-}
-
-interface Order {
-    id: number;
-    code: string;
-    status: string;
-    created_at: string;
-    type: OrderType;
-}
-
 export default function ProductionReport() {
     const [activeTab, setActiveTab] = useState<OrderType>('production');
 
-    const { data, isLoading } = useQuery({
-        queryKey: ['report-production-packaging'],
-        queryFn: async () => {
-            // Fetch both production and packaging orders in parallel
-            const [productionRes, packagingRes] = await Promise.all([
-                supabase
-                    .from('production_orders')
-                    .select('id, code, status, created_at')
-                    .order('created_at', { ascending: false })
-                    .limit(50),
-                supabase
-                    .from('packaging_orders')
-                    .select('id, code, status, created_at')
-                    .order('created_at', { ascending: false })
-                    .limit(50)
-            ]);
+    const [statusFilter,setStatusFilter]=useState<StatusFilter>('all');
+    const [page,setPage]=useState(0);
+    const query=useQuery({queryKey:['report-production-packaging'],queryFn:ProductionReportService.get,refetchOnWindowFocus:false});
+    const loading=query.isPending||query.isFetching;
+    const data=!loading&&!query.isError&&query.data?filterProductionReport(query.data,statusFilter):undefined;
+    const statusLabels:Record<StatusFilter,string>={all:'كل الحالات',pending:'قيد الانتظار',inProgress:'جارٍ التنفيذ',completed:'مكتمل',cancelled:'ملغي',unknown:'حالة غير محددة'};
 
-            const processOrders = (orders: any[] | null, type: OrderType): Order[] => {
-                return (orders || []).map(o => ({ ...o, type }));
-            };
-
-            const calculateStats = (orders: Order[]): OrderStats => {
-                const total = orders.length;
-                const completed = orders.filter(o => o.status === 'completed').length;
-                const inProgress = orders.filter(o => o.status === 'inProgress').length;
-                const pending = orders.filter(o => o.status === 'pending').length;
-                const cancelled = orders.filter(o => o.status === 'cancelled').length;
-                const efficiencyRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-                return { total, completed, inProgress, pending, cancelled, efficiencyRate };
-            };
-
-            const productionOrders = processOrders(productionRes.data, 'production');
-            const packagingOrders = processOrders(packagingRes.data, 'packaging');
-
-            const productionStats = calculateStats(productionOrders);
-            const packagingStats = calculateStats(packagingOrders);
-
-            // Combined stats
-            const allOrders = [...productionOrders, ...packagingOrders];
-            const combinedStats = calculateStats(allOrders);
-
-            return {
-                production: { orders: productionOrders, stats: productionStats },
-                packaging: { orders: packagingOrders, stats: packagingStats },
-                combined: { orders: allOrders, stats: combinedStats }
-            };
-        }
-    });
-
-    const getStatusBadge = (status: string) => {
+    const getStatusBadge = (status: string | null) => {
         switch (status) {
             case 'completed':
                 return <Badge className="bg-green-100 text-green-800 hover:bg-green-200 gap-1">
@@ -115,7 +54,7 @@ export default function ProductionReport() {
                     <XCircle className="w-3 h-3" />ملغي
                 </Badge>;
             default:
-                return <Badge variant="outline">{status}</Badge>;
+                return <Badge variant="outline">{status||'غير محددة'}</Badge>;
         }
     };
 
@@ -133,13 +72,14 @@ export default function ProductionReport() {
 
     const renderStatsCards = (stats: OrderStats, type: OrderType) => {
         const isProduction = type === 'production';
-        const primaryColor = isProduction ? 'blue' : 'purple';
+        const primaryCard = isProduction ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-purple-50 dark:bg-purple-900/20';
+        const primaryText=isProduction?'text-blue-600':'text-purple-600';
 
         return (
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-5 print:grid-cols-5">
-                <Card className={`bg-${primaryColor}-50 dark:bg-${primaryColor}-900/20`}>
+                <Card className={primaryCard}>
                     <CardHeader className="pb-2">
-                        <CardTitle className={`text-sm font-medium text-${primaryColor}-600`}>
+                        <CardTitle className={`text-sm font-medium ${primaryText}`}>
                             إجمالي الأوامر
                         </CardTitle>
                     </CardHeader>
@@ -202,19 +142,21 @@ export default function ProductionReport() {
         );
     };
 
-    const renderOrdersTable = (orders: Order[], type: OrderType) => {
+    const renderOrdersTable = (orders: Order[], type: OrderType, printAll=false) => {
         const isProduction = type === 'production';
 
         if (orders.length === 0) {
             return (
                 <div className="text-center py-12 text-muted-foreground">
                     <AlertCircle className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                    <p>لا توجد أوامر {isProduction ? 'إنتاج' : 'تعبئة'} حتى الآن</p>
+                    <p>{statusFilter==='all' ? `لا توجد أوامر ${isProduction ? 'إنتاج' : 'تعبئة'} حتى الآن` : 'لا توجد أوامر بالحالة المختارة'}</p>
                 </div>
             );
         }
 
-        return (
+        const currentPage=Math.min(page,Math.max(0,Math.ceil(orders.length/50)-1));
+        const visible=printAll?orders:orders.slice(currentPage*50,(currentPage+1)*50);
+        return (<>
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -225,18 +167,18 @@ export default function ProductionReport() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {orders.map((order) => (
+                    {visible.map((order) => (
                         <TableRow key={`${order.type}-${order.id}`}>
                             <TableCell className="font-medium font-mono">
                                 {order.code || `#${order.id}`}
                             </TableCell>
                             <TableCell>{getStatusBadge(order.status)}</TableCell>
                             <TableCell className="text-left text-muted-foreground text-sm font-mono">
-                                {format(new Date(order.created_at), 'dd/MM/yyyy')}
+                                {order.created_at&&!Number.isNaN(Date.parse(order.created_at))?format(new Date(order.created_at),'dd/MM/yyyy'):'غير محدد'}
                             </TableCell>
                             <TableCell className="text-left print:hidden">
                                 <Button size="sm" variant="ghost" asChild>
-                                    <Link to={isProduction ? `/production/orders/${order.id}` : `/packaging/${order.id}`}>
+                                    <Link to={isProduction ? `/production/orders/${order.id}` : `/packaging/orders/${order.id}`}>
                                         عرض
                                     </Link>
                                 </Button>
@@ -245,6 +187,8 @@ export default function ProductionReport() {
                     ))}
                 </TableBody>
             </Table>
+            {!printAll&&<div className="mt-4 flex flex-wrap items-center justify-between gap-3 print:hidden"><p className="text-sm text-muted-foreground">عرض {orders.length?Math.min(currentPage*50+1,orders.length):0}–{Math.min((currentPage+1)*50,orders.length)} من {orders.length} أمر</p><div className="flex gap-2"><Button variant="outline" disabled={currentPage===0} onClick={()=>setPage(currentPage-1)}>السابق</Button><Button variant="outline" disabled={(currentPage+1)*50>=orders.length} onClick={()=>setPage(currentPage+1)}>التالي</Button></div></div>}
+            </>
         );
     };
 
@@ -257,25 +201,28 @@ export default function ProductionReport() {
                         <Link to="/reports"><ArrowRight /></Link>
                     </Button>
                     <PageHeader
-                        title="تقرير كفاءة الإنتاج والتعبئة"
-                        description="تحليل شامل لأداء خطوط الإنتاج والتعبئة"
+                        title="تقرير الإنتاج والتعبئة"
+                        description="متابعة جميع الأوامر ونِسَب إنجازها حسب الحالة"
                         icon={Factory}
                     />
                 </div>
                 <div className="flex gap-2 mr-auto sm:mr-0">
-                    <PrintButton />
+                    <Button variant="outline" disabled={loading} onClick={()=>void query.refetch()}>تحديث التقرير</Button>
+                    {data&&<PrintButton />}
                 </div>
             </div>
 
             {/* Print Header */}
             <div className="hidden print:block text-center mb-8 border-b pb-4">
-                <h1 className="text-2xl font-bold">تقرير كفاءة الإنتاج والتعبئة</h1>
+                <h1 className="text-2xl font-bold">تقرير الإنتاج والتعبئة</h1>
                 <p className="text-sm text-gray-500">تاريخ التقرير: {new Date().toLocaleDateString('ar-EG')}</p>
             </div>
 
-            {isLoading ? (
-                <CardGridSkeleton count={5} />
-            ) : data && (
+            <div className="flex flex-wrap items-center gap-3 print:hidden"><label htmlFor="production-status">حالة الأوامر</label><select id="production-status" className="h-10 rounded-md border bg-background px-3" value={statusFilter} onChange={event=>{setStatusFilter(event.target.value as StatusFilter);setPage(0);}}>{Object.entries(statusLabels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select><p className="text-sm text-muted-foreground">الأرقام تشمل جميع الأوامر ضمن الحالة المختارة؛ نسبة الإنجاز = المكتمل ÷ إجمالي الأوامر.</p></div>
+            <p className="hidden print:block">حالة الأوامر: {statusLabels[statusFilter]}</p>
+            {loading ? (
+                <div role="status" aria-label="جارٍ تحميل التقرير كاملًا"><CardGridSkeleton count={5} /></div>
+            ) : query.isError ? <div role="alert" className="rounded-lg border border-destructive bg-destructive/5 p-5"><p>تعذر تحميل التقرير كاملًا. لم نعرض أرقامًا جزئية أو قديمة. أعد المحاولة.</p><Button className="mt-3" onClick={()=>void query.refetch()}>إعادة المحاولة</Button></div> : data && (
                 <>
                     {/* Combined Summary */}
                     <Card className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900/50 dark:to-slate-800/30 border-2">
@@ -287,7 +234,7 @@ export default function ProductionReport() {
                             <CardDescription>إحصائيات مجمعة للإنتاج والتعبئة</CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+                            <div className="grid gap-4 grid-cols-2 lg:grid-cols-6 print:grid-cols-6">
                                 <div className="text-center p-4 rounded-lg bg-white dark:bg-black/20 border">
                                     <p className="text-xs text-muted-foreground mb-1">إجمالي الأوامر</p>
                                     <p className="text-2xl font-bold">{data.combined.stats.total}</p>
@@ -297,12 +244,14 @@ export default function ProductionReport() {
                                     <p className="text-2xl font-bold text-green-600">{data.combined.stats.completed}</p>
                                 </div>
                                 <div className="text-center p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100">
-                                    <p className="text-xs text-muted-foreground mb-1">قيد التنفيذ</p>
+                                    <p className="text-xs text-muted-foreground mb-1">مفتوحة (معلقة + جارية)</p>
                                     <p className="text-2xl font-bold text-blue-600">
                                         {data.combined.stats.inProgress + data.combined.stats.pending}
                                     </p>
                                 </div>
-                                <div className="text-center p-4 rounded-lg bg-white dark:bg-black/20 border">
+                                <div className="text-center p-4 rounded-lg bg-white dark:bg-black/20 border"><p className="text-xs text-muted-foreground mb-1">ملغاة</p><p className="text-2xl font-bold">{data.combined.stats.cancelled}</p></div>
+<div className="text-center p-4 rounded-lg bg-white dark:bg-black/20 border"><p className="text-xs text-muted-foreground mb-1">حالة غير محددة</p><p className="text-2xl font-bold">{data.combined.stats.total-data.combined.stats.completed-data.combined.stats.pending-data.combined.stats.inProgress-data.combined.stats.cancelled}</p></div>
+<div className="text-center p-4 rounded-lg bg-white dark:bg-black/20 border">
                                     <p className="text-xs text-muted-foreground mb-1">نسبة الإنجاز الكلية</p>
                                     <p className={`text-2xl font-bold ${getEfficiencyColor(data.combined.stats.efficiencyRate)}`}>
                                         {data.combined.stats.efficiencyRate}%
@@ -313,7 +262,7 @@ export default function ProductionReport() {
                     </Card>
 
                     {/* Tabs for Production vs Packaging */}
-                    <Tabs defaultValue="production" value={activeTab} onValueChange={(v) => setActiveTab(v as OrderType)}>
+                    <Tabs className="print:hidden" value={activeTab} onValueChange={(v) => {setActiveTab(v as OrderType);setPage(0);}}>
                         <TabsList className="grid w-full max-w-md grid-cols-2 print:hidden">
                             <TabsTrigger value="production" className="gap-2">
                                 <Factory className="w-4 h-4" />
@@ -331,7 +280,7 @@ export default function ProductionReport() {
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Factory className="w-5 h-5 text-blue-500" />
-                                        سجل أوامر الإنتاج (آخر 50)
+                                        سجل أوامر الإنتاج
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="overflow-x-auto">
@@ -348,7 +297,7 @@ export default function ProductionReport() {
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
                                         <Package className="w-5 h-5 text-purple-500" />
-                                        سجل أوامر التعبئة (آخر 50)
+                                        سجل أوامر التعبئة
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="overflow-x-auto">
@@ -369,7 +318,7 @@ export default function ProductionReport() {
                             </h2>
                             {renderStatsCards(data.production.stats, 'production')}
                             <div className="mt-4">
-                                {renderOrdersTable(data.production.orders, 'production')}
+                                {renderOrdersTable(data.production.orders, 'production',true)}
                             </div>
                         </div>
                         <div>
@@ -379,7 +328,7 @@ export default function ProductionReport() {
                             </h2>
                             {renderStatsCards(data.packaging.stats, 'packaging')}
                             <div className="mt-4">
-                                {renderOrdersTable(data.packaging.orders, 'packaging')}
+                                {renderOrdersTable(data.packaging.orders, 'packaging',true)}
                             </div>
                         </div>
                     </div>

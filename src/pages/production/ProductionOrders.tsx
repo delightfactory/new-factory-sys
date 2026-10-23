@@ -1,4 +1,10 @@
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { TaskActions } from '@/components/ui/task-actions';
+import { useAuth } from '@/contexts/AuthContext';
+import { DocumentEditingService, type EditableDocument } from '@/services/DocumentEditingService';
+import { useConfirmation } from '@/hooks/use-confirmation';
+import { useDocumentExitGuard } from '@/hooks/use-document-exit-guard';
+import { factoryBusinessDay } from '@/platform/date/factory-business-day';
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { InventoryService } from "@/services/InventoryService";
 import { DataTable } from "@/components/ui/data-table";
@@ -22,7 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import { useForm, useFieldArray } from "react-hook-form";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Badge } from "../../components/ui/badge";
 import { format } from "date-fns";
 import { MaterialPreviewCard, type MaterialItem } from "@/components/ui/material-preview-card";
@@ -39,15 +45,34 @@ type OrderFormValues = {
     }[];
 };
 
+const freshOrderValues=():OrderFormValues=>({code:'',date:factoryBusinessDay(),notes:'',items:[{semi_finished_id:"",quantity:0}]});
+
 export default function ProductionOrders() {
     const queryClient = useQueryClient();
+    const actionBusy = useRef(false);
+    const [orderAction, setOrderAction] = useState<string | null>(null);
+    const actionConfirmation = useConfirmation();
+    const actionFocus = useRef<HTMLDivElement>(null);
     const [isOpen, setIsOpen] = useState(false);
+    const [previewReady,setPreviewReady]=useState(false);
+    const [previewError,setPreviewError]=useState<string|null>(null);
     const [ingredientsData, setIngredientsData] = useState<Record<string, { batchSize: number; ingredients: any[] }>>({});
     const [loadingIngredients, setLoadingIngredients] = useState<Record<string, boolean>>({});
     const [pendingDemands, setPendingDemands] = useState<Map<number, number>>(new Map());
     const [viewOrderId, setViewOrderId] = useState<number | null>(null);
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
+    const {hasRole} = useAuth();
+    const canEdit = hasRole(['admin','manager','production_officer']);
+    const editId = Number(searchParams.get('edit')) || null;
+    const [editGeneration,setEditGeneration] = useState(0);
+    const editorEntry=useLocation().key;
+    const loadedEditor=useRef<string|null>(null);
+    const previewEpoch=useRef(0);
+    const openedDocument=useRef<EditableDocument|null>(null);
+    const editQuery=useQuery({queryKey:['document-editor','production_order',editId,editorEntry,editGeneration],gcTime:0,
+        queryFn:()=>DocumentEditingService.get('production_order',editId!),enabled:!!editId&&canEdit,
+        retry:false,refetchOnWindowFocus:false,refetchOnReconnect:false});
 
 
     // Fetch order details when viewing
@@ -71,12 +96,7 @@ export default function ProductionOrders() {
 
     // Form Setup
     const form = useForm<OrderFormValues>({
-        defaultValues: {
-            code: '',
-            date: new Date().toISOString().split('T')[0],
-            notes: '',
-            items: [{ semi_finished_id: "", quantity: 0 }]
-        }
+        defaultValues: freshOrderValues()
     });
 
     const { fields, append, remove } = useFieldArray({
@@ -87,35 +107,33 @@ export default function ProductionOrders() {
     // Auto-open create dialog if action=create in URL (must be after form init)
     useEffect(() => {
         if (searchParams.get('action') === 'create') {
-            form.reset();
-            setIsOpen(true);
+            form.reset(freshOrderValues());
+            exitGuard.protect();setIsOpen(true);
             setSearchParams({}, { replace: true });
         }
     }, [searchParams, setSearchParams, form]);
 
-    // Fetch Next Code
-    const fetchNextCode = async () => {
-        try {
-            const code = await InventoryService.getNextCode('production_orders', 'PO');
-            form.setValue('code', code);
-        } catch (error) {
-            console.error("Failed to fetch next code", error);
-        }
-    };
+    useEffect(()=>{previewEpoch.current++;return()=>{previewEpoch.current++;};},[isOpen,editId,editGeneration]);
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchNextCode();
-            // Fetch pending demands when dialog opens
-            InventoryService.getPendingProductionDemand()
-                .then(demands => setPendingDemands(demands))
-                .catch(err => console.error('Failed to fetch pending demands', err));
-        }
-    }, [isOpen]);
+    // Fetch Next Code
+    useEffect(()=>{
+        if(!isOpen)return;
+        let active=true;
+        setPreviewReady(false);setPreviewError(null);
+        setIngredientsData({});
+        setPendingDemands(new Map());
+        if(!editId)InventoryService.getNextCode('production_orders','PO').then(code=>{if(active)form.setValue('code',code);}).catch(()=>toast.error('تعذر تحميل رقم الأمر. أعد فتح النموذج.'));
+        InventoryService.getPendingProductionDemand(editId??undefined).then(data=>{if(active){setPendingDemands(data);setPreviewReady(true);}}).catch(()=>{if(active)setPreviewError('تعذر تحميل حجوزات المواد. معاينة التوفر غير مكتملة؛ أعد فتح النموذج لإعادة المحاولة.');});
+        return()=>{active=false;};
+    },[isOpen,editId,editGeneration,form]);
 
     // Create Mutation
     const createMutation = useMutation({
         mutationFn: async (data: OrderFormValues) => {
+            if(editId){
+                if(!openedDocument.current)throw new Error('انتظر تحميل المستند قبل الحفظ.');
+                return DocumentEditingService.save('production_order',openedDocument.current,{date:data.date,notes:data.notes,items:data.items.map(item=>({'semi_finished_id':Number(item.semi_finished_id),quantity:Number(item.quantity)}))});
+            }
             let orderTotalCost = 0;
             const itemsData = data.items.map(item => {
                 const prodId = item.semi_finished_id;
@@ -153,13 +171,34 @@ export default function ProductionOrders() {
             return InventoryService.createProductionOrder(orderData, itemsData);
         },
         onSuccess: () => {
+            exitGuard.permitExit();
+            if(editId){toast.success("حُفظت التعديلات؛ يتحدث المخزون عند التنفيذ.");queryClient.invalidateQueries();form.reset(form.getValues());navigate('/production/orders/'+editId);return;}
             queryClient.invalidateQueries({ queryKey: ['productionOrders'] });
             setIsOpen(false);
             toast.success("تم إنشاء أمر الإنتاج بنجاح");
-            form.reset();
+            form.reset(freshOrderValues());
         },
         onError: (error) => toast.error("حدث خطأ: " + error.message)
     });
+
+    const exitGuard=useDocumentExitGuard(isOpen && form.formState.isDirty,createMutation.isPending || orderAction !== null);
+    const closeEditor=async()=>{if(!(await exitGuard.confirmDiscard()))return;form.reset(form.getValues());setIsOpen(false);if(editId){const next=new URLSearchParams(searchParams);next.delete('edit');setSearchParams(next,{replace:true});}};
+    useEffect(()=>{
+        if(!editId){if(loadedEditor.current){form.reset(freshOrderValues());setIsOpen(false);}loadedEditor.current=null;openedDocument.current=null;return;}
+        const loadKey=String(editId)+':'+editorEntry+':'+editGeneration;
+        if(!isOpen){setIsOpen(true);return;}
+        if(!editQuery.data||loadedEditor.current===loadKey)return;
+        loadedEditor.current=loadKey;exitGuard.protect();
+        const epoch=previewEpoch.current;
+        const document=editQuery.data;openedDocument.current=document;
+        form.reset({code:document.header.code??'',date:document.header.date??'',notes:document.header.notes??'',items:document.items.map(item=>({semi_finished_id:String(item.semi_finished_id),quantity:Number(item.quantity)}))});
+        for(const productId of [...new Set(document.items.map(item=>String(item.semi_finished_id)))]){
+            setLoadingIngredients(prev=>({...prev,[productId]:true}));
+            InventoryService.getSemiFinishedIngredientsWithStock(Number(productId)).then(data=>{if(epoch===previewEpoch.current)setIngredientsData(prev=>({...prev,[productId]:data}));})
+                .catch(()=>{if(epoch===previewEpoch.current)setPreviewError('تعذر تحميل معاينة المواد. أعد فتح الأمر للمحاولة.');})
+                .finally(()=>{if(epoch===previewEpoch.current)setLoadingIngredients(prev=>({...prev,[productId]:false}));});
+        }
+    },[isOpen,editId,editorEntry,editGeneration,editQuery.data,form]);
 
     // Complete Mutation
     const completeMutation = useMutation({
@@ -175,10 +214,17 @@ export default function ProductionOrders() {
         createMutation.mutate(data);
     };
 
-    const handleComplete = (id: number) => {
-        if (confirm("هل أنت متأكد من إتمام هذا الأمر؟ سيتم خصم المواد الخام وإضافة المنتج للمخزون. عند نقص الخام قد يصبح رصيده سالبًا وفق قواعد النظام الأصلية.")) {
-            completeMutation.mutate(id);
-        }
+    const handleComplete = async (id: number) => {
+        if (actionBusy.current || isOpen || createMutation.isPending || viewOrderId !== null) return;
+        actionBusy.current = true; setOrderAction(`complete:${id}`); exitGuard.protect();
+        try {
+            if (!(await actionConfirmation.ask({ title: `إتمام أمر الإنتاج ${orders?.find(order => order.id === id)?.code ?? id}؟`,
+                description: 'هل أنت متأكد من إتمام هذا الأمر؟ سيتم خصم المواد الخام وإضافة المنتج للمخزون. عند نقص الخام قد يصبح رصيده سالبًا وفق قواعد النظام الأصلية.',
+                acceptLabel: 'إتمام الأمر', cancelLabel: 'رجوع' }, () => actionFocus.current?.querySelector<HTMLButtonElement>(`[data-order-action="complete:${id}"]`) ?? null))) return;
+            await completeMutation.mutateAsync(id);
+            actionFocus.current?.focus();
+        } catch { actionFocus.current?.focus(); /* The mutation reports its error. */ }
+        finally { actionBusy.current = false; setOrderAction(null); void queryClient.invalidateQueries({ queryKey: ['productionOrders'] }); }
     };
 
     const cancelMutation = useMutation({
@@ -196,15 +242,20 @@ export default function ProductionOrders() {
         onError: (error) => toast.error("فشل الإلغاء: " + error.message)
     });
 
-    const handleCancel = (id: number, status: string) => {
+    const handleCancel = async (id: number, status: string) => {
+        if (actionBusy.current || isOpen || createMutation.isPending || viewOrderId !== null) return;
         const isCompleted = status === 'completed';
-        const message = isCompleted
-            ? "تحذير دقيق: سيتم عكس عملية الإنتاج بالكامل. سيتم خصم المنتج من المخزون وإعادة المواد الخام إليه. هل أنت متأكد تماماً؟"
-            : "هل تريد إلغاء هذا الأمر؟";
-
-        if (confirm(message)) {
-            cancelMutation.mutate({ id, isCompleted });
-        }
+        actionBusy.current = true; setOrderAction(`cancel:${id}`); exitGuard.protect();
+        try {
+            if (!(await actionConfirmation.ask({ title: `${isCompleted ? 'إلغاء وعكس' : 'إلغاء'} أمر الإنتاج ${orders?.find(order => order.id === id)?.code ?? id}؟`,
+                description: isCompleted
+                    ? 'تحذير دقيق: سيتم عكس عملية الإنتاج بالكامل. سيتم خصم المنتج من المخزون وإعادة المواد الخام إليه. هل أنت متأكد تماماً؟'
+                    : 'هل تريد إلغاء هذا الأمر؟',
+                acceptLabel: isCompleted ? 'إلغاء وعكس العملية' : 'إلغاء الأمر', cancelLabel: 'رجوع' }, () => actionFocus.current?.querySelector<HTMLButtonElement>(`[data-order-action="cancel:${id}"]`) ?? null))) return;
+            await cancelMutation.mutateAsync({ id, isCompleted });
+            actionFocus.current?.focus();
+        } catch { actionFocus.current?.focus(); /* The mutation reports its error. */ }
+        finally { actionBusy.current = false; setOrderAction(null); void queryClient.invalidateQueries({ queryKey: ['productionOrders'] }); }
     };
 
     const columns: ColumnDef<ProductionOrder>[] = [
@@ -219,10 +270,10 @@ export default function ProductionOrders() {
             header: "الحالة",
             cell: ({ row }) => {
                 const status = row.getValue("status") as string;
-                const variants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-                    pending: "secondary",
-                    inProgress: "default",
-                    completed: "outline",
+                const variants: Record<string, "warning" | "info" | "success" | "destructive"> = {
+                    pending: "warning",
+                    inProgress: "info",
+                    completed: "success",
                     cancelled: "destructive"
                 };
                 const labels: Record<string, string> = {
@@ -255,23 +306,23 @@ export default function ProductionOrders() {
             cell: ({ row }) => {
                 const item = row.original;
                 return (
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex gap-2 justify-end" onClick={event=>event.stopPropagation()}>
                         {/* View Details Button - Always visible */}
-                        <Button size="sm" variant="outline" onClick={() => setViewOrderId(item.id)}>
+                        <Button size="sm" variant="outline" aria-label={`عرض أمر الإنتاج ${item.code}`} disabled={orderAction !== null} onClick={() => setViewOrderId(item.id)}>
                             <Eye className="w-4 h-4" />
                         </Button>
                         {item.status === 'pending' && (
-                            <>
-                                <Button size="sm" onClick={() => handleComplete(item.id)} className="bg-green-600 hover:bg-green-700">
+                            <><Button size="sm" variant="outline" disabled={!canEdit || orderAction !== null} onClick={()=>setSearchParams({edit:String(item.id)})}>تعديل</Button>
+                                <Button size="sm" data-order-action={`complete:${item.id}`} disabled={orderAction !== null} onClick={() => handleComplete(item.id)} className="bg-green-600 hover:bg-green-700">
                                     <CheckCircle className="w-4 h-4 mr-1" /> إتمام
                                 </Button>
-                                <Button size="sm" variant="destructive" onClick={() => handleCancel(item.id, 'pending')}>
+                                <Button size="sm" variant="destructive" data-order-action={`cancel:${item.id}`} disabled={orderAction !== null} aria-label={`إلغاء أمر الإنتاج ${item.code}`} onClick={() => handleCancel(item.id, 'pending')}>
                                     <XCircle className="w-4 h-4" />
                                 </Button>
                             </>
                         )}
                         {item.status === 'completed' && (
-                            <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10 border-destructive" onClick={() => handleCancel(item.id, 'completed')}>
+                            <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10 border-destructive" data-order-action={`cancel:${item.id}`} disabled={orderAction !== null} onClick={() => handleCancel(item.id, 'completed')}>
                                 <XCircle className="w-4 h-4 mr-1" /> إلغاء وعكس
                             </Button>
                         )}
@@ -291,13 +342,16 @@ export default function ProductionOrders() {
     if ((orders as any)?.error) return <div className="p-10 text-destructive text-center">حدث خطأ: {(orders as any).error}</div>;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 outline-none" ref={actionFocus} tabIndex={-1} aria-label="أوامر الإنتاج">
+            {exitGuard.confirmation}
+            {actionConfirmation.confirmation}
+            {orderAction && <p role="status">جارٍ تأكيد العملية أو تنفيذها؛ انتظر النتيجة قبل المغادرة.</p>}
             <PageHeader
                 title="أوامر الإنتاج"
                 description="إدارة عمليات التصنيع ومتابعة الحالة"
                 icon={Factory}
                 actions={
-                    <Button onClick={() => { form.reset(); setIsOpen(true); }}>
+                    <Button disabled={orderAction !== null} onClick={() => { form.reset(freshOrderValues()); exitGuard.protect(); setIsOpen(true); }}>
                         <Plus className="mr-2 h-4 w-4" /> أمر إنتاج جديد
                     </Button>
                 }
@@ -307,7 +361,7 @@ export default function ProductionOrders() {
                 <DataTable
                     columns={columns}
                     data={orders}
-                    onRowClick={(order) => navigate(`/production/orders/${order.id}`)}
+                    onRowClick={(order) => !actionBusy.current && navigate(`/production/orders/${order.id}`)}
                 />
             ) : (
                 <EmptyState
@@ -315,29 +369,34 @@ export default function ProductionOrders() {
                     title="لا توجد أوامر إنتاج"
                     description="ابدأ بإنشاء أول أمر إنتاج"
                     action={
-                        <Button onClick={() => { form.reset(); setIsOpen(true); }}>
+                        <Button disabled={orderAction !== null} onClick={() => { form.reset(freshOrderValues()); exitGuard.protect(); setIsOpen(true); }}>
                             <Plus className="mr-2 h-4 w-4" /> أمر إنتاج جديد
                         </Button>
                     }
                 />
             )}
 
-            <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogContent className="sm:max-w-3xl">
+            <Dialog open={isOpen} onOpenChange={open=>{if(!open)closeEditor();else setIsOpen(true);}}>
+                <DialogContent task className="sm:max-w-3xl">
                     <DialogHeader>
-                        <DialogTitle>إنشاء أمر إنتاج جديد</DialogTitle>
-                        <DialogDescription>أدخل تفاصيل أمر الإنتاج الجديد.</DialogDescription>
+                        <DialogTitle>{editId?'تعديل أمر الإنتاج':'إنشاء أمر إنتاج جديد'}</DialogTitle>
+                        <DialogDescription>{editId?'راجع البيانات والبنود قبل حفظ التعديلات.':'أدخل تفاصيل الأمر الجديد.'}</DialogDescription>
                     </DialogHeader>
+                    {editId && (!canEdit || editQuery.isPending || editQuery.isError || editQuery.data?.header.status!=='pending') ?
+                        <div role="alert">{!canEdit?'صلاحيات حسابك لا تسمح بالتعديل.':editQuery.isPending?'جارٍ تحميل الأمر…':editQuery.isError?editQuery.error.message:'يمكن تعديل أمر قيد الانتظار فقط.'}
+                        {editQuery.isError&&<Button onClick={()=>void editQuery.refetch()}>إعادة المحاولة</Button>}</div>:
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <fieldset disabled={createMutation.isPending} className="space-y-6">
+                        {previewError&&<p role="alert" className="rounded border border-destructive p-3 text-destructive">{previewError}</p>}
                         <FormGrid>
                             <FormField label="رقم الأمر" required error={form.formState.errors.code?.message}>
-                                <Input {...form.register("code", { required: "مطلوب" })} readOnly />
+                                <Input aria-label="رقم الأمر" {...form.register("code", { required: "مطلوب" })} readOnly />
                             </FormField>
                             <FormField label="التاريخ" required error={form.formState.errors.date?.message}>
-                                <Input type="date" {...form.register("date", { required: "مطلوب" })} />
+                                <Input aria-label="تاريخ الأمر" type="date" {...form.register("date", { required: "مطلوب" })} />
                             </FormField>
                             <FormField label="ملاحظات" className="col-span-1 md:col-span-2">
-                                <Textarea {...form.register("notes")} />
+                                <Textarea aria-label="ملاحظات الأمر" maxLength={2000} {...form.register("notes")} />
                             </FormField>
                         </FormGrid>
 
@@ -355,16 +414,17 @@ export default function ProductionOrders() {
 
                                 // Fetch ingredients when product is selected
                                 const handleProductChange = async (val: string) => {
-                                    form.setValue(`items.${index}.semi_finished_id`, val);
+                                    const epoch=previewEpoch.current;
+                                    form.setValue(`items.${index}.semi_finished_id`, val, {shouldDirty:true});
                                     if (val && !ingredientsData[val]) {
                                         setLoadingIngredients(prev => ({ ...prev, [val]: true }));
                                         try {
                                             const data = await InventoryService.getSemiFinishedIngredientsWithStock(Number(val));
-                                            setIngredientsData(prev => ({ ...prev, [val]: data }));
-                                        } catch (error) {
-                                            console.error('Failed to fetch ingredients', error);
+                                            if(epoch===previewEpoch.current)setIngredientsData(prev => ({ ...prev, [val]: data }));
+                                        } catch {
+                                            if(epoch===previewEpoch.current)setPreviewError('تعذر تحميل معاينة المواد. أعد فتح النموذج للمحاولة.');
                                         } finally {
-                                            setLoadingIngredients(prev => ({ ...prev, [val]: false }));
+                                            if(epoch===previewEpoch.current)setLoadingIngredients(prev => ({ ...prev, [val]: false }));
                                         }
                                     }
                                 };
@@ -433,9 +493,10 @@ export default function ProductionOrders() {
                                                 <div className="flex-1 sm:col-span-4 md:col-span-3">
                                                     <FormField label="الكمية المطلوبة" className="space-y-1" error={form.formState.errors.items?.[index]?.quantity?.message}>
                                                         <Input
+                                                            aria-label={`كمية المنتج ${index+1}`}
                                                             type="number"
                                                             step="0.01"
-                                                            {...form.register(`items.${index}.quantity` as const, { valueAsNumber: true, required: "مطلوب" })}
+                                                            {...form.register(`items.${index}.quantity` as const, { valueAsNumber: true, required: "مطلوب", min:{value:0.000001,message:"أدخل كمية أكبر من صفر"},max:{value:1e9,message:"الكمية أكبر من الحد المسموح"} })}
                                                         />
                                                     </FormField>
                                                 </div>
@@ -452,14 +513,14 @@ export default function ProductionOrders() {
                                             <MaterialPreviewCard
                                                 title={`المواد الخام المطلوبة (${products?.find(p => p.id.toString() === selectedProductId)?.name || ''})`}
                                                 materials={materialItems}
-                                                isLoading={isLoadingIng}
+                                                isLoading={isLoadingIng || !previewReady || !!previewError}
                                             />
                                         )}
                                     </div>
                                 );
                             })}
 
-                            <Button type="button" variant="outline" size="sm" onClick={() => append({ semi_finished_id: "", quantity: 0 })} className="w-full">
+                            <Button type="button" variant="outline" size="sm" onClick={() => append({ semi_finished_id: "", quantity: 0 })} disabled={fields.length>=100} className="w-full">
                                 <Plus className="h-4 w-4 mr-1" /> إضافة منتج آخر
                             </Button>
                         </div>
@@ -541,13 +602,14 @@ export default function ProductionOrders() {
                             );
                         })()}
 
-                        <div className="flex justify-end pt-4 border-t gap-3">
-                            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>إلغاء</Button>
+                        {createMutation.isError&&<div role="alert" className="text-destructive">{createMutation.error.message}{editId&&<Button type="button" variant="outline" onClick={async()=>{if(await exitGuard.confirmReplacement())setEditGeneration(value=>value+1);}}>تحميل النسخة الأحدث</Button>}</div>}
+                        <TaskActions>
+                            <Button type="button" variant="outline" onClick={closeEditor}>إلغاء</Button>
                             <Button type="submit" disabled={createMutation.isPending}>
-                                {createMutation.isPending ? "جاري الإنشاء..." : "إنشاء الأمر"}
+                                {createMutation.isPending ? "جارٍ الحفظ…" : editId ? "حفظ التعديلات" : "إنشاء الأمر"}
                             </Button>
-                        </div>
-                    </form>
+                        </TaskActions>
+                    </fieldset></form>}
                 </DialogContent>
             </Dialog>
 

@@ -58,6 +58,7 @@ export function createApp(config, dependencies = {}) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  await import('../scripts/local-network-guard.mjs');
   const { config, database } = readConfig(process.env);
   createApp(config, { pool: createDatabasePool(database) }).listen(Number(process.env.PORT ?? 3001), '127.0.0.1');
 }

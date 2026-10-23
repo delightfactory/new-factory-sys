@@ -38,6 +38,9 @@ interface SearchableSelectProps {
     disabled?: boolean;
     className?: string;
     grouped?: boolean;
+    triggerRef?: React.Ref<HTMLButtonElement>;
+    ariaLabel?: string;
+    invalid?: boolean;
 }
 
 export function SearchableSelect({
@@ -50,6 +53,7 @@ export function SearchableSelect({
     disabled = false,
     className,
     grouped = false,
+    triggerRef, ariaLabel, invalid,
 }: SearchableSelectProps) {
     const [open, setOpen] = React.useState(false);
 
@@ -75,6 +79,10 @@ export function SearchableSelect({
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
                 <Button
+                    type="button"
+                    ref={triggerRef}
+                    aria-label={ariaLabel}
+                    aria-invalid={invalid}
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}

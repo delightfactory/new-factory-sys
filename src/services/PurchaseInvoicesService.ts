@@ -1,3 +1,4 @@
+import {readCompleteRows} from '@/platform/data/read-complete-rows';
 import { commercialCommand, factoryCommand } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,35 +33,24 @@ export interface PurchaseInvoiceItem {
 }
 
 export const PurchaseInvoicesService = {
-    getInvoices: async () => {
-        const { data, error } = await supabase
-            .from('purchase_invoices')
-            .select('*, supplier:parties!supplier_id(name)')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as PurchaseInvoice[];
-    },
+    getInvoices: async () => readCompleteRows<PurchaseInvoice>(async (from, to) => {
+        const {data, count, error} = await supabase.from('purchase_invoices')
+            .select('*, supplier:parties!supplier_id(name)', {count: 'exact'})
+            .order('created_at', {ascending: false}).order('id', {ascending: false}).range(from, to);
+        return {rows: data as PurchaseInvoice[] | null, count, error};
+    }),
 
     getUnpaidInvoices: async (supplierId: string) => {
-        const { data, error } = await supabase
-            .from('purchase_invoices')
-            .select('*')
-            .eq('supplier_id', supplierId)
-            .eq('status', 'posted');
-        if (error) throw error;
-        return (data as PurchaseInvoice[]).filter(inv => inv.total_amount > inv.paid_amount);
+        const invoices = await PurchaseInvoicesService.getPostedInvoices(supplierId);
+        return invoices.filter(invoice => invoice.total_amount > invoice.paid_amount);
     },
 
-    getPostedInvoices: async (supplierId: string) => {
-        const { data, error } = await supabase
-            .from('purchase_invoices')
-            .select('*')
-            .eq('supplier_id', supplierId)
-            .eq('status', 'posted')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as PurchaseInvoice[];
-    },
+    getPostedInvoices: async (supplierId: string) => readCompleteRows<PurchaseInvoice>(async (from, to) => {
+        const {data, count, error} = await supabase.from('purchase_invoices').select('*', {count: 'exact'})
+            .eq('supplier_id', supplierId).eq('status', 'posted')
+            .order('created_at', {ascending: false}).order('id', {ascending: false}).range(from, to);
+        return {rows: data as PurchaseInvoice[] | null, count, error};
+    }),
 
     getInvoice: async (id: number) => {
         const { data, error } = await supabase
@@ -86,7 +76,8 @@ export const PurchaseInvoicesService = {
 
     deleteInvoice: async (id: number) => {
         // Only draft invoices can be deleted typically.
-        const { error } = await supabase.from('purchase_invoices').delete().eq('id', id).eq('status', 'draft');
+        const { data, error } = await supabase.from('purchase_invoices').delete().eq('id', id).eq('status', 'draft').select('id');
         if (error) throw error;
+        if (data?.length !== 1 || data[0].id !== id) throw new Error('لم تُحذف المسودة. قد تكون حالتها تغيّرت؛ حدّث القائمة وراجع المستند.');
     }
 };

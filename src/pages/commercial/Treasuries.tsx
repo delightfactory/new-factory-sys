@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TreasuriesService, type Treasury } from "@/services/TreasuriesService";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,8 @@ export default function Treasuries() {
                                 </CardDescription>
                             </CardContent>
                             <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-primary/50 to-primary/10" />
-                            <CardFooter className="flex gap-2 justify-end pt-2">
+                            <CardFooter className="flex flex-wrap gap-2 justify-end pt-2">
+                                <Button variant="outline" size="sm" asChild><Link to={`/commercial/treasuries/${t.id}`}>كشف الخزنة</Link></Button>
                                 <Button variant="outline" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => setActiveTransaction({ type: 'deposit', treasury: t })}>إيداع</Button>
                                 <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setActiveTransaction({ type: 'withdraw', treasury: t })}>صرف</Button>
                                 <Button variant="outline" size="sm" onClick={() => setActiveTransaction({ type: 'transfer', treasury: t })}>تحويل</Button>

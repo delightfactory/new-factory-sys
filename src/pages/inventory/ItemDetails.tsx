@@ -17,7 +17,16 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { CardGridSkeleton } from '@/components/ui/loading-skeleton';
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatInventoryCost as formatCurrency, formatInventoryQuantity as formatNumber, formatInventoryValue } from '@/lib/inventory-format';
+import { readCompleteRows } from '@/platform/data/read-complete-rows';
+
+interface RelatedQuery { data?: unknown; isPending: boolean; isError: boolean; isFetching: boolean; refetch: () => unknown }
+function RelatedReadNotice({ query, label }: { query: RelatedQuery; label: string }) {
+    if (query.isError) return <div role="alert" className="rounded-lg border border-destructive/40 p-4 space-y-2"><p>تعذر تحميل {label}.{query.data !== undefined ? ' المعروض آخر نسخة حُمّلت في هذه الصفحة.' : ' أعد المحاولة لعرض البيانات.'}</p><Button variant="outline" disabled={query.isFetching} onClick={() => void query.refetch()}>إعادة تحميل {label}</Button></div>;
+    if (query.isPending) return <p role="status">جارٍ تحميل {label}…</p>;
+    if (query.isFetching) return <p role="status">جارٍ تحديث {label}…</p>;
+    return null;
+}
 
 interface ItemData {
     id: number;
@@ -97,7 +106,7 @@ export default function ItemDetails() {
     const typeLabel = PATH_TO_LABEL[itemTypePath] || 'صنف';
 
     // Fetch item details
-    const { data: item, isLoading } = useQuery({
+    const itemQuery = useQuery({
         queryKey: ['item', tableName, id],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -108,109 +117,97 @@ export default function ItemDetails() {
             if (error) throw error;
             return data as ItemData;
         },
-        enabled: !!id
+        enabled: !!id, retry: false
     });
 
+    const { data: item, isLoading } = itemQuery;
+
     // Fetch movements
-    const { data: movements } = useQuery({
+    const movementQuery = useQuery({
         queryKey: ['item-movements', tableName, id],
         queryFn: async () => {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('inventory_movements')
                 .select('*')
                 .eq('item_type', tableName)
                 .eq('item_id', Number(id))
                 .order('created_at', { ascending: false })
-                .limit(30);
+                .order('id', { ascending: false }).limit(30);
+            if (error) throw error;
             return data as Movement[] || [];
         },
-        enabled: !!id
+        enabled: !!id, retry: false
     });
+
+    const { data: movements } = movementQuery;
 
     // Fetch ingredients (for semi-finished)
-    const { data: ingredients } = useQuery({
+    const ingredientQuery = useQuery({
         queryKey: ['item-ingredients', id],
-        queryFn: async () => {
-            const { data } = await supabase
+        queryFn: () => readCompleteRows<Ingredient>(async (from, to) => {
+            const { data, count, error } = await supabase
                 .from('semi_finished_ingredients')
-                .select('*, raw_materials(name, unit)')
-                .eq('semi_finished_id', Number(id));
-            return data as Ingredient[] || [];
-        },
-        enabled: itemTypePath === 'semi-finished' && !!id
+                .select('*, raw_materials(name, unit)', { count: 'exact' })
+                .eq('semi_finished_id', Number(id)).order('id').range(from, to);
+            return { rows: data as Ingredient[], count, error };
+        }, 'ITEM_INGREDIENTS'),
+        enabled: itemTypePath === 'semi-finished' && !!id, retry: false
     });
+    const { data: ingredients } = ingredientQuery;
 
     // Fetch Packaging (for finished)
-    const { data: finishedPackaging } = useQuery({
+    const packagingQuery = useQuery({
         queryKey: ['finished-packaging', id],
-        queryFn: async () => {
-            const { data } = await supabase
+        queryFn: () => readCompleteRows<PackagingIngredient>(async (from, to) => {
+            const { data, count, error } = await supabase
                 .from('finished_product_packaging')
-                .select('*, packaging_materials(name, unit)')
-                .eq('finished_product_id', Number(id));
-            return data as PackagingIngredient[] || [];
-        },
-        enabled: itemTypePath === 'finished' && !!id
+                .select('*, packaging_materials(name, unit)', { count: 'exact' })
+                .eq('finished_product_id', Number(id)).order('id').range(from, to);
+            return { rows: data as PackagingIngredient[], count, error };
+        }, 'ITEM_PACKAGING'),
+        enabled: itemTypePath === 'finished' && !!id, retry: false
     });
+    const { data: finishedPackaging } = packagingQuery;
 
     // Fetch Base Semi-Finished (for finished)
-    const { data: baseSemiFinished } = useQuery({
+    const baseQuery = useQuery({
         queryKey: ['base-semi', item?.semi_finished_id],
         queryFn: async () => {
             if (!item?.semi_finished_id) return null;
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('semi_finished_products')
                 .select('name, unit, code')
                 .eq('id', item.semi_finished_id)
                 .single();
+            if (error) throw error;
             return data;
         },
-        enabled: itemTypePath === 'finished' && !!item?.semi_finished_id
+        enabled: itemTypePath === 'finished' && !!item?.semi_finished_id, retry: false
     });
+    const { data: baseSemiFinished } = baseQuery;
 
-    // Fetch "Used In" (for Raw or Packaging)
-    const { data: usedIn } = useQuery({
+    const usedInQuery = useQuery({
         queryKey: ['used-in', tableName, id],
         queryFn: async () => {
-            const list: UsedInItem[] = [];
-
-            if (itemTypePath === 'raw-materials') {
-                const { data } = await supabase
-                    .from('semi_finished_ingredients')
-                    .select('semi_finished_products(id, name, code)')
-                    .eq('raw_material_id', Number(id));
-
-                data?.forEach((d: any) => {
-                    if (d.semi_finished_products) {
-                        list.push({
-                            id: d.semi_finished_products.id,
-                            product_name: d.semi_finished_products.name,
-                            product_code: d.semi_finished_products.code,
-                            type: 'semi'
-                        });
-                    }
-                });
-            } else if (itemTypePath === 'packaging') {
-                const { data } = await supabase
-                    .from('finished_product_packaging')
-                    .select('finished_products(id, name, code)')
-                    .eq('packaging_material_id', Number(id));
-
-                data?.forEach((d: any) => {
-                    if (d.finished_products) {
-                        list.push({
-                            id: d.finished_products.id,
-                            product_name: d.finished_products.name,
-                            product_code: d.finished_products.code,
-                            type: 'finished'
-                        });
-                    }
-                });
+            const raw = itemTypePath === 'raw-materials';
+            interface ParentProduct { id: number; name: string; code: string }
+            interface Link { id: number; semi_finished_products?: ParentProduct | null; finished_products?: ParentProduct | null }
+            const links = await readCompleteRows<Link>(async (from, to) => {
+                const { data, count, error } = await supabase.from(raw ? 'semi_finished_ingredients' : 'finished_product_packaging')
+                    .select(raw ? 'id,semi_finished_products(id,name,code)' : 'id,finished_products(id,name,code)', { count: 'exact' })
+                    .eq(raw ? 'raw_material_id' : 'packaging_material_id', Number(id)).order('id').range(from, to);
+                return { rows: data as unknown as Link[], count, error };
+            }, 'ITEM_USAGE');
+            const products = new Map<number, UsedInItem>();
+            for (const link of links) {
+                const parent = raw ? link.semi_finished_products : link.finished_products;
+                if (parent) products.set(parent.id, { id: parent.id, product_name: parent.name, product_code: parent.code, type: raw ? 'semi' : 'finished' });
             }
-            return list;
+            return [...products.values()];
         },
-        enabled: (itemTypePath === 'raw-materials' || itemTypePath === 'packaging') && !!id
+        enabled: (itemTypePath === 'raw-materials' || itemTypePath === 'packaging') && !!id, retry: false
     });
+    const { data: usedIn } = usedInQuery;
 
     // Stock status
     const getStockStatus = (item: ItemData) => {
@@ -229,6 +226,7 @@ export default function ItemDetails() {
         );
     }
 
+    if (itemQuery.isError && !item) return <div role="alert" className="p-6 space-y-4"><p>تعذر تحميل تفاصيل الصنف. أعد المحاولة لعرض البيانات.</p><Button disabled={itemQuery.isFetching} onClick={() => void itemQuery.refetch()}>إعادة تحميل الصنف</Button></div>;
     if (!item) {
         return (
             <div className="p-6 text-center">
@@ -241,7 +239,7 @@ export default function ItemDetails() {
     }
 
     const stockStatus = getStockStatus(item);
-    const totalValue = item.quantity * (item.unit_cost || 0);
+    const totalValue = formatInventoryValue(item.quantity, item.unit_cost || 0);
 
     return (
         <div className="p-4 sm:p-6 space-y-6">
@@ -256,7 +254,7 @@ export default function ItemDetails() {
                             <Package className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                            <h1 className="text-xl sm:text-2xl font-bold">{item.name}</h1>
+                            <h1 className="text-xl sm:text-2xl break-all font-bold">{item.name}</h1>
                             <div className="flex items-center gap-2">
                                 <Badge variant="outline">{typeLabel}</Badge>
                                 <span className="text-muted-foreground font-mono text-sm">{item.code}</span>
@@ -269,12 +267,13 @@ export default function ItemDetails() {
                 </Badge>
             </div>
 
+            {itemQuery.isError && <p role="alert">تعذر تحديث تفاصيل الصنف. المعروض آخر نسخة حُمّلت في هذه الصفحة. <Button variant="outline" onClick={() => void itemQuery.refetch()}>إعادة تحميل الصنف</Button></p>}
             {/* Stats Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20 border-blue-200 dark:border-blue-800">
                     <CardContent className="p-4">
                         <span className="text-sm text-blue-700 dark:text-blue-300">الكمية الحالية</span>
-                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
+                        <p className="text-xl sm:text-2xl break-all font-bold text-blue-900 dark:text-blue-100 mt-1">
                             {formatNumber(item.quantity)} <span className="text-sm font-normal">{item.unit}</span>
                         </p>
                     </CardContent>
@@ -283,7 +282,7 @@ export default function ItemDetails() {
                 <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border-green-200 dark:border-green-800">
                     <CardContent className="p-4">
                         <span className="text-sm text-green-700 dark:text-green-300">سعر الوحدة</span>
-                        <p className="text-2xl font-bold text-green-900 dark:text-green-100 mt-1">
+                        <p className="text-xl sm:text-2xl break-all font-bold text-green-900 dark:text-green-100 mt-1">
                             {formatCurrency(item.unit_cost || 0)}
                         </p>
                     </CardContent>
@@ -292,8 +291,8 @@ export default function ItemDetails() {
                 <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 border-purple-200 dark:border-purple-800">
                     <CardContent className="p-4">
                         <span className="text-sm text-purple-700 dark:text-purple-300">القيمة الإجمالية</span>
-                        <p className="text-2xl font-bold text-purple-900 dark:text-purple-100 mt-1">
-                            {formatCurrency(totalValue)}
+                        <p className="text-xl sm:text-2xl break-all font-bold text-purple-900 dark:text-purple-100 mt-1">
+                            {totalValue}
                         </p>
                     </CardContent>
                 </Card>
@@ -301,7 +300,7 @@ export default function ItemDetails() {
                 <Card className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/20 border-amber-200 dark:border-amber-800">
                     <CardContent className="p-4">
                         <span className="text-sm text-amber-700 dark:text-amber-300">الحد الأدنى</span>
-                        <p className="text-2xl font-bold text-amber-900 dark:text-amber-100 mt-1">
+                        <p className="text-xl sm:text-2xl break-all font-bold text-amber-900 dark:text-amber-100 mt-1">
                             {formatNumber(item.min_stock || 0)} <span className="text-sm font-normal">{item.unit}</span>
                         </p>
                     </CardContent>
@@ -309,7 +308,7 @@ export default function ItemDetails() {
             </div>
 
             {/* Low Stock Warning */}
-            {item.min_stock && item.quantity < item.min_stock && (
+            {!!item.min_stock && item.quantity < item.min_stock && (
                 <Card className="border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
                     <CardContent className="p-4 flex items-center gap-3">
                         <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
@@ -320,6 +319,10 @@ export default function ItemDetails() {
                 </Card>
             )}
 
+            {itemTypePath === 'semi-finished' && <RelatedReadNotice query={ingredientQuery} label="مكونات الوصفة" />}
+            {itemTypePath === 'finished' && <RelatedReadNotice query={packagingQuery} label="مواد تعبئة المنتج" />}
+            {itemTypePath === 'finished' && !!item.semi_finished_id && <RelatedReadNotice query={baseQuery} label="المنتج الأساسي" />}
+            {(itemTypePath === 'raw-materials' || itemTypePath === 'packaging') && <RelatedReadNotice query={usedInQuery} label="استخدامات الصنف" />}
             {/* Ingredients (for semi-finished) */}
             {itemTypePath === 'semi-finished' && ingredients && ingredients.length > 0 && (
                 <Card>
@@ -341,7 +344,7 @@ export default function ItemDetails() {
                             <TableBody>
                                 {ingredients.map(ing => (
                                     <TableRow key={ing.id}>
-                                        <TableCell>{ing.raw_materials?.name}</TableCell>
+                                        <TableCell>{ing.raw_materials?.name ?? 'مادة خام غير متاحة #'+ing.raw_material_id}</TableCell>
                                         <TableCell>{ing.quantity} {ing.raw_materials?.unit}</TableCell>
                                         <TableCell>{ing.percentage}%</TableCell>
                                     </TableRow>
@@ -387,7 +390,7 @@ export default function ItemDetails() {
                                     <TableBody>
                                         {finishedPackaging.map(pkg => (
                                             <TableRow key={pkg.id}>
-                                                <TableCell>{pkg.packaging_materials?.name}</TableCell>
+                                                <TableCell>{pkg.packaging_materials?.name ?? 'مادة تعبئة غير متاحة #'+pkg.packaging_material_id}</TableCell>
                                                 <TableCell>{pkg.quantity} {pkg.packaging_materials?.unit}</TableCell>
                                             </TableRow>
                                         ))}
@@ -454,7 +457,8 @@ export default function ItemDetails() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                    {movements && movements.length > 0 ? (
+                    <div className="flex flex-wrap gap-3 items-center justify-between p-4"><Button variant="outline" disabled={movementQuery.isFetching} onClick={() => void movementQuery.refetch()}>تحديث الحركات</Button><Button variant="outline" onClick={() => navigate('/inventory/movements?item_type='+tableName+'&item_id='+id)}>عرض السجل الكامل للصنف</Button></div>
+                    {movementQuery.isPending ? <p role="status" className="p-4">جارٍ تحميل الحركات…</p> : movementQuery.isError ? <p role="alert" className="p-4">تعذر تحميل الحركات. أعد المحاولة باستخدام تحديث الحركات؛ هذا لا يعني أن السجل فارغ.</p> : movements && movements.length > 0 ? (
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>

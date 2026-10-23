@@ -4,6 +4,9 @@ import { toast } from "sonner";
 type Payload = Record<string, unknown>;
 const pending = new Map<string, string>();
 function commandMessage(message: string): string {
+    if (message.includes("MCP_DOCUMENT_STALE")) return "اتعدل المستند بعد فتحه. تعديلاتك موجودة هنا؛ حمّل النسخة الأحدث وراجعها قبل الحفظ.";
+    if (message.includes("MCP_DOCUMENT_NOT_EDITABLE")) return "حالة المستند لم تعد تسمح بالتعديل. راجع أحدث نسخة؛ لم تُحفظ تعديلاتك.";
+    if (message.includes("MCP_DOCUMENT_LINKED")) return "المستند مرتبط بتنفيذ أو تسوية أو مرتجع. راجع العمليات المرتبطة قبل تصحيحه؛ لم تُحفظ تعديلاتك.";
     if (message.includes("MCP_TREASURY_INSUFFICIENT")) return "رصيد الخزينة لا يكفي. راجع المبلغ ثم أعد المحاولة؛ لم تُسجل العملية.";
     if (message.includes("MCP_STOCK_INSUFFICIENT")) return "المخزون لا يكفي لإكمال العملية. راجع الكميات المتاحة؛ لم تُسجل العملية.";
     if (message.includes("MCP_ACCESS_FORBIDDEN") || message.includes("MCP_ACTION_FORBIDDEN")) return "صلاحيات حسابك لا تسمح بهذه العملية. راجع مدير النظام.";
@@ -60,7 +63,7 @@ export async function factoryCommand<T = Payload>(action: string, payload: Paylo
     });
     if (error || !result?.record) {
         const failure = new Error(commandMessage(error?.message ?? ""));
-        Object.assign(failure, { requestId: key });
+        Object.assign(failure, { requestId: key, code: error?.message.match(/MCP_[A-Z_]+/)?.[0], databaseCode: error?.code });
         throw failure;
     }
     pending.delete(intent);

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { loadInventoryTurnover } from '@/services/InventoryTurnoverService';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, RotateCw, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 
 interface TurnoverItem {
-    id: string;
+    id: string | number;
     name: string;
     code: string;
     type: 'raw' | 'packaging' | 'semi_finished' | 'finished';
@@ -38,54 +38,28 @@ export default function InventoryTurnoverReport() {
     const [sortBy, setSortBy] = useState<'turnover' | 'days' | 'value'>('turnover');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
-    // Fetch all inventory items
-    const { data: rawMaterials } = useQuery({
-        queryKey: ['raw_materials'],
-        queryFn: async () => {
-            const { data } = await supabase.from('raw_materials').select('id, name, code, quantity, unit_cost');
-            return data || [];
-        }
+    const report = useQuery({
+        queryKey: ['inventory_turnover_report'],
+        queryFn: loadInventoryTurnover,
+        retry: false
     });
 
-    const { data: packagingMaterials } = useQuery({
-        queryKey: ['packaging_materials'],
-        queryFn: async () => {
-            const { data } = await supabase.from('packaging_materials').select('id, name, code, quantity, unit_cost');
-            return data || [];
-        }
-    });
-
-    const { data: semiFinished } = useQuery({
-        queryKey: ['semi_finished_products'],
-        queryFn: async () => {
-            const { data } = await supabase.from('semi_finished_products').select('id, name, code, quantity, unit_cost');
-            return data || [];
-        }
-    });
-
-    const { data: finished } = useQuery({
-        queryKey: ['finished_products'],
-        queryFn: async () => {
-            const { data } = await supabase.from('finished_products').select('id, name, code, quantity, unit_cost');
-            return data || [];
-        }
-    });
-
-    // Fetch movement data (last 90 days)
-    const { data: movements } = useQuery({
-        queryKey: ['inventory_movements_90d'],
-        queryFn: async () => {
-            const ninetyDaysAgo = new Date();
-            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-
-            const { data } = await supabase
-                .from('inventory_movements')
-                .select('item_id, item_type, movement_type, quantity')
-                .eq('movement_type', 'out')
-                .gte('created_at', ninetyDaysAgo.toISOString());
-            return data || [];
-        }
-    });
+    if (report.isPending || report.isFetching) {
+        return <div className="p-4 sm:p-6" role="status">جارٍ تحميل بيانات التقرير كاملة…</div>;
+    }
+    if (report.isError || !report.data) {
+        return (
+            <div className="p-4 sm:p-6 space-y-4">
+                <h1 className="text-xl font-bold">تقرير دوران المخزون</h1>
+                <p role="alert">تعذر تحميل بيانات التقرير كاملة. أعد المحاولة لعرض أرقام دقيقة.</p>
+                <div className="flex gap-3">
+                    <Button onClick={() => void report.refetch()}>إعادة المحاولة</Button>
+                    <Button variant="outline" onClick={() => navigate('/reports')}>العودة للتقارير</Button>
+                </div>
+            </div>
+        );
+    }
+    const { rawMaterials, packagingMaterials, semiFinished, finished, movements } = report.data;
 
     // Calculate turnover for each item
     const calculateTurnover = (): TurnoverItem[] => {
@@ -93,13 +67,13 @@ export default function InventoryTurnoverReport() {
         const movementMap = new Map<string, number>();
 
         // Build consumption map from movements
-        movements?.forEach((m: { item_id: string; item_type: string; quantity: number }) => {
+        movements?.forEach((m) => {
             const key = `${m.item_type}_${m.item_id}`;
             movementMap.set(key, (movementMap.get(key) || 0) + m.quantity);
         });
 
         // Process raw materials
-        rawMaterials?.forEach((item: { id: string; name: string; code: string; quantity: number; unit_cost: number }) => {
+        rawMaterials?.forEach((item) => {
             const consumed = movementMap.get(`raw_materials_${item.id}`) || 0;
             const avgInventory = item.quantity + consumed / 2; // Simple average
             const turnover = avgInventory > 0 ? (consumed / avgInventory) * 4 : 0; // Annualized (90 days * 4)
@@ -119,7 +93,7 @@ export default function InventoryTurnoverReport() {
         });
 
         // Process packaging materials
-        packagingMaterials?.forEach((item: { id: string; name: string; code: string; quantity: number; unit_cost: number }) => {
+        packagingMaterials?.forEach((item) => {
             const consumed = movementMap.get(`packaging_materials_${item.id}`) || 0;
             const avgInventory = item.quantity + consumed / 2;
             const turnover = avgInventory > 0 ? (consumed / avgInventory) * 4 : 0;
@@ -139,7 +113,7 @@ export default function InventoryTurnoverReport() {
         });
 
         // Process semi-finished
-        semiFinished?.forEach((item: { id: string; name: string; code: string; quantity: number; unit_cost: number }) => {
+        semiFinished?.forEach((item) => {
             const consumed = movementMap.get(`semi_finished_products_${item.id}`) || 0;
             const avgInventory = item.quantity + consumed / 2;
             const turnover = avgInventory > 0 ? (consumed / avgInventory) * 4 : 0;
@@ -159,7 +133,7 @@ export default function InventoryTurnoverReport() {
         });
 
         // Process finished products
-        finished?.forEach((item: { id: string; name: string; code: string; quantity: number; unit_cost: number }) => {
+        finished?.forEach((item) => {
             const consumed = movementMap.get(`finished_products_${item.id}`) || 0;
             const avgInventory = item.quantity + consumed / 2;
             const turnover = avgInventory > 0 ? (consumed / avgInventory) * 4 : 0;
@@ -236,6 +210,8 @@ export default function InventoryTurnoverReport() {
                     </div>
                 </div>
             </div>
+
+            <Button variant="outline" onClick={() => void report.refetch()}>تحديث التقرير</Button>
 
             {/* Warning if no movement data */}
             {allItems.length > 0 && allItems.every(i => i.total_consumed === 0) && (

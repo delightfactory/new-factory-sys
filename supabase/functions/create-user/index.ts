@@ -132,18 +132,25 @@ Deno.serve(async (req: Request) => {
             );
         }
 
-        // Update the profile with the correct role (trigger creates it with 'viewer' by default)
-        // Wait a moment for the trigger to create the profile
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        const { error: updateError } = await supabaseAdmin
+        // The Auth transaction has committed its profile trigger before returning.
+        // Require the persisted row; a successful HTTP write can affect zero rows.
+        const { data: savedProfile, error: updateError } = await supabaseAdmin
             .from("profiles")
             .update({ role, full_name })
-            .eq("id", newUser.user.id);
+            .eq("id", newUser.user.id)
+            .select("id,role,full_name")
+            .single();
 
-        if (updateError) {
-            console.error("Error updating profile:", updateError);
-            // User was created but role update failed - log but don't fail
+        if (updateError || !savedProfile || savedProfile.id !== newUser.user.id || savedProfile.role !== role || savedProfile.full_name !== full_name) {
+            console.error("Created identity requires profile completion", { userId: newUser.user.id, code: updateError?.code ?? "PROFILE_MISMATCH" });
+            // Preserve the created identity. Deleting it could cascade or lose an
+            // account if another administrator has already acted on it.
+            return new Response(JSON.stringify({
+                success: false,
+                code: "USER_PROFILE_INCOMPLETE",
+                error: "تم إنشاء الحساب، لكن لم تكتمل بياناته وصلاحيته. أكمل إعداد الحساب الموجود.",
+                user: { id: newUser.user.id, email: newUser.user.email },
+            }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
 
         return new Response(
@@ -152,8 +159,8 @@ Deno.serve(async (req: Request) => {
                 user: {
                     id: newUser.user.id,
                     email: newUser.user.email,
-                    full_name,
-                    role,
+                    full_name: savedProfile.full_name,
+                    role: savedProfile.role,
                 },
             }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

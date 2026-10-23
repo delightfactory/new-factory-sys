@@ -1,3 +1,4 @@
+import {factoryBusinessDay} from '@/platform/date/factory-business-day';
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { FinancialService } from "@/services/FinancialService";
@@ -180,7 +181,7 @@ function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
             category: '',
             description: '',
             treasury_id: '',
-            transaction_date: new Date().toISOString().split('T')[0]
+            transaction_date: factoryBusinessDay()
         }
     });
 
@@ -191,13 +192,18 @@ function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
         queryFn: TreasuriesService.getTreasuries
     });
 
-    const { data: categories } = useQuery({
+    const categoriesQuery = useQuery({
         queryKey: ['financial_categories', type],
-        queryFn: () => FinancialService.getCategories(type)
+        queryFn: () => FinancialService.getCategories(type),
+        retry: false, refetchOnWindowFocus: false
     });
+
+    const categories = categoriesQuery.isError ? undefined : categoriesQuery.data;
+    const categoriesReady = !!categories && !categoriesQuery.isFetching && !categoriesQuery.isError;
 
     const createMutation = useMutation({
         mutationFn: async (data: any) => {
+            if (!categoriesReady || !categories?.some(category => category.type === data.transaction_type && category.name === data.category)) throw new Error("راجع البند بعد اكتمال تحميل بنود هذا النوع.");
             return FinancialService.createTransaction({
                 ...data,
                 amount: parseFloat(data.amount),
@@ -220,7 +226,7 @@ function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
                     type="button"
                     variant={type === 'expense' ? 'default' : 'outline'}
                     className={type === 'expense' ? 'bg-red-600 hover:bg-red-700' : ''}
-                    onClick={() => setValue('transaction_type', 'expense')}
+                    onClick={() => {setValue('transaction_type', 'expense');setValue('category', '');}}
                 >
                     تسجيل مصروف
                 </Button>
@@ -228,7 +234,7 @@ function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
                     type="button"
                     variant={type === 'income' ? 'default' : 'outline'}
                     className={type === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
-                    onClick={() => setValue('transaction_type', 'income')}
+                    onClick={() => {setValue('transaction_type', 'income');setValue('category', '');}}
                 >
                     تسجيل إيراد
                 </Button>
@@ -257,8 +263,12 @@ function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
                 </FormField>
             </FormGrid>
 
+            {categoriesQuery.isFetching&&<p role="status">جارٍ تحميل بنود هذا النوع…</p>}
+            {categoriesQuery.isError&&<div role="alert"><p>تعذر تحميل البنود. بيانات النموذج محفوظة.</p><Button type="button" variant="outline" onClick={()=>void categoriesQuery.refetch()}>إعادة تحميل البنود</Button></div>}
+            {categoriesReady&&!categories.length&&<p role="status">لا توجد بنود معدّة؛ أضف بندًا من إدارة البنود قبل تسجيل العملية.</p>}
             <FormField label="البند / الفئة" required error={errors.category?.message}>
                 <SearchableSelect
+                    disabled={!categoriesReady || createMutation.isPending}
                     options={categories?.map((cat: any) => ({
                         value: cat.name,
                         label: cat.name
@@ -279,7 +289,7 @@ function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
                 const treasuryId = watch('treasury_id');
                 const category = watch('category');
                 const amount = watch('amount');
-                const isFormValid = !!treasuryId && !!category && amount > 0;
+                const isFormValid = categoriesReady && !!treasuryId && categories.some(item => item.name === category && item.type === type) && amount > 0;
 
                 return (
                     <Button

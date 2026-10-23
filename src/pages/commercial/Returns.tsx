@@ -1,3 +1,4 @@
+import {useConfirmation} from '@/hooks/use-confirmation';
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { PurchaseInvoicesService } from "@/services/PurchaseInvoicesService";
@@ -51,6 +52,7 @@ export default function Returns() {
 // --- Purchase Returns ---
 
 function PurchaseReturnsList() {
+    const {ask, confirmation} = useConfirmation();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const queryClient = useQueryClient();
 
@@ -70,6 +72,7 @@ function PurchaseReturnsList() {
 
     return (
         <div className="space-y-4">
+            {confirmation}
             <div className="flex justify-end">
                 <Button onClick={() => setIsCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> مرتجع شراء جديد</Button>
             </div>
@@ -83,8 +86,8 @@ function PurchaseReturnsList() {
                             <div key={ret.id} className="p-4 space-y-2">
                                 <div className="flex items-center justify-between">
                                     <span className="font-medium">#{ret.return_number || ret.id}</span>
-                                    <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
-                                        {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
+                                    <Badge variant={ret.status === 'posted' ? 'default' : ret.status === 'void' ? 'destructive' : 'secondary'}>
+                                        {ret.status === 'posted' ? 'معتمد' : ret.status === 'void' ? 'ملغى' : 'مسودة'}
                                     </Badge>
                                 </div>
                                 <div className="text-sm text-muted-foreground">{ret.supplier?.name}</div>
@@ -93,10 +96,7 @@ function PurchaseReturnsList() {
                                     <span className="font-bold">{ret.total_amount?.toLocaleString()} ج.م</span>
                                 </div>
                                 {ret.status === 'draft' && (
-                                    <Button size="sm" className="w-full mt-2" onClick={() => {
-                                        if (confirm("اعتماد المرتجع سيخصم الكميات من المخزون ويحدث رصيد المورد. هل أنت متأكد؟"))
-                                            processMutation.mutate(ret.id);
-                                    }}>
+                                    <Button size="sm" className="w-full mt-2" disabled={processMutation.isPending} onClick={async () => {if (processMutation.isPending) return; if (await ask({title: 'اعتماد المرتجع ' + (ret.return_number || ret.id) + '؟', description: 'اعتماد المرتجع سيخصم الكميات من المخزون ويحدث رصيد المورد. هل أنت متأكد؟', acceptLabel: 'اعتماد المرتجع', cancelLabel: 'رجوع دون اعتماد'})) processMutation.mutate(ret.id);}}>
                                         <Check className="mr-2 h-4 w-4" /> اعتماد
                                     </Button>
                                 )}
@@ -127,16 +127,13 @@ function PurchaseReturnsList() {
                                         <TableCell>{ret.return_date}</TableCell>
                                         <TableCell>{ret.total_amount}</TableCell>
                                         <TableCell>
-                                            <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
-                                                {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
+                                            <Badge variant={ret.status === 'posted' ? 'default' : ret.status === 'void' ? 'destructive' : 'secondary'}>
+                                                {ret.status === 'posted' ? 'معتمد' : ret.status === 'void' ? 'ملغى' : 'مسودة'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
                                             {ret.status === 'draft' && (
-                                                <Button size="sm" onClick={() => {
-                                                    if (confirm("اعتماد المرتجع سيخصم الكميات من المخزون ويحدث رصيد المورد. هل أنت متأكد؟"))
-                                                        processMutation.mutate(ret.id);
-                                                }}>
+                                                <Button size="sm" disabled={processMutation.isPending} onClick={async () => {if (processMutation.isPending) return; if (await ask({title: 'اعتماد المرتجع ' + (ret.return_number || ret.id) + '؟', description: 'اعتماد المرتجع سيخصم الكميات من المخزون ويحدث رصيد المورد. هل أنت متأكد؟', acceptLabel: 'اعتماد المرتجع', cancelLabel: 'رجوع دون اعتماد'})) processMutation.mutate(ret.id);}}>
                                                     <Check className="mr-2 h-4 w-4" /> اعتماد
                                                 </Button>
                                             )}
@@ -165,6 +162,7 @@ function PurchaseReturnsList() {
 // --- Sales Returns ---
 
 function SalesReturnsList() {
+    const {ask, confirmation} = useConfirmation();
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const queryClient = useQueryClient();
 
@@ -184,6 +182,7 @@ function SalesReturnsList() {
 
     return (
         <div className="space-y-4">
+            {confirmation}
             <div className="flex justify-end">
                 <Button onClick={() => setIsCreateOpen(true)}><Plus className="mr-2 h-4 w-4" /> مرتجع بيع جديد</Button>
             </div>
@@ -197,8 +196,8 @@ function SalesReturnsList() {
                             <div key={ret.id} className="p-4 space-y-2">
                                 <div className="flex items-center justify-between">
                                     <span className="font-medium">#{ret.return_number || ret.id}</span>
-                                    <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
-                                        {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
+                                    <Badge variant={ret.status === 'posted' ? 'default' : ret.status === 'void' ? 'destructive' : 'secondary'}>
+                                        {ret.status === 'posted' ? 'معتمد' : ret.status === 'void' ? 'ملغى' : 'مسودة'}
                                     </Badge>
                                 </div>
                                 <div className="text-sm text-muted-foreground">{ret.customer?.name}</div>
@@ -207,10 +206,7 @@ function SalesReturnsList() {
                                     <span className="font-bold">{ret.total_amount?.toLocaleString()} ج.م</span>
                                 </div>
                                 {ret.status === 'draft' && (
-                                    <Button size="sm" className="w-full mt-2" onClick={() => {
-                                        if (confirm("اعتماد المرتجع سيضيف الكميات للمخزون ويحدث رصيد العميل. هل أنت متأكد؟"))
-                                            processMutation.mutate(ret.id);
-                                    }}>
+                                    <Button size="sm" className="w-full mt-2" disabled={processMutation.isPending} onClick={async () => {if (processMutation.isPending) return; if (await ask({title: 'اعتماد المرتجع ' + (ret.return_number || ret.id) + '؟', description: 'اعتماد المرتجع سيضيف الكميات للمخزون ويحدث رصيد العميل. هل أنت متأكد؟', acceptLabel: 'اعتماد المرتجع', cancelLabel: 'رجوع دون اعتماد'})) processMutation.mutate(ret.id);}}>
                                         <Check className="mr-2 h-4 w-4" /> اعتماد
                                     </Button>
                                 )}
@@ -241,16 +237,13 @@ function SalesReturnsList() {
                                         <TableCell>{ret.return_date}</TableCell>
                                         <TableCell>{ret.total_amount}</TableCell>
                                         <TableCell>
-                                            <Badge variant={ret.status === 'posted' ? 'default' : 'secondary'}>
-                                                {ret.status === 'posted' ? 'معتمد' : 'مسودة'}
+                                            <Badge variant={ret.status === 'posted' ? 'default' : ret.status === 'void' ? 'destructive' : 'secondary'}>
+                                                {ret.status === 'posted' ? 'معتمد' : ret.status === 'void' ? 'ملغى' : 'مسودة'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
                                             {ret.status === 'draft' && (
-                                                <Button size="sm" onClick={() => {
-                                                    if (confirm("اعتماد المرتجع سيضيف الكميات للمخزون ويحدث رصيد العميل. هل أنت متأكد؟"))
-                                                        processMutation.mutate(ret.id);
-                                                }}>
+                                                <Button size="sm" disabled={processMutation.isPending} onClick={async () => {if (processMutation.isPending) return; if (await ask({title: 'اعتماد المرتجع ' + (ret.return_number || ret.id) + '؟', description: 'اعتماد المرتجع سيضيف الكميات للمخزون ويحدث رصيد العميل. هل أنت متأكد؟', acceptLabel: 'اعتماد المرتجع', cancelLabel: 'رجوع دون اعتماد'})) processMutation.mutate(ret.id);}}>
                                                     <Check className="mr-2 h-4 w-4" /> اعتماد
                                                 </Button>
                                             )}
@@ -488,6 +481,8 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                         return (
                             <div key={field.id} className="bg-background border rounded-lg p-4 space-y-3 relative">
                                 <Button
+                                    type="button"
+                                    aria-label="حذف بند المرتجع"
                                     variant="ghost"
                                     size="icon"
                                     className="absolute top-2 left-2 h-8 w-8"
@@ -650,7 +645,7 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                                             <Input type="number" step="0.01" {...register(`items.${index}.unit_price`, { required: true, valueAsNumber: true })} placeholder="السعر" />
                                         </TableCell>
                                         <TableCell>
-                                            <Button variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
+                                            <Button type="button" aria-label="حذف بند المرتجع" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-red-500" /></Button>
                                         </TableCell>
                                     </TableRow>
                                 );

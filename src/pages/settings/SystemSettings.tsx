@@ -1,35 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { BackupService } from "@/services/BackupService";
-import type { BackupProgress, BackupData } from "@/services/BackupService";
+import { BackupService, BACKUP_MAINTENANCE_NOTICE } from "@/services/BackupService";
+import type { BackupProgress } from "@/services/BackupService";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
 import {
     Download,
     Upload,
-    RotateCcw,
-    AlertTriangle,
     CheckCircle2,
     Loader2,
     Shield,
     Database,
     FileJson,
-    Trash2,
     Clock,
     Cloud,
     CloudDownload,
@@ -47,11 +33,6 @@ export default function SystemSettings() {
     const [stats, setStats] = useState<Record<string, number> | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);
 
-    // Factory Reset
-    const [resetDialogOpen, setResetDialogOpen] = useState(false);
-    const [confirmText, setConfirmText] = useState("");
-    const [resetStep, setResetStep] = useState(1);
-
     // Cloud Backup State
     interface BackupLog {
         id: number;
@@ -63,6 +44,7 @@ export default function SystemSettings() {
     }
     const [cloudBackups, setCloudBackups] = useState<BackupLog[]>([]);
     const [loadingCloud, setLoadingCloud] = useState(false);
+    const [cloudError, setCloudError] = useState<string | null>(null);
     const [lastBackup, setLastBackup] = useState<BackupLog | null>(null);
     const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
 
@@ -74,13 +56,7 @@ export default function SystemSettings() {
         }
     }, [isAdmin, navigate]);
 
-    // Load stats on mount
-    useEffect(() => {
-        loadStats();
-        loadCloudBackups();
-    }, []);
-
-    const loadStats = async () => {
+    const loadStats = useCallback(async () => {
         setLoadingStats(true);
         try {
             const data = await BackupService.getBackupStats();
@@ -89,11 +65,12 @@ export default function SystemSettings() {
             console.error("Failed to load stats:", e);
         }
         setLoadingStats(false);
-    };
+    }, []);
 
     // Load cloud backups from backup_logs table
-    const loadCloudBackups = async () => {
+    const loadCloudBackups = useCallback(async () => {
         setLoadingCloud(true);
+        setCloudError(null);
         try {
             const { data, error } = await supabase
                 .from('backup_logs')
@@ -103,19 +80,21 @@ export default function SystemSettings() {
                 .order('created_at', { ascending: false })
                 .limit(10);
 
-            if (error) {
-                console.error("Failed to load cloud backups:", error);
-            } else {
-                setCloudBackups(data || []);
-                if (data && data.length > 0) {
-                    setLastBackup(data[0]);
-                }
-            }
-        } catch (e) {
-            console.error("Failed to load cloud backups:", e);
+            if (error) throw error;
+            setCloudBackups(data || []);
+            setLastBackup(data?.[0] ?? null);
+        } catch {
+            setCloudBackups([]);
+            setLastBackup(null);
+            setCloudError('تعذر تحميل سجل الملفات المحفوظة. أعد المحاولة للتحقق من حالته.');
         }
         setLoadingCloud(false);
-    };
+    }, []);
+
+    useEffect(() => {
+        void loadStats();
+        void loadCloudBackups();
+    }, [loadStats, loadCloudBackups]);
 
     // Download cloud backup from storage
     const downloadCloudBackup = async (filename: string) => {
@@ -141,10 +120,11 @@ export default function SystemSettings() {
             URL.revokeObjectURL(url);
 
             toast.success("تم تحميل النسخة بنجاح");
-        } catch (e: any) {
-            toast.error("حدث خطأ: " + e.message);
+        } catch (e: unknown) {
+            toast.error("تعذر تنزيل الملف: " + (e instanceof Error ? e.message : "حاول مرة أخرى"));
+        } finally {
+            setDownloadingFile(null);
         }
-        setDownloadingFile(null);
     };
 
     const totalRecords = stats ? Object.values(stats).reduce((a, b) => a + b, 0) : 0;
@@ -156,94 +136,12 @@ export default function SystemSettings() {
 
         try {
             await BackupService.downloadBackup((p) => setProgress(p));
-            toast.success("تم إنشاء النسخة الاحتياطية بنجاح");
-        } catch (e: any) {
-            toast.error("فشل إنشاء النسخة الاحتياطية: " + e.message);
+            toast.success("تم تنزيل ملف بيانات الأعمال بنجاح");
+        } catch (e: unknown) {
+            toast.error("تعذر تصدير البيانات: " + (e instanceof Error ? e.message : "حاول مرة أخرى"));
         }
 
         setIsProcessing(false);
-    };
-
-    // === RESTORE ===
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setIsProcessing(true);
-        setProgress(null);
-
-        try {
-            const text = await file.text();
-            const backup: BackupData = JSON.parse(text);
-
-            // Validate
-            const validation = BackupService.validateBackup(backup);
-            if (!validation.valid) {
-                toast.error("ملف غير صالح: " + validation.errors.join(", "));
-                setIsProcessing(false);
-                return;
-            }
-
-            // Confirm
-            const confirmed = window.confirm(
-                `هل أنت متأكد من استعادة هذه النسخة؟\n` +
-                `تاريخ الإنشاء: ${new Date(backup.metadata.createdAt).toLocaleString('ar-EG')}\n` +
-                `عدد السجلات: ${backup.metadata.recordCount}\n\n` +
-                `⚠️ سيتم استبدال جميع البيانات الحالية!`
-            );
-
-            if (!confirmed) {
-                setIsProcessing(false);
-                return;
-            }
-
-            const result = await BackupService.restoreBackup(backup, (p) => setProgress(p));
-
-            if (result.success) {
-                toast.success("تم استعادة النسخة الاحتياطية بنجاح");
-                loadStats();
-            } else {
-                toast.error("حدثت أخطاء أثناء الاستعادة");
-                console.error(result.errors);
-            }
-        } catch (e: any) {
-            toast.error("فشل قراءة الملف: " + e.message);
-        }
-
-        setIsProcessing(false);
-        e.target.value = ''; // Reset file input
-    };
-
-    // === FACTORY RESET ===
-    const handleFactoryReset = async () => {
-        if (confirmText !== "FACTORY_RESET") {
-            toast.error("رمز التأكيد غير صحيح");
-            return;
-        }
-
-        setIsProcessing(true);
-        setProgress(null);
-        setResetDialogOpen(false);
-
-        try {
-            const result = await BackupService.factoryReset(
-                "FACTORY_RESET_CONFIRM",
-                (p) => setProgress(p)
-            );
-
-            if (result.success) {
-                toast.success("تم إعادة ضبط المصنع بنجاح");
-                loadStats();
-            } else {
-                toast.error("حدثت أخطاء: " + result.errors.join(", "));
-            }
-        } catch (e: any) {
-            toast.error("فشل إعادة الضبط: " + e.message);
-        }
-
-        setIsProcessing(false);
-        setConfirmText("");
-        setResetStep(1);
     };
 
     if (!isAdmin) return null;
@@ -257,7 +155,7 @@ export default function SystemSettings() {
                 </div>
                 <div>
                     <h1 className="text-2xl font-bold">إعدادات النظام</h1>
-                    <p className="text-muted-foreground">إدارة النسخ الاحتياطي واستعادة البيانات</p>
+                    <p className="text-muted-foreground">تصدير بيانات الأعمال ومتابعة النسخ المحفوظة</p>
                 </div>
             </div>
 
@@ -307,16 +205,17 @@ export default function SystemSettings() {
                         <div>
                             <CardTitle className="flex items-center gap-2 text-purple-600">
                                 <Cloud className="w-5 h-5" />
-                                النسخ الاحتياطي التلقائي
+                                الملفات المحفوظة في السحابة
                             </CardTitle>
                             <CardDescription>
-                                يتم إنشاء نسخة احتياطية تلقائية يومياً في الساعة 3 صباحاً وحفظها في السحابة
+                                سجل الملفات التي أعلن النظام حفظها. ظهور ملف هنا لا يؤكد صلاحية الاستعادة الكاملة.
                             </CardDescription>
                         </div>
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={loadCloudBackups}
+                            aria-label="تحديث سجل الملفات المحفوظة"
                             disabled={loadingCloud}
                         >
                             {loadingCloud ? (
@@ -328,6 +227,13 @@ export default function SystemSettings() {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    {cloudError && <Alert variant="destructive" role="alert">
+                        <AlertTitle>تعذر تحميل سجل الملفات</AlertTitle>
+                        <AlertDescription className="space-y-2">
+                            <p>{cloudError}</p>
+                            <Button variant="outline" onClick={loadCloudBackups} disabled={loadingCloud}>إعادة المحاولة</Button>
+                        </AlertDescription>
+                    </Alert>}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className={`flex items-center gap-3 p-3 rounded-lg ${lastBackup ? 'bg-green-500/10' : 'bg-yellow-500/10'}`}>
                             {lastBackup ? (
@@ -338,7 +244,7 @@ export default function SystemSettings() {
                             <div>
                                 <p className="text-sm font-medium">الحالة</p>
                                 <p className="text-xs text-muted-foreground">
-                                    {lastBackup ? 'مُفعّل' : 'لا يوجد نسخ بعد'}
+                                    {loadingCloud ? 'جارٍ قراءة السجل…' : cloudError ? 'تعذر التحقق' : lastBackup ? 'يوجد ملف محفوظ' : 'لا توجد ملفات محفوظة'}
                                 </p>
                             </div>
                         </div>
@@ -347,7 +253,7 @@ export default function SystemSettings() {
                             <div>
                                 <p className="text-sm font-medium">آخر نسخة</p>
                                 <p className="text-xs text-muted-foreground">
-                                    {lastBackup ? new Date(lastBackup.created_at).toLocaleString('ar-EG') : 'لا يوجد'}
+                                    {cloudError ? 'غير متاح' : lastBackup ? new Date(lastBackup.created_at).toLocaleString('ar-EG') : 'لا يوجد'}
                                 </p>
                             </div>
                         </div>
@@ -355,7 +261,7 @@ export default function SystemSettings() {
                             <Database className="w-5 h-5 text-muted-foreground" />
                             <div>
                                 <p className="text-sm font-medium">عدد النسخ</p>
-                                <p className="text-xs text-muted-foreground">{cloudBackups.length} نسخة</p>
+                                <p className="text-xs text-muted-foreground">{cloudError ? 'غير متاح' : `${cloudBackups.length} ملف`}</p>
                             </div>
                         </div>
                     </div>
@@ -405,9 +311,9 @@ export default function SystemSettings() {
                         </div>
                     )}
 
-                    {!loadingCloud && cloudBackups.length === 0 && (
+                    {!loadingCloud && !cloudError && cloudBackups.length === 0 && (
                         <p className="text-sm text-muted-foreground text-center py-4">
-                            لا توجد نسخ سحابية حتى الآن. ستظهر هنا بعد تشغيل النسخ التلقائي.
+                            لا توجد ملفات محفوظة في هذا السجل حتى الآن.
                         </p>
                     )}
                 </CardContent>
@@ -439,16 +345,16 @@ export default function SystemSettings() {
             )}
 
             {/* Actions Grid */}
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 gap-6">
                 {/* Backup Card */}
                 <Card className="border-green-500/20 hover:border-green-500/40 transition-colors">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-green-600">
                             <Download className="w-5 h-5" />
-                            نسخة احتياطية
+                            تصدير بيانات الأعمال
                         </CardTitle>
                         <CardDescription>
-                            تصدير جميع البيانات إلى ملف JSON
+                            تنزيل الجداول التشغيلية المتاحة في ملف JSON للمراجعة والأرشفة. لا يشمل الحسابات والمرفقات وسجلات التنفيذ الداخلية، ولا يُستخدم وحده لاستعادة النظام.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -462,135 +368,29 @@ export default function SystemSettings() {
                             ) : (
                                 <FileJson className="w-4 h-4 ml-2" />
                             )}
-                            إنشاء نسخة احتياطية
+                            تنزيل ملف البيانات
                         </Button>
                     </CardContent>
                 </Card>
 
-                {/* Restore Card */}
-                <Card className="border-blue-500/20 hover:border-blue-500/40 transition-colors">
+                <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-blue-600">
+                        <CardTitle className="flex items-center gap-2">
                             <Upload className="w-5 h-5" />
-                            استعادة البيانات
+                            استعادة البيانات أثناء الصيانة
                         </CardTitle>
-                        <CardDescription>
-                            استيراد نسخة احتياطية سابقة
+                        <CardDescription id="maintenance-recovery-notice">
+                            {BACKUP_MAINTENANCE_NOTICE}
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <Label htmlFor="backup-file" className="cursor-pointer">
-                            <div className="flex items-center justify-center gap-2 p-3 border-2 border-dashed border-blue-500/30 rounded-lg hover:bg-blue-500/5 transition-colors">
-                                <Upload className="w-4 h-4 text-blue-600" />
-                                <span className="text-blue-600">اختر ملف النسخة</span>
-                            </div>
-                        </Label>
-                        <Input
-                            id="backup-file"
-                            type="file"
-                            accept=".json"
-                            onChange={handleFileUpload}
-                            disabled={isProcessing}
-                            className="hidden"
-                        />
-                        <p className="text-xs text-muted-foreground mt-2 text-center">
-                            ملفات .json فقط
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Factory Reset Card */}
-                <Card className="border-red-500/20 hover:border-red-500/40 transition-colors">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-red-600">
-                            <Trash2 className="w-5 h-5" />
-                            إعادة ضبط المصنع
-                        </CardTitle>
-                        <CardDescription>
-                            حذف جميع البيانات نهائياً
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button
-                                    variant="destructive"
-                                    className="w-full"
-                                    disabled={isProcessing}
-                                >
-                                    <RotateCcw className="w-4 h-4 ml-2" />
-                                    إعادة ضبط المصنع
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-md">
-                                <DialogHeader>
-                                    <DialogTitle className="flex items-center gap-2 text-red-600">
-                                        <AlertTriangle className="w-5 h-5" />
-                                        تحذير خطير!
-                                    </DialogTitle>
-                                    <DialogDescription>
-                                        هذا الإجراء سيحذف جميع البيانات في النظام بشكل نهائي ولا يمكن التراجع عنه.
-                                    </DialogDescription>
-                                </DialogHeader>
-
-                                {resetStep === 1 && (
-                                    <div className="space-y-4">
-                                        <Alert variant="destructive">
-                                            <AlertTriangle className="h-4 w-4" />
-                                            <AlertTitle>تنبيه هام</AlertTitle>
-                                            <AlertDescription>
-                                                <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                                                    <li>سيتم حذف جميع المواد الخام والمنتجات</li>
-                                                    <li>سيتم حذف جميع الفواتير والمعاملات المالية</li>
-                                                    <li>سيتم حذف جميع العملاء والموردين</li>
-                                                    <li>سيتم حذف جميع أوامر الإنتاج والتعبئة</li>
-                                                </ul>
-                                            </AlertDescription>
-                                        </Alert>
-                                        <Button
-                                            variant="destructive"
-                                            className="w-full"
-                                            onClick={() => setResetStep(2)}
-                                        >
-                                            أفهم المخاطر، استمر
-                                        </Button>
-                                    </div>
-                                )}
-
-                                {resetStep === 2 && (
-                                    <div className="space-y-4">
-                                        <p className="text-sm">
-                                            للتأكيد، اكتب <strong className="text-red-600">FACTORY_RESET</strong> في الحقل أدناه:
-                                        </p>
-                                        <Input
-                                            value={confirmText}
-                                            onChange={(e) => setConfirmText(e.target.value)}
-                                            placeholder="اكتب رمز التأكيد"
-                                            className="font-mono"
-                                        />
-                                        <DialogFooter className="gap-2">
-                                            <Button
-                                                variant="outline"
-                                                onClick={() => {
-                                                    setResetStep(1);
-                                                    setConfirmText("");
-                                                    setResetDialogOpen(false);
-                                                }}
-                                            >
-                                                إلغاء
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                onClick={handleFactoryReset}
-                                                disabled={confirmText !== "FACTORY_RESET"}
-                                            >
-                                                تأكيد الحذف النهائي
-                                            </Button>
-                                        </DialogFooter>
-                                    </div>
-                                )}
-                            </DialogContent>
-                        </Dialog>
+                    <CardContent className="space-y-3">
+                        <Button disabled variant="outline" className="w-full" aria-describedby="maintenance-recovery-notice">
+                            الاستعادة من التطبيق متوقفة
+                        </Button>
+                        <Button disabled variant="outline" className="w-full" aria-describedby="maintenance-recovery-notice">
+                            إعادة ضبط البيانات متوقفة
+                        </Button>
+                        <p className="text-sm text-muted-foreground">يستمر التشغيل اليومي كما هو. قبل الاستعادة، يوقف مسؤول النظام الكتابة مؤقتًا ويتحقق من النسخة الكاملة وخطة الرجوع.</p>
                     </CardContent>
                 </Card>
             </div>
@@ -600,7 +400,7 @@ export default function SystemSettings() {
                 <CheckCircle2 className="h-4 w-4" />
                 <AlertTitle>نصيحة</AlertTitle>
                 <AlertDescription>
-                    يُنصح بإنشاء نسخة احتياطية بشكل دوري وحفظها في مكان آمن خارج الجهاز.
+                    احتفظ بملفات التصدير في مكان آمن. التعافي الكامل يحتاج نسخة متسقة من قاعدة البيانات والحسابات والمرفقات، واختبار استعادة ناجحًا قبل استخدامها.
                 </AlertDescription>
             </Alert>
         </div>

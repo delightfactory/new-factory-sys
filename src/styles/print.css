@@ -32,6 +32,30 @@
         color: black !important;
     }
 
+    /* Keep standalone invoice templates unchanged; release only the app shell. */
+    html:has([data-app-shell]),
+    body:has([data-app-shell]) {
+        width: auto;
+        height: auto;
+    }
+
+    /* Let paged media flow beyond the screen-sized application viewport. */
+    [data-app-shell],
+    [data-app-content],
+    [data-app-content] > main {
+        display: block !important;
+        width: auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        background: white !important;
+    }
+
+    [data-app-content] > main {
+        padding: 0 !important;
+    }
+
     /* --------------------------------------------------------------------------
        2. Hide UI Elements (Not for Print)
        -------------------------------------------------------------------------- */

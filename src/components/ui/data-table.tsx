@@ -6,6 +6,7 @@ import {
     getSortedRowModel,
     getFilteredRowModel,
     type SortingState,
+    type Column,
 } from "@tanstack/react-table"
 
 import {
@@ -34,11 +35,11 @@ interface DataTableProps<TData, TValue> {
 }
 
 // Sortable Header Component
-function SortableHeader({
+function SortableHeader<TData, TValue>({
     column,
     children,
 }: {
-    column: any
+    column: Column<TData, TValue>
     children: React.ReactNode
 }) {
     const sorted = column.getIsSorted()
@@ -49,9 +50,10 @@ function SortableHeader({
     }
 
     return (
-        <div
+        <button
+            type="button"
             className={cn(
-                "flex items-center gap-1 cursor-pointer select-none",
+                "flex min-h-10 w-full items-center gap-1 rounded-sm text-start cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 "hover:text-foreground transition-colors"
             )}
             onClick={() => column.toggleSorting(sorted === "asc")}
@@ -64,7 +66,7 @@ function SortableHeader({
             ) : (
                 <ArrowUpDown className="h-3.5 w-3.5 opacity-40" />
             )}
-        </div>
+        </button>
     )
 }
 
@@ -154,6 +156,7 @@ export function DataTable<TData, TValue>({
                 <div className="relative">
                     <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
+                        aria-label="بحث في السجل"
                         placeholder={searchPlaceholder}
                         value={globalFilter ?? ""}
                         onChange={(e) => setGlobalFilter(e.target.value)}
@@ -166,7 +169,7 @@ export function DataTable<TData, TValue>({
                 ref={containerRef}
                 className="rounded-md border bg-card max-h-[70vh] overflow-auto"
             >
-                <Table>
+                <Table className={columns.length > 4 ? "min-w-[640px]" : undefined}>
                     <TableHeader className="sticky top-0 bg-card z-10 shadow-sm">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
@@ -175,6 +178,7 @@ export function DataTable<TData, TValue>({
                                     return (
                                         <TableHead
                                             key={header.id}
+                                            aria-sort={header.column.getIsSorted() === "asc" ? "ascending" : header.column.getIsSorted() === "desc" ? "descending" : undefined}
                                             className={cn(
                                                 "text-right",
                                                 canSort && "hover:bg-muted/50 transition-colors"
@@ -239,7 +243,7 @@ export function DataTable<TData, TValue>({
                 </span>
                 {sorting.length > 0 && (
                     <span className="flex items-center gap-1">
-                        مرتب حسب: {sorting[0].id === 'code' ? 'الكود' : sorting[0].id}
+                        مرتب حسب: {typeof table.getColumn(sorting[0].id)?.columnDef.header === 'string' ? table.getColumn(sorting[0].id)?.columnDef.header as string : 'العمود المحدد'}
                         {sorting[0].desc ? (
                             <ArrowDown className="h-3 w-3" />
                         ) : (

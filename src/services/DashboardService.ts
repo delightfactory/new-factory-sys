@@ -1,49 +1,22 @@
 import { supabase } from "@/integrations/supabase/client";
-
-export interface DashboardStats {
-    daily_sales: number;
-    active_orders: number;
-    low_stock_count: number;
-    cash_balance: number;
-    recent_activities: ActivityLog[];
-}
-
-export interface ActivityLog {
-    id: string;
-    action: string;
-    table_name: string;
-    created_at: string;
-    user_name: string | null;
-}
+import { parseDashboardStats, type DashboardStats } from "@/features/dashboard/dashboard-stats";
+export type { DashboardStats, ActivityLog } from "@/features/dashboard/dashboard-stats";
 
 export const DashboardService = {
     /**
      * Fetches aggregated dashboard statistics using the database RPC.
      * This is an optimized call that replaces multiple separate queries.
      */
-    async getStats(): Promise<DashboardStats | null> {
-        try {
-            const { data, error } = await supabase.rpc('get_dashboard_stats');
-
-            if (error) {
-                console.error('Error fetching dashboard stats:', error);
-                throw error;
-            }
-
-            // Parse the JSONB data returned by the RPC
-            // The RPC returns a JSON object, so Supabase might wrap it or return it directly depending on driver
-            // Typically RPC returning JSONB comes as data directly
-            return data as unknown as DashboardStats;
-        } catch (error) {
-            console.error('Unexpected error in getStats:', error);
-            return null;
-        }
+    async getStats(): Promise<DashboardStats> {
+        const { data, error } = await supabase.rpc('get_dashboard_stats');
+        if (error) throw new Error("DASHBOARD_STATS_UNAVAILABLE");
+        return parseDashboardStats(data);
     },
 
     /**
      * Fetches detailed audit logs with pagination and filtering
      */
-    async getAuditLogs(page: number = 1, pageSize: number = 20, filters?: any) {
+    async getAuditLogs(page: number = 1, pageSize: number = 20, filters?: { action?: string; table_name?: string; user_id?: string }) {
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
 

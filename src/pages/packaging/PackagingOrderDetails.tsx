@@ -1,3 +1,4 @@
+import {useAuth} from '@/contexts/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +43,7 @@ interface OrderItem {
 export default function PackagingOrderDetails() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const {hasRole}=useAuth();
 
     // Fetch order details
     const { data: order, isLoading: orderLoading } = useQuery({
@@ -138,6 +140,7 @@ export default function PackagingOrderDetails() {
                         </div>
                     </div>
                 </div>
+                {order.status==='pending'&&<Button variant="outline" disabled={!hasRole(['admin','manager','production_officer'])} onClick={()=>navigate('/packaging/orders?edit='+id)}>تعديل الأمر</Button>}
                 <PrintButton label="طباعة الأمر" />
             </div>
 

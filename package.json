@@ -4,13 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 127.0.0.1",
     "build": "node scripts/check-mcp-deployment.mjs && tsc -b && vite build",
-    "mcp:check-deployment": "node scripts/check-mcp-deployment.mjs",
-    "lint": "eslint .",
-    "preview": "vite preview",
-    "mcp:start": "npm --prefix mcp start",
-    "mcp:test": "npm --prefix mcp test"
+    "preview": "vite preview --host 127.0.0.1",
+    "mcp:check-deployment": "node scripts/check-mcp-deployment.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -47,7 +44,8 @@
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.1.13"
+    "zod": "^4.1.13",
+    "decimal.js-light": "2.5.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

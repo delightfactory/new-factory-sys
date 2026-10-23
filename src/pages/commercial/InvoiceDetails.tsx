@@ -1,3 +1,6 @@
+import { readCompleteRows } from '@/platform/data/read-complete-rows';
+import { invoiceItemName, invoiceItemTypeLabel } from '@/features/invoices/item-display';
+import {useAuth} from '@/contexts/AuthContext';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useRef } from 'react';
@@ -51,6 +54,8 @@ interface InvoiceItem {
     semi_finished_product_id?: number;
     raw_material_id?: number;
     packaging_material_id?: number;
+    bundle_id?: number;
+    product_bundles?: { name: string };
     finished_products?: { name: string };
     semi_finished_products?: { name: string };
     raw_materials?: { name: string };
@@ -72,6 +77,7 @@ const STATUS_CONFIG = {
 export default function InvoiceDetails() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const {hasRole}=useAuth();
     const location = useLocation();
 
     // Determine invoice type from URL
@@ -82,7 +88,7 @@ export default function InvoiceDetails() {
     const typeLabel = isSales ? 'فاتورة بيع' : 'فاتورة شراء';
 
     // Fetch invoice details
-    const { data: invoice, isLoading } = useQuery({
+    const invoiceQuery = useQuery({
         queryKey: ['invoice', tableName, id],
         queryFn: async () => {
             const { data, error } = await supabase
@@ -93,43 +99,42 @@ export default function InvoiceDetails() {
             if (error) throw error;
             return data as Invoice;
         },
-        enabled: !!id
+        enabled: !!id, retry: false
     });
 
+    const { data: invoice, isLoading } = invoiceQuery;
+
     // Fetch party info
-    const { data: party } = useQuery({
+    const partyQuery = useQuery({
         queryKey: ['invoice-party', invoice?.[partyField as keyof Invoice]],
         queryFn: async () => {
             const partyId = invoice?.[partyField as keyof Invoice];
             if (!partyId) return null;
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('parties')
                 .select('id, name, type')
                 .eq('id', partyId)
                 .single();
+            if (error) throw error;
             return data as Party | null;
         },
-        enabled: !!invoice
+        enabled: !!invoice, retry: false
     });
+    const { data: party } = partyQuery;
 
-    // Fetch invoice items with product name joins
-    const { data: items } = useQuery({
+    const itemsQuery = useQuery({
         queryKey: ['invoice-items', itemsTable, id],
-        queryFn: async () => {
-            const { data } = await supabase
-                .from(itemsTable)
-                .select(`
-                    *,
-                    finished_products:finished_product_id(name),
-                    semi_finished_products:semi_finished_product_id(name),
-                    raw_materials:raw_material_id(name),
-                    packaging_materials:packaging_material_id(name)
-                `)
-                .eq('invoice_id', Number(id));
-            return data as InvoiceItem[] || [];
-        },
-        enabled: !!id
+        queryFn: () => readCompleteRows<InvoiceItem>(async (from, to) => {
+            const { data, count, error } = await supabase.from(itemsTable)
+                .select('*,finished_products:finished_product_id(name),semi_finished_products:semi_finished_product_id(name),raw_materials:raw_material_id(name),packaging_materials:packaging_material_id(name)'+(isSales ? ',product_bundles:bundle_id(name)' : ''), { count: 'exact' })
+                .eq('invoice_id', Number(id)).order('id').range(from, to);
+            return { rows: data as unknown as InvoiceItem[], count, error };
+        }, 'INVOICE_ITEMS'),
+        enabled: !!id, retry: false
     });
+    const { data: items } = itemsQuery;
+    const printReady = !!invoice && items !== undefined && !itemsQuery.isFetching && !itemsQuery.isError &&
+        !invoiceQuery.isFetching && !invoiceQuery.isError && !partyQuery.isPending && !partyQuery.isFetching && !partyQuery.isError;
 
     // Print setup - MUST be before any conditional returns
     const printRef = useRef<HTMLDivElement>(null);
@@ -147,6 +152,7 @@ export default function InvoiceDetails() {
         );
     }
 
+    if (invoiceQuery.isError && !invoice) return <div role="alert" className="p-6 space-y-4"><p>تعذر تحميل الفاتورة. أعد المحاولة لعرض بياناتها.</p><Button disabled={invoiceQuery.isFetching} onClick={() => void invoiceQuery.refetch()}>إعادة تحميل الفاتورة</Button></div>;
     if (!invoice) {
         return (
             <div className="p-6 text-center">
@@ -170,12 +176,7 @@ export default function InvoiceDetails() {
         party_name: party?.name || 'غير محدد',
         items: (items || []).map(item => {
             // Get item name from the appropriate joined table
-            const itemName = item.finished_products?.name
-                || item.semi_finished_products?.name
-                || item.raw_materials?.name
-                || item.packaging_materials?.name
-                || item.item_name
-                || '-';
+            const itemName = invoiceItemName(item);
             return {
                 item_name: itemName,
                 quantity: item.quantity,
@@ -195,6 +196,10 @@ export default function InvoiceDetails() {
 
     return (
         <div className="p-4 sm:p-6 space-y-6">
+            {invoiceQuery.isFetching && <p role="status">جارٍ تحديث بيانات الفاتورة؛ الطباعة متاحة بعد اكتمال القراءة.</p>}
+            {(partyQuery.isPending || partyQuery.isFetching) && <p role="status">جارٍ تحميل بيانات العميل أو المورد…</p>}
+            {invoiceQuery.isError && <p role="alert">تعذر تحديث الفاتورة. المعروض آخر نسخة حُمّلت في هذه الصفحة. <Button variant="outline" onClick={() => void invoiceQuery.refetch()}>إعادة تحميل الفاتورة</Button></p>}
+            {partyQuery.isError && <div role="alert" className="rounded-lg border p-4"><p>تعذر تحميل بيانات العميل أو المورد. الطباعة غير متاحة حتى اكتمال البيانات.</p><Button variant="outline" disabled={partyQuery.isFetching} onClick={() => void partyQuery.refetch()}>إعادة تحميل الطرف</Button></div>}
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -215,7 +220,8 @@ export default function InvoiceDetails() {
                     <StatusIcon className="h-5 w-5" />
                     <span className="font-medium">{statusConfig.label}</span>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => handlePrint()} className="gap-2">
+                {invoice.status==='draft'&&<Button variant="outline" disabled={!hasRole(['admin','manager','accountant'])} onClick={()=>navigate('/commercial/'+(isSales?'selling':'buying')+'/'+id+'/edit')}>تعديل المسودة</Button>}
+                <Button variant="outline" size="sm" disabled={!printReady} onClick={() => { if (printReady) handlePrint(); }} className="gap-2">
                     <Printer className="h-4 w-4" />
                     طباعة الفاتورة
                 </Button>
@@ -293,7 +299,7 @@ export default function InvoiceDetails() {
                         />
                     </div>
                     {/* Extra charges */}
-                    {(invoice.tax_amount || invoice.discount_amount || invoice.shipping_cost) && (
+                    {!!(invoice.tax_amount || invoice.discount_amount || invoice.shipping_cost) && (
                         <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t text-sm">
                             {invoice.tax_amount > 0 && (
                                 <div><span className="text-muted-foreground">الضريبة:</span> {invoice.tax_amount.toLocaleString()} ج.م</div>
@@ -314,11 +320,11 @@ export default function InvoiceDetails() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Package className="h-5 w-5" />
-                        بنود الفاتورة ({items?.length || 0})
+                        بنود الفاتورة ({itemsQuery.isError ? 'تعذر التحميل' : items === undefined ? 'جارٍ القراءة' : items.length})
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                    {items && items.length > 0 ? (
+                    {itemsQuery.isPending ? <p role="status" className="p-4">جارٍ تحميل بنود الفاتورة…</p> : itemsQuery.isError ? <div role="alert" className="p-4 space-y-2"><p>تعذر تحميل بنود الفاتورة كاملة. الطباعة غير متاحة حتى اكتمال البيانات.</p><Button variant="outline" disabled={itemsQuery.isFetching} onClick={() => void itemsQuery.refetch()}>إعادة تحميل البنود</Button></div> : items && items.length > 0 ? (
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
@@ -334,20 +340,14 @@ export default function InvoiceDetails() {
                                 <TableBody>
                                     {items.map((item, index) => {
                                         // Get item name from the appropriate joined table
-                                        const itemName = item.finished_products?.name
-                                            || item.semi_finished_products?.name
-                                            || item.raw_materials?.name
-                                            || item.packaging_materials?.name
-                                            || item.item_name
-                                            || '-';
+                                        const itemName = invoiceItemName(item);
                                         return (
                                             <TableRow key={item.id}>
                                                 <TableCell>{index + 1}</TableCell>
                                                 <TableCell className="font-medium">{itemName}</TableCell>
                                                 <TableCell>
                                                     <Badge variant="outline" className="text-xs">
-                                                        {item.item_type === 'finished_product' ? 'منتج' :
-                                                            item.item_type === 'raw_material' ? 'خامة' : item.item_type}
+                                                        {invoiceItemTypeLabel(item.item_type)}
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>{item.quantity}</TableCell>

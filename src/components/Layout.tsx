@@ -1,5 +1,6 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
+    type LucideIcon,
     LayoutDashboard,
     Package,
     Archive,
@@ -26,14 +27,16 @@ import {
     Database,
     ArrowRightLeft
 } from "lucide-react";
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, useId } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { CachedReadNotice } from '@/components/auth/CachedReadNotice';
 import { GlobalSearch } from "@/components/ui/global-search";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { toast } from "sonner";
 
 // Constants for localStorage keys
 const STORAGE_KEYS = {
@@ -42,11 +45,11 @@ const STORAGE_KEYS = {
 } as const;
 
 interface MenuItemProps {
-    icon: any;
+    icon: LucideIcon;
     label: string;
     path?: string;
     active?: boolean;
-    children?: { label: string; path: string; icon: any }[];
+    children?: { label: string; path: string; icon: LucideIcon }[];
     expanded?: boolean;
     onToggle?: () => void;
     sidebarOpen: boolean;
@@ -54,6 +57,8 @@ interface MenuItemProps {
 }
 
 const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onToggle, sidebarOpen, onNavigate }: MenuItemProps) => {
+    const currentPath = useLocation().pathname;
+    const submenuId = useId();
     // Best Practice: No auto-scroll - let user control their view position
     // Best Practice: Minimal, non-distracting animations
     // Best Practice: Clear visual feedback for active/hover states
@@ -62,6 +67,11 @@ const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onTo
         return (
             <div className="space-y-0.5">
                 <button
+                    type="button"
+                    aria-label={label}
+                    aria-expanded={sidebarOpen && Boolean(expanded)}
+                    aria-controls={sidebarOpen ? submenuId : undefined}
+                    title={!sidebarOpen ? label : undefined}
                     onClick={onToggle}
                     className={cn(
                         "relative flex items-center justify-between w-full px-3 py-2.5 rounded-lg transition-colors duration-150",
@@ -96,6 +106,9 @@ const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onTo
                 {/* Submenu with Smooth Height Transition */}
                 {sidebarOpen && (
                     <div
+                        id={submenuId}
+                        inert={!expanded}
+                        aria-hidden={!expanded}
                         className={cn(
                             "mr-4 pr-3 border-r border-muted overflow-hidden transition-all duration-300 ease-in-out",
                             expanded
@@ -108,11 +121,12 @@ const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onTo
                                 <Link
                                     key={child.path}
                                     to={child.path}
+                                    aria-current={currentPath === child.path ? "page" : undefined}
                                     onClick={onNavigate}
                                     className={cn(
                                         "flex items-center gap-2.5 px-3 py-2 text-sm rounded-lg transition-colors duration-150",
                                         "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                                        (location.pathname === child.path)
+                                        (currentPath === child.path)
                                             ? "bg-primary text-primary-foreground font-medium"
                                             : "text-muted-foreground hover:text-foreground hover:bg-accent"
                                     )}
@@ -131,6 +145,9 @@ const SidebarItem = ({ icon: Icon, label, path, active, children, expanded, onTo
     return (
         <Link
             to={path!}
+            aria-label={label}
+            aria-current={active ? "page" : undefined}
+            title={!sidebarOpen ? label : undefined}
             onClick={onNavigate}
             className={cn(
                 "relative flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors duration-150",
@@ -160,6 +177,7 @@ export default function Layout() {
     const location = useLocation();
     const navigate = useNavigate();
     const [isMobileOpen, setIsMobileOpen] = useState(false);
+    const [signingOut, setSigningOut] = useState(false);
 
     // Persistent Sidebar State
     const [isOpen, setIsOpen] = useState(() => {
@@ -335,7 +353,7 @@ export default function Layout() {
             },
         ];
         return items.filter(item => item.show);
-    }, [profile]);
+    }, [hasRole, isAdmin]);
 
     const toggleTheme = () => {
         const effectiveTheme = theme === "system"
@@ -346,11 +364,18 @@ export default function Layout() {
     };
 
     const handleSignOut = async () => {
-        await signOut();
-        navigate("/login");
+        setSigningOut(true);
+        try {
+            await signOut();
+            navigate("/login");
+        } catch {
+            toast.error("تعذر تسجيل الخروج. تحقق من الاتصال وأعد المحاولة.");
+        } finally {
+            setSigningOut(false);
+        }
     };
 
-    const SidebarContent = ({ isMobile = false, closeSheet }: { isMobile?: boolean, closeSheet?: () => void }) => (
+    const renderSidebarContent = ({ isMobile = false, closeSheet }: { isMobile?: boolean, closeSheet?: () => void } = {}) => (
         <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto min-h-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {menuItems.map((item) => (
                 <SidebarItem
@@ -362,7 +387,7 @@ export default function Layout() {
                     active={item.path === "/" ? location.pathname === "/" : location.pathname.startsWith(item.path)}
                     children={item.children}
                     expanded={expandedMenus[item.path]}
-                    onToggle={() => toggleMenu(item.path)}
+                    onToggle={() => { if (!isMobile && !isOpen) { setIsOpen(true); setExpandedMenus({ [item.path]: true }); } else toggleMenu(item.path); }}
                     onNavigate={closeSheet}
                 />
             ))}
@@ -373,6 +398,8 @@ export default function Layout() {
             {/* Sign Out Button */}
             <button
                 onClick={handleSignOut}
+                disabled={signingOut}
+                aria-label={signingOut ? "جارٍ تسجيل الخروج..." : "تسجيل الخروج"}
                 className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 w-full group",
                     "text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/20"
@@ -381,20 +408,21 @@ export default function Layout() {
                 <div className="p-1.5 rounded-lg bg-red-500/10 group-hover:bg-red-500/20 transition-colors">
                     <LogOut className="w-4 h-4" />
                 </div>
-                {(isOpen || isMobile) && <span className="text-sm font-medium">تسجيل الخروج</span>}
+                {(isOpen || isMobile) && <span className="text-sm font-medium">{signingOut ? "جارٍ تسجيل الخروج..." : "تسجيل الخروج"}</span>}
             </button>
         </nav>
     );
 
     return (
-        <div className="flex h-screen w-full bg-background" dir="rtl">
+        <div data-app-shell="" className="flex h-dvh w-full bg-background" dir="rtl">
+            <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:right-2 focus:z-[200] focus:rounded-md focus:bg-primary focus:px-4 focus:py-3 focus:text-primary-foreground">تخطي إلى المحتوى</a>
             {/* Desktop Sidebar */}
             <aside
                 className={cn(
-                    "hidden md:flex h-full border-l transition-all duration-300 flex-col",
-                    "bg-gradient-to-b from-card via-card to-card/95",
-                    "dark:from-slate-900 dark:via-slate-900 dark:to-slate-950",
-                    "shadow-xl shadow-black/5 dark:shadow-black/20",
+                    "hidden md:flex shrink-0 h-full border-l transition-all duration-300 flex-col",
+                    "bg-card",
+                    "dark:bg-card",
+                    
                     isOpen ? "w-64" : "w-20"
                 )}
             >
@@ -411,6 +439,9 @@ export default function Layout() {
                         </div>
                     )}
                     <button
+                        type="button"
+                        aria-label={isOpen ? "طي قائمة التنقل" : "توسيع قائمة التنقل"}
+                        aria-expanded={isOpen}
                         onClick={() => setIsOpen(!isOpen)}
                         className={cn(
                             "p-2 hover:bg-accent rounded-xl transition-all duration-200",
@@ -456,7 +487,7 @@ export default function Layout() {
                     </div>
                 )}
 
-                <SidebarContent />
+                {renderSidebarContent()}
 
                 {/* Footer */}
                 {isOpen && (
@@ -469,12 +500,12 @@ export default function Layout() {
             </aside>
 
             {/* Mobile Sidebar & Header */}
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div data-app-content="" className="min-w-0 flex-1 flex flex-col overflow-hidden">
                 <header className="h-16 border-b bg-card/95 backdrop-blur-sm flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
                     <div className="flex items-center gap-3 md:hidden">
                         <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
                             <SheetTrigger asChild>
-                                <Button variant="ghost" size="icon" className="rounded-xl">
+                                <Button variant="ghost" size="icon" className="rounded-xl" aria-label="فتح قائمة التنقل">
                                     <Menu className="h-5 w-5" />
                                 </Button>
                             </SheetTrigger>
@@ -513,7 +544,7 @@ export default function Layout() {
                                     </div>
                                 )}
 
-                                <SidebarContent isMobile={true} closeSheet={() => setIsMobileOpen(false)} />
+                                {renderSidebarContent({ isMobile: true, closeSheet: () => setIsMobileOpen(false) })}
                             </SheetContent>
                         </Sheet>
                         <div className="flex items-center gap-2">
@@ -548,13 +579,14 @@ export default function Layout() {
                         >
                             <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
                             <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                            <span className="sr-only">Toggle theme</span>
+                            <span className="sr-only">تغيير المظهر</span>
                         </Button>
                     </div>
                 </header>
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-auto bg-gradient-to-br from-slate-50 via-slate-100/50 to-slate-50 dark:from-slate-950 dark:via-slate-900/50 dark:to-slate-950 p-4 md:p-8 pb-20 md:pb-8">
+                <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 overflow-auto bg-background p-4 md:p-6 xl:p-8 pb-24 md:pb-8">
+                    <CachedReadNotice />
                     <Outlet />
                 </main>
 

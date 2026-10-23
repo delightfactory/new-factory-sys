@@ -1,5 +1,6 @@
 import { factoryCommand, fields } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
+import { readCompleteRows } from "@/platform/data/read-complete-rows";
 
 export interface Party {
     id: string; // Changed to string (UUID)
@@ -18,18 +19,19 @@ export interface Party {
 export const PartiesService = {
     // Get all parties (optionally filter by type)
     getParties: async (type?: 'supplier' | 'customer') => {
+        return readCompleteRows<Party>(async (from,to) => {
         let query = supabase
             .from('parties')
-            .select('*')
-            .order('name');
+            .select('*', {count:'exact'})
+            .order('name').order('id').range(from,to);
 
         if (type) {
             query = query.eq('type', type);
         }
 
-        const { data, error } = await query;
-        if (error) throw error;
-        return data as Party[];
+        const { data, error, count } = await query;
+        return {rows:data as Party[]|null,error,count};
+        }, 'PARTIES');
     },
 
     // Get single party
@@ -40,7 +42,7 @@ export const PartiesService = {
             .eq('id', id)
             .single();
         if (error) throw error;
-        return data as Party[];
+        return data as Party;
     },
 
     // Create party

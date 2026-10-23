@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, type ReactNode } from "react";
 import {
     Dialog,
     DialogContent,
@@ -49,6 +49,10 @@ interface ShortageAnalysisDialogProps {
     onProceedAnyway: () => void;
     onCreateProductionOrder: (items: { semi_finished_id: number; quantity: number }[]) => Promise<void>;
     isCreatingOrder: boolean;
+    error?: string | null;
+    onRetry: () => void;
+    progress?: ReactNode;
+    locked?: boolean;
 }
 
 export function ShortageAnalysisDialog({
@@ -58,41 +62,32 @@ export function ShortageAnalysisDialog({
     isLoading,
     onProceedAnyway,
     onCreateProductionOrder,
-    isCreatingOrder
+    isCreatingOrder, error, onRetry, progress, locked = false
 }: ShortageAnalysisDialogProps) {
     // Editable quantities for each suggested item
-    const [editableQuantities, setEditableQuantities] = useState<Record<number, number>>({});
+    const [editableQuantities, setEditableQuantities] = useState<Record<number, string>>(() => Object.fromEntries((analysisResult?.suggested_production ?? []).map(item => [item.semi_finished_id, String(item.suggested_qty)])));
     const [isEditing, setIsEditing] = useState(false);
+    const [quantityErrors, setQuantityErrors] = useState<Record<number, string>>({});
 
-    // Initialize editable quantities when dialog opens or analysis result changes
-    useEffect(() => {
-        if (isOpen && analysisResult?.suggested_production) {
-            const initial: Record<number, number> = {};
-            analysisResult.suggested_production.forEach(item => {
-                initial[item.semi_finished_id] = item.suggested_qty;
-            });
-            setEditableQuantities(initial);
-        }
-        if (!isOpen) {
-            setEditableQuantities({});
-            setIsEditing(false);
-        }
-    }, [isOpen, analysisResult]);
-
-    const handleQuantityChange = (id: number, value: number) => {
+    const handleQuantityChange = (id: number, value: string) => {
         setEditableQuantities(prev => ({
             ...prev,
-            [id]: Math.max(0, value)
+            [id]: value
         }));
     };
 
     const handleCreateOrder = async () => {
-        const items = Object.entries(editableQuantities)
-            .filter(([_, qty]) => qty > 0)
-            .map(([id, qty]) => ({
-                semi_finished_id: Number(id),
-                quantity: qty
-            }));
+        if (isCreatingOrder || locked) return;
+        const errors: Record<number, string> = {};
+        const entries = Object.entries(editableQuantities);
+        for (const [id, text] of entries) {
+            const quantity = Number(text);
+            if (!text.trim() || !Number.isFinite(quantity) || quantity < 0 || quantity > 1e9) errors[Number(id)] = 'أدخل كمية من صفر إلى مليار. الصفر يستبعد المنتج.';
+        }
+        setQuantityErrors(errors);
+        if (Object.keys(errors).length) { setIsEditing(true); return; }
+        const items = entries.filter(([, quantity]) => Number(quantity) > 0)
+            .map(([id, quantity]) => ({ semi_finished_id: Number(id), quantity: Number(quantity) }));
 
         if (items.length === 0) {
             toast.error("يجب تحديد كمية لمنتج واحد على الأقل");
@@ -103,15 +98,27 @@ export function ShortageAnalysisDialog({
     };
 
     const handleClose = () => {
+        if (isCreatingOrder || locked) return;
         setEditableQuantities({});
         setIsEditing(false);
         onClose();
     };
 
+    if (progress || error || (!isLoading && (!analysisResult || !analysisResult.success))) {
+        return <Dialog open={isOpen} onOpenChange={open => { if (!open) handleClose(); }}>
+            <DialogContent task className="sm:max-w-2xl">
+                <DialogHeader><DialogTitle>{progress ? 'متابعة تغطية أمر التعبئة' : 'تعذر تحميل تحليل النقص'}</DialogTitle>
+                    <DialogDescription>{progress ? 'استكمل الخطوة المحفوظة دون إنشاء أمر إنتاج آخر.' : 'لم نعتبر المخزون كافيًا. أعد المحاولة لقراءة المتطلبات.'}</DialogDescription></DialogHeader>
+                {progress || <div role="alert" className="space-y-3"><p>{error || analysisResult?.error || 'تعذر قراءة المتطلبات.'}</p><Button onClick={onRetry}>إعادة التحليل</Button></div>}
+                <DialogFooter><Button variant="outline" disabled={isCreatingOrder || locked} onClick={handleClose}>إغلاق</Button></DialogFooter>
+            </DialogContent>
+        </Dialog>;
+    }
+
     if (isLoading) {
         return (
-            <Dialog open={isOpen} onOpenChange={handleClose}>
-                <DialogContent className="max-w-lg">
+            <Dialog open={isOpen} onOpenChange={open => { if (!open) handleClose(); }}>
+                <DialogContent task className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <Loader2 className="h-5 w-5 animate-spin" />
@@ -133,8 +140,8 @@ export function ShortageAnalysisDialog({
     // Can complete - show success
     if (analysisResult?.can_complete) {
         return (
-            <Dialog open={isOpen} onOpenChange={handleClose}>
-                <DialogContent className="max-w-lg">
+            <Dialog open={isOpen} onOpenChange={open => { if (!open) handleClose(); }}>
+                <DialogContent task className="max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-green-600">
                             <CheckCircle className="h-5 w-5" />
@@ -145,8 +152,8 @@ export function ShortageAnalysisDialog({
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="mt-4">
-                        <Button variant="outline" onClick={handleClose}>إلغاء</Button>
-                        <Button onClick={onProceedAnyway} className="bg-green-600 hover:bg-green-700">
+                        <Button variant="outline" disabled={isCreatingOrder || locked} onClick={handleClose}>إلغاء</Button>
+                        <Button disabled={isCreatingOrder || locked} onClick={onProceedAnyway} className="bg-green-600 hover:bg-green-700">
                             <CheckCircle className="mr-2 h-4 w-4" />
                             تنفيذ الأمر
                         </Button>
@@ -158,8 +165,8 @@ export function ShortageAnalysisDialog({
 
     // Has shortages - show analysis
     return (
-        <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="sm:max-w-2xl">
+        <Dialog open={isOpen} onOpenChange={open => { if (!open) handleClose(); }}>
+            <DialogContent task className="sm:max-w-2xl">
                 <DialogHeader className="pb-4 border-b">
                     <DialogTitle className="flex items-center gap-2 text-amber-600">
                         <AlertTriangle className="h-5 w-5" />
@@ -221,7 +228,7 @@ export function ShortageAnalysisDialog({
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setIsEditing(!isEditing)}
+                                disabled={isCreatingOrder || locked} onClick={() => setIsEditing(!isEditing)}
                                 className="text-blue-600 hover:text-blue-700"
                             >
                                 <Edit2 className="h-4 w-4 mr-1" />
@@ -245,16 +252,19 @@ export function ShortageAnalysisDialog({
                                                 <Input
                                                     type="number"
                                                     min="0"
-                                                    step="1"
-                                                    value={editableQuantities[item.semi_finished_id] ?? item.suggested_qty}
-                                                    onChange={(e) => handleQuantityChange(item.semi_finished_id, Number(e.target.value))}
+                                                    step="any"
+                                                    disabled={isCreatingOrder || locked}
+                                                    aria-label={`كمية الإنتاج المقترحة ${item.name}`}
+                                                    value={editableQuantities[item.semi_finished_id] ?? String(item.suggested_qty)}
+                                                    onChange={(e) => handleQuantityChange(item.semi_finished_id, e.target.value)}
                                                     className="w-24 mx-auto text-center"
                                                 />
                                             ) : (
                                                 <span className="font-mono bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
-                                                    {(editableQuantities[item.semi_finished_id] ?? item.suggested_qty).toLocaleString()}
+                                                    {Number(editableQuantities[item.semi_finished_id] ?? item.suggested_qty).toLocaleString()}
                                                 </span>
                                             )}
+                                        {quantityErrors[item.semi_finished_id] && <p role="alert" className="text-xs text-destructive mt-1">{quantityErrors[item.semi_finished_id]}</p>}
                                         </TableCell>
                                         <TableCell className="text-center text-muted-foreground">
                                             {item.unit}
@@ -268,18 +278,18 @@ export function ShortageAnalysisDialog({
                     {/* Info Note */}
                     <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm">
                         <p className="text-amber-800 dark:text-amber-200">
-                            💡 يمكنك تعديل الكميات المقترحة قبل إنشاء أمر الإنتاج، أو التنفيذ رغم النقص (سيؤدي لأرصدة سالبة).
+                            يمكنك تعديل الكميات المقترحة قبل إنشاء أمر الإنتاج، أو التنفيذ رغم النقص (سيؤدي لأرصدة سالبة). الكمية صفر تستبعد المنتج من أمر الإنتاج؛ الفراغ ليس صفرًا.
                         </p>
                     </div>
                 </div>
 
                 <DialogFooter className="pt-4 border-t gap-2 flex-wrap">
-                    <Button variant="outline" onClick={handleClose}>
+                    <Button variant="outline" disabled={isCreatingOrder || locked} onClick={handleClose}>
                         إلغاء
                     </Button>
                     <Button
                         variant="secondary"
-                        onClick={onProceedAnyway}
+                        disabled={isCreatingOrder || locked} onClick={onProceedAnyway}
                         className="bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
                     >
                         <AlertTriangle className="mr-2 h-4 w-4" />
@@ -287,7 +297,7 @@ export function ShortageAnalysisDialog({
                     </Button>
                     <Button
                         onClick={handleCreateOrder}
-                        disabled={isCreatingOrder}
+                        disabled={isCreatingOrder || locked}
                         className="bg-blue-600 hover:bg-blue-700"
                     >
                         {isCreatingOrder ? (

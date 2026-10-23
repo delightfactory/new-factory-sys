@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useSearchParams } from 'react-router-dom';
+import { readMovementPage } from '@/services/InventoryMovementsService';
+import { movementScope, MOVEMENT_PAGE_SIZE } from '@/features/inventory/movement-page';
+import { CatalogReadState } from '@/components/ui/catalog-read-state';
+import { Button } from '@/components/ui/button';
 import { PageHeader } from "@/components/ui/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,12 +24,11 @@ import {
     Search,
     Filter
 } from "lucide-react";
-import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
-import { formatNumber } from "@/lib/utils";
+
+import { formatInventoryQuantity as formatNumber } from "@/lib/inventory-format";
 import { format } from "date-fns";
 
-type ItemType = 'raw_materials' | 'packaging_materials' | 'semi_finished_products' | 'finished_products' | 'product_bundles' | 'all';
-type MovementType = 'in' | 'out' | 'adjustment' | 'all';
+
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
     raw_materials: 'مواد خام',
@@ -41,81 +44,20 @@ const MOVEMENT_TYPE_CONFIG: Record<string, { label: string; color: string; icon:
     adjustment: { label: 'تسوية', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', icon: ArrowUpDown }
 };
 
-interface InventoryMovement {
-    id: number;
-    item_id: number;
-    item_type: string;
-    movement_type: string;
-    quantity: number;
-    previous_balance: number;
-    new_balance: number;
-    reason: string;
-    reference_id: string | null;
-    created_at: string;
-    item_name?: string;
-}
-
 export default function InventoryMovements() {
-    const [filterType, setFilterType] = useState<ItemType>('all');
-    const [filterMovement, setFilterMovement] = useState<MovementType>('all');
+    const [params, setParams] = useSearchParams();
+    const scope = movementScope(params);
+    const { itemType: filterType, movementType: filterMovement } = scope;
     const [searchQuery, setSearchQuery] = useState('');
-
-    const { data: movements, isLoading } = useQuery({
-        queryKey: ['inventory-movements', filterType, filterMovement],
-        queryFn: async () => {
-            let query = supabase
-                .from('inventory_movements')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(100);
-
-            if (filterType !== 'all') {
-                query = query.eq('item_type', filterType);
-            }
-            if (filterMovement !== 'all') {
-                query = query.eq('movement_type', filterMovement);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-
-            // optimized: Batch fetch item names
-            const itemIdsByType: Record<string, Set<number>> = {};
-            (data || []).forEach((mov: InventoryMovement) => {
-                if (!itemIdsByType[mov.item_type]) {
-                    itemIdsByType[mov.item_type] = new Set();
-                }
-                itemIdsByType[mov.item_type].add(mov.item_id);
-            });
-
-            const itemNames: Record<string, Record<number, string>> = {};
-
-            await Promise.all(Object.entries(itemIdsByType).map(async ([type, ids]) => {
-                const { data: items } = await supabase
-                    .from(type)
-                    .select('id, name')
-                    .in('id', Array.from(ids));
-
-                if (items) {
-                    itemNames[type] = {};
-                    items.forEach((item: any) => {
-                        itemNames[type][item.id] = item.name;
-                    });
-                }
-            }));
-
-            // Enrich with map
-            const enriched = (data || []).map((mov) => {
-                const name = itemNames[mov.item_type]?.[mov.item_id] || `#${mov.item_id}`;
-                return {
-                    ...mov,
-                    item_name: name
-                };
-            });
-
-            return enriched as InventoryMovement[];
-        }
-    });
+    function changeFilter(key: string, value: string) {
+        const next = new URLSearchParams(params); next.set(key, value); next.delete('page');
+        if (key === 'item_type') next.delete('item_id');
+        setParams(next);
+    }
+    function changePage(page: number) { const next = new URLSearchParams(params); next.set('page', String(page)); setParams(next); }
+    const ledger = useQuery({ queryKey: ['inventory-movements', scope.itemType, scope.itemId, scope.movementType, scope.page],
+        queryFn: () => readMovementPage(scope), retry: false });
+    const movements = ledger.data?.rows;
 
     const filteredMovements = movements?.filter(m => {
         if (!searchQuery) return true;
@@ -135,11 +77,17 @@ export default function InventoryMovements() {
         <div className="space-y-6">
             <PageHeader
                 title="سجل حركات المخزون"
-                description="تتبع جميع حركات الدخول والخروج والتسويات"
+                description="تصفح حركات الدخول والخروج والتسويات، من الأحدث إلى الأقدم"
                 icon={History}
             />
 
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-muted-foreground">الأعداد والبحث تخص الصفحة الحالية، بحد أقصى100 حركة. تنقّل بين الصفحات للوصول إلى الحركات الأقدم.</p>
+                <Button variant="outline" disabled={ledger.isFetching} onClick={() => void ledger.refetch()}>تحديث السجل</Button>
+                {!!scope.itemId && <p className="text-sm">سجل {ITEM_TYPE_LABELS[scope.itemType]} للصنف #{scope.itemId} <Button variant="ghost" onClick={() => changeFilter('item_type', scope.itemType)}>عرض كل الأصناف من هذا النوع</Button></p>}
+            </div>
             {/* Stats */}
+            {movements && <>
             <div className="grid gap-3 grid-cols-3">
                 <Card className="bg-green-50 dark:bg-green-900/20 border-green-200">
                     <CardContent className="py-4">
@@ -176,6 +124,7 @@ export default function InventoryMovements() {
                 </Card>
             </div>
 
+            </>}
             {/* Filters */}
             <Card>
                 <CardContent className="pt-4">
@@ -183,15 +132,15 @@ export default function InventoryMovements() {
                         <div className="relative flex-1">
                             <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
-                                placeholder="بحث بالاسم أو السبب أو المرجع..."
+                                aria-label="بحث في الصفحة الحالية" placeholder="بحث داخل الصفحة الحالية بالاسم أو السبب أو المرجع..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pr-10"
                             />
                         </div>
                         <div className="flex gap-2 flex-wrap">
-                            <Select value={filterType} onValueChange={(v) => setFilterType(v as ItemType)}>
-                                <SelectTrigger className="w-[130px]">
+                            <Select value={filterType} onValueChange={(v) => changeFilter('item_type', v)}>
+                                <SelectTrigger aria-label="نوع الصنف" className="w-[130px]">
                                     <Filter className="w-4 h-4 ml-2" />
                                     <SelectValue placeholder="النوع" />
                                 </SelectTrigger>
@@ -204,8 +153,8 @@ export default function InventoryMovements() {
                                     <SelectItem value="product_bundles">باندلات</SelectItem>
                                 </SelectContent>
                             </Select>
-                            <Select value={filterMovement} onValueChange={(v) => setFilterMovement(v as MovementType)}>
-                                <SelectTrigger className="w-[110px]">
+                            <Select value={filterMovement} onValueChange={(v) => changeFilter('movement_type', v)}>
+                                <SelectTrigger aria-label="نوع الحركة" className="w-[110px]">
                                     <SelectValue placeholder="الحركة" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -221,13 +170,12 @@ export default function InventoryMovements() {
             </Card>
 
             {/* Movements List */}
-            {isLoading ? (
-                <CardGridSkeleton count={3} />
-            ) : filteredMovements?.length === 0 ? (
+            <CatalogReadState query={{ ...ledger, data: movements }} entity="حركات المخزون" onRetry={() => void ledger.refetch()}>
+            {filteredMovements?.length === 0 ? (
                 <Card>
                     <CardContent className="py-12 text-center text-muted-foreground">
                         <History className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                        <p>لا توجد حركات مسجلة</p>
+                        <p>{searchQuery ? 'لا توجد نتائج في هذه الصفحة. جرّب بحثًا آخر أو انتقل لصفحة أخرى.' : scope.page > 0 ? 'لا توجد حركات في هذه الصفحة. ارجع إلى الصفحة السابقة أو حدّث السجل.' : 'لا توجد حركات ضمن الفلاتر المحددة.'}</p>
                     </CardContent>
                 </Card>
             ) : (
@@ -237,15 +185,15 @@ export default function InventoryMovements() {
                         const Icon = config.icon;
 
                         return (
-                            <Card key={mov.id} className="hover:shadow-md transition-shadow">
+                            <Card key={mov.id} data-movement-id={mov.id} className="hover:shadow-md transition-shadow">
                                 <CardContent className="p-4">
                                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                        <div className="flex items-start gap-3">
+                                        <div className="flex min-w-0 items-start gap-3">
                                             <div className={`p-2 rounded-lg ${config.color}`}>
                                                 <Icon className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <h3 className="font-medium">{mov.item_name}</h3>
+                                                <h3 className="font-medium break-words">{mov.item_name}</h3>
                                                 <div className="flex items-center gap-2 mt-1 flex-wrap">
                                                     <Badge variant="outline" className="text-xs">
                                                         {ITEM_TYPE_LABELS[mov.item_type]}
@@ -256,18 +204,18 @@ export default function InventoryMovements() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4 text-sm">
+                                        <div className="flex flex-wrap items-center gap-4 text-sm">
                                             <div className="text-center">
                                                 <p className="text-xs text-muted-foreground">الكمية</p>
                                                 <p className={`font-mono font-bold ${mov.movement_type === 'in' ? 'text-green-600' : mov.movement_type === 'out' ? 'text-red-600' : ''}`}>
                                                     {mov.movement_type === 'in' ? '+' : mov.movement_type === 'out' ? '-' : ''}{formatNumber(mov.quantity)}
                                                 </p>
                                             </div>
-                                            <div className="text-center hidden sm:block">
+                                            <div className="text-center">
                                                 <p className="text-xs text-muted-foreground">قبل</p>
                                                 <p className="font-mono">{formatNumber(mov.previous_balance)}</p>
                                             </div>
-                                            <div className="text-center hidden sm:block">
+                                            <div className="text-center">
                                                 <p className="text-xs text-muted-foreground">بعد</p>
                                                 <p className="font-mono font-bold">{formatNumber(mov.new_balance)}</p>
                                             </div>
@@ -276,7 +224,7 @@ export default function InventoryMovements() {
                                                     {format(new Date(mov.created_at), 'dd/MM HH:mm')}
                                                 </p>
                                                 {mov.reference_id && (
-                                                    <p className="text-xs font-mono text-blue-600">
+                                                    <p className="text-xs font-mono text-blue-600 break-all">
                                                         {mov.reference_id}
                                                     </p>
                                                 )}
@@ -289,6 +237,12 @@ export default function InventoryMovements() {
                     })}
                 </div>
             )}
+            </CatalogReadState>
+            <nav aria-label="صفحات حركات المخزون" className="flex flex-wrap items-center justify-between gap-3">
+                <Button variant="outline" disabled={scope.page === 0 || ledger.isFetching} onClick={() => changePage(scope.page - 1)}>الأحدث</Button>
+                <p role="status" className="text-sm">الصفحة {scope.page + 1}{ledger.data ? ' · '+formatNumber(ledger.data.count)+' حركة ضمن الفلاتر · '+formatNumber(filteredMovements?.length ?? 0)+' نتيجة في الصفحة' : ''}</p>
+                <Button variant="outline" disabled={!ledger.data || (scope.page + 1) * MOVEMENT_PAGE_SIZE >= ledger.data.count || ledger.isFetching} onClick={() => changePage(scope.page + 1)}>الأقدم</Button>
+            </nav>
         </div>
     );
 }

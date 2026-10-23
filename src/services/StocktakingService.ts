@@ -1,5 +1,13 @@
 import { factoryCommand, fields } from "./FactoryCommandsService";
 import { supabase } from "@/integrations/supabase/client";
+import { readCompleteRows } from '@/platform/data/read-complete-rows';
+import { executeStocktakeIntent, readStocktakeIntent, type StocktakeIntent } from '@/features/stocktaking/pending-count-intent';
+
+async function stocktakeCommand(action:StocktakeIntent['action'],payload:Record<string,unknown>) {
+    const {data:{session}}=await supabase.auth.getSession();
+    if(!session?.user)throw Error('سجّل الدخول لإتمام العملية.');
+    await executeStocktakeIntent({storage:sessionStorage,actor:session.user.id,id:Number(payload.id),action:action,payload:payload,send:async intent=>{await factoryCommand(intent.action,intent.payload,intent.requestId);}});
+}
 
 export interface InventorySession {
     id: number;
@@ -25,14 +33,21 @@ export interface InventoryCountItem {
 }
 
 export const StocktakingService = {
+    resumePending: async (id:number) => {
+        const {data:{session}}=await supabase.auth.getSession();
+        if(!session?.user)throw Error('سجّل الدخول لإتمام العملية.');
+        const intent=readStocktakeIntent(sessionStorage,session.user.id,id);
+        if(intent)await stocktakeCommand(intent.action,intent.payload);
+    },
     // 1. Get Sessions
     getSessions: async () => {
-        const { data, error } = await supabase
+        return readCompleteRows<InventorySession>(async (from, to) => {
+        const { data, error, count } = await supabase
             .from('inventory_count_sessions')
-            .select('*')
-            .order('created_at', { ascending: false });
-        if (error) throw error;
-        return data as InventorySession[];
+            .select('*', {count:'exact'})
+            .order('created_at', { ascending: false }).order('id', {ascending:false}).range(from,to);
+        return {rows:data as InventorySession[]|null,error,count};
+        }, 'STOCKTAKE_SESSIONS');
     },
 
     // 1.5 Get Single Session
@@ -41,9 +56,9 @@ export const StocktakingService = {
             .from('inventory_count_sessions')
             .select('*')
             .eq('id', id)
-            .single();
+            .maybeSingle();
         if (error) throw error;
-        return data as InventorySession;
+        return data as InventorySession | null;
     },
 
     // 2. Create Session
@@ -53,33 +68,34 @@ export const StocktakingService = {
 
     // 3. Generate Snapshot (Start Counting)
     startSession: async (sessionId: number, filters: { raw: boolean, packaging: boolean, semi: boolean, finished: boolean }) => {
-        await factoryCommand("start_stocktake", { id: sessionId, ...filters });
+        await stocktakeCommand("start_stocktake", { id: sessionId, ...filters });
     },
 
     // 4. Get Items for Session
     getSessionItems: async (sessionId: number) => {
-        const { data, error } = await supabase
+        return readCompleteRows<InventoryCountItem>(async (from, to) => {
+        const { data, error, count } = await supabase
             .from('inventory_count_items')
-            .select('*')
+            .select('*', {count:'exact'})
             .eq('session_id', sessionId)
             .order('item_type')
-            .order('product_name');
-        if (error) throw error;
-        return data as InventoryCountItem[];
+            .order('product_name').order('id').range(from,to);
+        return {rows:data as InventoryCountItem[]|null,error,count};
+        }, 'STOCKTAKE_ITEMS');
     },
 
     // 5. Update Count
-    updateItemCount: async (itemId: number, countedQty: number) => {
-        const { data, error } = await supabase.from("inventory_count_items").select("session_id").eq("id", itemId).single(); if (error || !data) throw error ?? new Error("Count item not found"); await factoryCommand("record_stocktake_counts", { id: data.session_id, counts: [{ item_id: itemId, counted_quantity: countedQty }] });
+    recordCounts: async (sessionId: number, counts: {item_id:number;counted_quantity:number}[]) => {
+        await stocktakeCommand('record_stocktake_counts', {id:sessionId, counts});
     },
 
     // 6. Reconcile (Finalize)
     reconcileSession: async (sessionId: number) => {
-        await factoryCommand("reconcile_stocktake", { id: sessionId });
+        await stocktakeCommand("reconcile_stocktake", { id: sessionId });
     },
 
     // 7. Cancel Session
     cancelSession: async (sessionId: number) => {
-        await factoryCommand("cancel_stocktake", { id: sessionId });
+        await stocktakeCommand("cancel_stocktake", { id: sessionId });
     }
 };
