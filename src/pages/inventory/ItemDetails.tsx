@@ -1,3 +1,5 @@
+import { formatQuantity as displayQuantity, formatPercentage as displayPercent } from '@/lib/number-format';
+
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -345,8 +347,8 @@ export default function ItemDetails() {
                                 {ingredients.map(ing => (
                                     <TableRow key={ing.id}>
                                         <TableCell>{ing.raw_materials?.name ?? 'مادة خام غير متاحة #'+ing.raw_material_id}</TableCell>
-                                        <TableCell>{ing.quantity} {ing.raw_materials?.unit}</TableCell>
-                                        <TableCell>{ing.percentage}%</TableCell>
+                                        <TableCell>{displayQuantity(ing.quantity)} {ing.raw_materials?.unit}</TableCell>
+                                        <TableCell>{displayPercent(ing.percentage)}%</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -371,7 +373,7 @@ export default function ItemDetails() {
                                 <h4 className="text-sm font-bold mb-2 text-primary">المنتج الأساسي (نصف مصنع)</h4>
                                 <div className="flex justify-between items-center">
                                     <span>{baseSemiFinished.name} <span className="text-xs text-muted-foreground">({baseSemiFinished.code})</span></span>
-                                    <Badge variant="outline">{item.semi_finished_quantity} {baseSemiFinished.unit}</Badge>
+                                    <Badge variant="outline">{displayQuantity(item.semi_finished_quantity)} {baseSemiFinished.unit}</Badge>
                                 </div>
                             </div>
                         )}
@@ -391,7 +393,7 @@ export default function ItemDetails() {
                                         {finishedPackaging.map(pkg => (
                                             <TableRow key={pkg.id}>
                                                 <TableCell>{pkg.packaging_materials?.name ?? 'مادة تعبئة غير متاحة #'+pkg.packaging_material_id}</TableCell>
-                                                <TableCell>{pkg.quantity} {pkg.packaging_materials?.unit}</TableCell>
+                                                <TableCell>{displayQuantity(pkg.quantity)} {pkg.packaging_materials?.unit}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>

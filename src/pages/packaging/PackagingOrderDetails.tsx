@@ -1,3 +1,4 @@
+import { formatUnitCostCurrency } from '@/lib/number-format';
 import {useAuth} from '@/contexts/AuthContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -255,7 +256,7 @@ export default function PackagingOrderDetails() {
                                             <TableCell>
                                                 {formatNumber(item.quantity)} {item.finished_products?.unit || ''}
                                             </TableCell>
-                                            <TableCell>{formatCurrency(item.unit_cost || 0)}</TableCell>
+                                            <TableCell>{formatUnitCostCurrency(item.unit_cost || 0)}</TableCell>
                                             <TableCell className="font-bold">{formatCurrency(item.total_cost || 0)}</TableCell>
                                         </TableRow>
                                     ))}

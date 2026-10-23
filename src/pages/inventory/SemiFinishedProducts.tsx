@@ -1,3 +1,4 @@
+import { formatPercentage } from '@/lib/number-format';
 import { semiRecipeCost } from '@/features/inventory/recipe-cost';
 import { formatInventoryCost, formatInventoryQuantity } from "@/lib/inventory-format";
 import { ReferenceReadNotice } from '@/components/inventory/ReferenceReadNotice';
@@ -15,7 +16,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CatalogReadState } from "@/components/ui/catalog-read-state";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber } from '@/lib/utils';
 import { FormField, FormGrid } from "@/components/ui/form-field";
 import {
     Dialog,
@@ -390,7 +391,7 @@ export default function SemiFinishedProducts() {
                                                     <div className="space-y-1">
                                                         <span className="text-xs text-muted-foreground block">النسبة المئوية</span>
                                                         <div className="h-10 px-3 py-2 bg-muted rounded text-sm flex items-center justify-between border">
-                                                            <span>{formatNumber(percentage)}%</span>
+                                                            <span>{formatPercentage(percentage)}%</span>
                                                         </div>
                                                     </div>
                                                 </div>

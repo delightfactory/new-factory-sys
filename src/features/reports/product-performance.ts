@@ -1,3 +1,4 @@
+import { formatCurrency, formatQuantity } from '@/lib/number-format';
 import Decimal from 'decimal.js-light';
 import { readCompleteRows, type FetchDataPage } from '../../platform/data/read-complete-rows.ts';
 const Money = Decimal.clone({ precision: 40 });
@@ -102,8 +103,5 @@ export function formatPerformanceNumber(value: string | null, money = false): st
     if (value === null) return 'غير متاح';
     const parsed = amount(value, true);
     if (!parsed) return 'غير متاح';
-    const [integer, fraction = ''] = parsed.toFixed().split('.');
-    const grouped = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    const digits = money ? fraction.padEnd(2, '0') : fraction;
-    return `${money ? 'EGP ' : ''}${grouped}${digits ? '.' + digits : ''}`;
+    return money ? formatCurrency(parsed.toFixed()) : formatQuantity(parsed.toFixed());
 }

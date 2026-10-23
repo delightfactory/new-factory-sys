@@ -1,3 +1,4 @@
+import { formatCurrency, formatQuantity } from '@/lib/number-format';
 import Decimal from 'decimal.js-light';
 import {csvText} from '../../platform/export/csv.ts';
 import {readCompleteRows, type FetchDataPage} from '../../platform/data/read-complete-rows.ts';
@@ -43,9 +44,7 @@ export function buildValuation(sources: ValuationSources, scope: {type: Valuatio
 export type ValuationView = ReturnType<typeof buildValuation>;
 export function formatValuationNumber(value: string | null, money = false): string {
     if (value === null) return 'غير متاح';
-    const [whole, fraction = ''] = value.split('.');
-    const digits = money ? fraction.padEnd(2, '0') : fraction;
-    return `${money ? 'EGP ' : ''}${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${digits ? '.'+digits : ''}`;
+    return money ? formatCurrency(value) : formatQuantity(value);
 }
 export function valuationCsv(view: ValuationView, capturedAt: string): string {
     if (view.invalidCount) throw Error('VALUATION_REVIEW_REQUIRED');

@@ -1,3 +1,4 @@
+import { formatAmount } from '@/lib/number-format';
 import Decimal from 'decimal.js-light';
 
 const Money = Decimal.clone({ precision: 40 });
@@ -13,7 +14,5 @@ export function invoiceAmounts(items: {quantity: number; unit_price: number}[], 
 }
 
 export function formatInvoiceAmount(value: Decimal | number) {
-    return new Money(value).toDecimalPlaces(2, Money.ROUND_HALF_UP).toNumber().toLocaleString('ar-EG', {
-        minimumFractionDigits: 2, maximumFractionDigits: 2,
-    });
+    return formatAmount(new Money(value).toFixed());
 }

@@ -1,3 +1,5 @@
+import { formatUnitCostCurrency, formatPercentage as displayPercent, formatQuantity as displayQuantity } from '@/lib/number-format';
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Route, Package, FlaskConical, Box, ShoppingCart, ChevronLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber } from '@/lib/utils';
 import { PrintButton } from "@/components/print/PrintLayout";
 import {
     Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -249,7 +251,7 @@ export default function ProductJourneyReport() {
                                     <span className="text-sm text-muted-foreground">هامش الربح: </span>
                                     <span className={`font-bold ${journey.salesPricePerUnit > journey.finishedCostPerUnit ? 'text-emerald-600' : 'text-red-600'}`}>
                                         {formatCurrency(journey.salesPricePerUnit - journey.finishedCostPerUnit)}
-                                        ({formatNumber(((journey.salesPricePerUnit - journey.finishedCostPerUnit) / journey.salesPricePerUnit) * 100)}%)
+                                        ({displayPercent(((journey.salesPricePerUnit - journey.finishedCostPerUnit) / journey.salesPricePerUnit) * 100)}%)
                                     </span>
                                 </div>
                             )}
@@ -285,8 +287,8 @@ export default function ProductJourneyReport() {
                                 <div className="space-y-2">
                                     {journey.rawMaterials.map((rm, i) => (
                                         <div key={i} className="flex justify-between p-2 bg-amber-50/50 dark:bg-amber-900/10 rounded">
-                                            <span>{rm.name} ({rm.percentage}%)</span>
-                                            <span className="font-mono text-sm">{formatCurrency(rm.unitCost)} / وحدة</span>
+                                            <span>{rm.name} ({displayPercent(rm.percentage)}%)</span>
+                                            <span className="font-mono text-sm">{formatUnitCostCurrency(rm.unitCost)} / وحدة</span>
                                         </div>
                                     ))}
                                 </div>
@@ -325,7 +327,7 @@ export default function ProductJourneyReport() {
                                     <h4 className="text-sm font-semibold text-muted-foreground">مواد التعبئة:</h4>
                                     {journey.packagingMaterials.map((pm, i) => (
                                         <div key={i} className="flex justify-between p-2 bg-blue-50/50 dark:bg-blue-900/10 rounded">
-                                            <span>{pm.name} (×{pm.quantity})</span>
+                                            <span>{pm.name} (×{displayQuantity(pm.quantity)})</span>
                                             <span className="font-mono text-sm">{formatCurrency(pm.unitCost * pm.quantity)}</span>
                                         </div>
                                     ))}

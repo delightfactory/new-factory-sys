@@ -1,3 +1,4 @@
+import { formatCurrency } from '@/lib/number-format';
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -156,8 +157,7 @@ export default function AgingReport() {
 
 
 
-    const currencyFormat = (value: number) =>
-        new Intl.NumberFormat('ar-EG', { maximumFractionDigits: 0 }).format(value) + ' ج.م';
+    const currencyFormat = formatCurrency;
 
     if (isLoading) return <CardGridSkeleton count={4} />;
 

@@ -1,3 +1,4 @@
+import { formatAmount, formatQuantity, formatUnitCost, formatCurrency } from './number-format';
 /**
  * Enhanced Export Utilities
  * Provides CSV/Excel-compatible export functionality for tables and reports
@@ -168,9 +169,9 @@ export function exportInventoryReport(
         { key: 'name', header: 'اسم الصنف' },
         { key: 'code', header: 'الكود' },
         { key: 'type', header: 'النوع', formatter: (v) => v || '-' },
-        { key: 'quantity', header: 'الكمية', formatter: (v) => v?.toLocaleString('ar-EG') },
-        { key: 'unit_cost', header: 'تكلفة الوحدة', formatter: (v) => v?.toLocaleString('ar-EG') },
-        { key: 'total_value', header: 'القيمة الإجمالية', formatter: (_, row) => (row.quantity * row.unit_cost)?.toLocaleString('ar-EG') }
+        { key: 'quantity', header: 'الكمية', formatter: (v) => formatQuantity(v) },
+        { key: 'unit_cost', header: 'تكلفة الوحدة', formatter: (v) => formatUnitCost(v) },
+        { key: 'total_value', header: 'القيمة الإجمالية', formatter: (_, row) => formatAmount(row.quantity * row.unit_cost) }
     ];
 
     const totalValue = items.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
@@ -179,7 +180,7 @@ export function exportInventoryReport(
         title: reportName,
         subtitle: `تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`,
         summaryRows: [
-            { label: 'إجمالي القيمة', value: totalValue.toLocaleString('ar-EG') + ' ج.م' }
+            { label: 'إجمالي القيمة', value: formatCurrency(totalValue) }
         ]
     });
 }
@@ -195,7 +196,7 @@ export function exportFinancialReport(
         { key: 'date', header: 'التاريخ' },
         { key: 'description', header: 'الوصف' },
         { key: 'type', header: 'النوع' },
-        { key: 'amount', header: 'المبلغ', formatter: (v) => v?.toLocaleString('ar-EG') + ' ج.م' }
+        { key: 'amount', header: 'المبلغ', formatter: (v) => formatCurrency(v) }
     ];
 
     const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
@@ -204,7 +205,7 @@ export function exportFinancialReport(
         title: reportName,
         subtitle: `تاريخ التصدير: ${new Date().toLocaleDateString('ar-EG')}`,
         summaryRows: [
-            { label: 'الإجمالي', value: totalAmount.toLocaleString('ar-EG') + ' ج.م' }
+            { label: 'الإجمالي', value: formatCurrency(totalAmount) }
         ]
     });
 }

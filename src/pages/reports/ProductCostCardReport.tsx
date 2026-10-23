@@ -1,3 +1,5 @@
+import { formatPercentage, formatUnitCostCurrency, formatQuantity } from '@/lib/number-format';
+
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -12,15 +14,9 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { PrintButton } from '@/components/print/PrintLayout';
 import { formatNumber } from '@/lib/utils';
-const costCurrency = new Intl.NumberFormat('en-EG', { style: 'currency', currency: 'EGP', minimumFractionDigits: 2, maximumFractionDigits: 6 });
-const money = (value: string | null) => {
-    if (value === null) return 'غير متاح';
-    const amount = Number(value);
-    if (amount !== 0 && Math.abs(amount) < 0.000001) return `${amount < 0 ? '−' : ''}أقل من 0.000001 ج.م`;
-    return costCurrency.format(amount);
-};
-const quantity = (value: string | null) => value === null ? 'غير متاح' : new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(Number(value));
-const percent = (value: string | null) => value === null ? '—' : `${formatNumber(Number(value))}%`;
+const money = formatUnitCostCurrency;
+const quantity = formatQuantity;
+const percent = (value: string | null) => value === null ? "—" : `${formatPercentage(value)}%`;
 function Metric({ label, value }: { label: string; value: string }) {
     return <div className="min-w-0"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 font-semibold break-words">{value}</dd></div>;
 }
@@ -113,9 +109,9 @@ export default function ProductCostCardReport() {
                         <p className="text-sm text-muted-foreground">عرض {filtered.length} من {products.length} منتج. ملخص الهامش للنتائج الظاهرة ذات سعر بيع موجب وتكلفة مسجلة متاحة.</p>
                         <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4 rounded-xl border p-4">
                             <Metric label="منتجات بحاجة لمراجعة البيانات" value={String(filtered.filter(card => card.warnings.length > 0).length)} />
-                            <Metric label="متوسط نسبة الهامش على المسجل" value={margins.length ? `${formatNumber(summary.sum / margins.length)}%` : '—'} />
-                            <Metric label="أقل نسبة هامش" value={margins.length ? `${formatNumber(summary.min)}%` : '—'} />
-                            <Metric label="أعلى نسبة هامش" value={margins.length ? `${formatNumber(summary.max)}%` : '—'} />
+                            <Metric label="متوسط نسبة الهامش على المسجل" value={margins.length ? `${formatPercentage(summary.sum / margins.length)}%` : '—'} />
+                            <Metric label="أقل نسبة هامش" value={margins.length ? `${formatPercentage(summary.min)}%` : '—'} />
+                            <Metric label="أعلى نسبة هامش" value={margins.length ? `${formatPercentage(summary.max)}%` : '—'} />
                         </dl>
                         {filtered.length === 0 ? <p role="status">لا توجد منتجات تطابق البحث.</p> : <>
                             <div className="grid gap-3 md:hidden print:hidden">{filtered.map(card => <Card key={card.product.id}><CardContent className="pt-4 space-y-4">

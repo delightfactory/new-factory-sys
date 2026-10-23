@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount } from '@/lib/number-format';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Package, Users, FileText, X, ArrowRight, Loader2 } from 'lucide-react';
@@ -164,7 +165,7 @@ export function GlobalSearch() {
                         id: String(item.id),
                         type: 'invoice',
                         name: item.invoice_number || `S-${item.id}`,
-                        description: `بيع - ${item.total_amount?.toLocaleString()} ج.م`,
+                        description: `بيع - ${displayAmount(item.total_amount)} ج.م`,
                         path: `/commercial/selling/${item.id}`
                     }));
                 } catch {
@@ -183,7 +184,7 @@ export function GlobalSearch() {
                         id: String(item.id),
                         type: 'invoice',
                         name: item.invoice_number || `P-${item.id}`,
-                        description: `شراء - ${item.total_amount?.toLocaleString()} ج.م`,
+                        description: `شراء - ${displayAmount(item.total_amount)} ج.م`,
                         path: `/commercial/buying/${item.id}`
                     }));
                 } catch {

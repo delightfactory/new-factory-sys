@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount } from '@/lib/number-format';
 import { useState } from "react";
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -58,7 +59,7 @@ export default function Treasuries() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold mt-2 text-primary">
-                                    {t.balance.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">{t.currency || 'EGP'}</span>
+                                    {displayAmount(t.balance)} <span className="text-sm font-normal text-muted-foreground">{t.currency || 'EGP'}</span>
                                 </div>
                                 <CardDescription className="mt-2">
                                     {t.type === 'bank' ? `حساب: ${t.account_number || '---'}` : 'خزنة نقدية'}

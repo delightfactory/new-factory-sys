@@ -1,3 +1,4 @@
+import { formatUnitCostCurrency } from '@/lib/number-format';
 import { forwardRef } from 'react';
 import { format } from 'date-fns';
 import { formatCurrency, formatNumber } from '@/lib/utils';
@@ -119,7 +120,7 @@ const ProductionOrderPrintTemplate = forwardRef<HTMLDivElement, ProductionOrderP
                                 <td className="border border-gray-300 p-2 text-center font-mono font-bold">{formatNumber(item.quantity)}</td>
                                 <td className="border border-gray-300 p-2 text-center">{item.unit || '-'}</td>
                                 <td className="border border-gray-300 p-2 text-center font-mono">
-                                    {item.unit_cost ? formatCurrency(item.unit_cost) : '-'}
+                                    {item.unit_cost ? formatUnitCostCurrency(item.unit_cost) : '-'}
                                 </td>
                                 <td className="border border-gray-300 p-2 text-center font-mono font-bold">
                                     {item.total_cost ? formatCurrency(item.total_cost) : '-'}

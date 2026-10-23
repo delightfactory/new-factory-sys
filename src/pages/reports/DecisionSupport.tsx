@@ -1,3 +1,4 @@
+import { formatQuantity as displayQuantity } from '@/lib/number-format';
 import { useQuery } from "@tanstack/react-query";
 import { DecisionSupportService } from "@/services/DecisionSupportService";
 import { PageHeader } from "@/components/ui/page-header";
@@ -22,7 +23,7 @@ import {
     BarChart3,
     RefreshCw
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from '@/lib/utils';
 
 export default function DecisionSupport() {
     const { data, isLoading, refetch, isFetching } = useQuery({
@@ -282,9 +283,9 @@ export default function DecisionSupport() {
                                                 </Badge>
                                             </div>
                                             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                                                <span>الرصيد: {item.quantity.toLocaleString()}</span>
+                                                <span>الرصيد: {displayQuantity(item.quantity)}</span>
                                                 <span>•</span>
-                                                <span>الاستهلاك/يوم: {item.avgDailyUsage.toLocaleString()}</span>
+                                                <span>الاستهلاك/يوم: {displayQuantity(item.avgDailyUsage)}</span>
                                             </div>
                                         </div>
                                         <Progress

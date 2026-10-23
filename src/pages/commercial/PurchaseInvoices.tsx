@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount, formatQuantity as displayQuantity, formatUnitCost as displayUnitCost } from '@/lib/number-format';
 import {useConfirmation} from '@/hooks/use-confirmation';
 import InvoiceForm from '@/components/commercial/InvoiceForm';
 import { Badge } from "@/components/ui/badge";
@@ -134,8 +135,8 @@ export default function PurchaseInvoices() {
                                             <TableCell className="font-medium">{inv.invoice_number || inv.id}</TableCell>
                                             <TableCell>{inv.supplier?.name}</TableCell>
                                             <TableCell>{inv.transaction_date}</TableCell>
-                                            <TableCell>{inv.total_amount.toLocaleString()}</TableCell>
-                                            <TableCell>{inv.paid_amount.toLocaleString()}</TableCell>
+                                            <TableCell>{displayAmount(inv.total_amount)}</TableCell>
+                                            <TableCell>{displayAmount(inv.paid_amount)}</TableCell>
                                             <TableCell>
                                                 <Badge variant={inv.status === 'posted' ? 'success' : inv.status === 'void' ? 'destructive' : 'secondary'}>
                                                     {inv.status === 'posted' ? 'معتمدة' : inv.status === 'void' ? 'ملغاة' : 'مسودة'}
@@ -210,7 +211,7 @@ export default function PurchaseInvoices() {
                                 </div>
                                 <div>
                                     <Label>الإجمالي</Label>
-                                    <div className="font-bold text-lg">{selectedInvoice.total_amount.toLocaleString()}</div>
+                                    <div className="font-bold text-lg">{displayAmount(selectedInvoice.total_amount)}</div>
                                 </div>
                             </div>
 
@@ -228,9 +229,9 @@ export default function PurchaseInvoices() {
                                     {(selectedInvoice as any).items?.map((item: any) => (
                                         <TableRow key={item.id}>
                                             <TableCell>{item.item_type} #{item.raw_material_id || item.finished_product_id}</TableCell>
-                                            <TableCell>{item.quantity}</TableCell>
-                                            <TableCell>{item.unit_price}</TableCell>
-                                            <TableCell>{item.total_price}</TableCell>
+                                            <TableCell>{displayQuantity(item.quantity)}</TableCell>
+                                            <TableCell>{displayUnitCost(item.unit_price)}</TableCell>
+                                            <TableCell>{displayAmount(item.total_price)}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

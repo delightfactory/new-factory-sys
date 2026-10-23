@@ -1,3 +1,4 @@
+import { formatPercentage as displayPercent, formatCurrency as displayCurrency } from '@/lib/number-format';
 import { useQuery } from "@tanstack/react-query";
 import { BalanceSheetService } from "@/services/BalanceSheetService";
 import { PageHeader } from "@/components/ui/page-header";
@@ -33,8 +34,7 @@ export default function FinancialBalanceSheet() {
         refetchInterval: 60000 // تحديث كل دقيقة
     });
 
-    const formatCurrency = (value: number) =>
-        new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value) + ' ج.م';
+    const formatCurrency = displayCurrency;
 
     const getStatusColor = (netPosition: number) => {
         if (netPosition > 0) return 'text-emerald-600';
@@ -151,7 +151,7 @@ export default function FinancialBalanceSheet() {
                                     <div className="p-4 rounded-xl bg-white/60 dark:bg-black/20 border">
                                         <div className="text-xs text-muted-foreground mb-1">نسبة التغطية</div>
                                         <div className={`text-lg font-bold ${data.coverageRatio >= 100 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                            {data.coverageRatio}%
+                                            {displayPercent(data.coverageRatio)}%
                                         </div>
                                     </div>
                                 </div>
@@ -340,7 +340,7 @@ export default function FinancialBalanceSheet() {
                                     <div className="flex items-center justify-between mb-2">
                                         <span className="text-sm font-medium">نسبة تغطية الأصول للالتزامات</span>
                                         <span className={`font-bold ${data.coverageRatio >= 100 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                            {data.coverageRatio}%
+                                            {displayPercent(data.coverageRatio)}%
                                         </span>
                                     </div>
                                     <Progress

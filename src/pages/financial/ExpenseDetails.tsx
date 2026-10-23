@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount } from '@/lib/number-format';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -99,7 +100,7 @@ export default function ExpenseDetails() {
                     </div>
                 </div>
                 <div className="text-2xl font-bold text-red-600 dark:text-red-400">
-                    {expense.amount.toLocaleString('ar-EG')} ج.م
+                    {displayAmount(expense.amount)} ج.م
                     <span className="block text-xs font-normal text-muted-foreground">المبلغ</span>
                 </div>
             </div>
@@ -136,7 +137,7 @@ export default function ExpenseDetails() {
                             <Receipt className="h-5 w-5 text-red-600 dark:text-red-400" />
                             <div>
                                 <span className="text-xs text-muted-foreground block">المبلغ</span>
-                                <span className="font-bold text-red-600 dark:text-red-400">{expense.amount.toLocaleString()} ج.م</span>
+                                <span className="font-bold text-red-600 dark:text-red-400">{displayAmount(expense.amount)} ج.م</span>
                             </div>
                         </div>
                     </div>

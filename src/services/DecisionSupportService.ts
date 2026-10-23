@@ -1,3 +1,4 @@
+import { formatAmount } from '@/lib/number-format';
 import { supabase } from "@/integrations/supabase/client";
 
 // Types
@@ -196,7 +197,7 @@ export const DecisionSupportService = {
                 type: 'critical',
                 category: 'finance',
                 title: `${overdueWithBalance.length} فاتورة متأخرة أكثر من 60 يوم`,
-                description: `إجمالي المتأخرات: ${totalOverdue.toLocaleString('ar-EG')} ج.م`,
+                description: `إجمالي المتأخرات: ${formatAmount(totalOverdue)} ج.م`,
                 value: totalOverdue,
                 action: { label: 'تقرير أعمار الديون', path: '/reports/aging' }
             });
@@ -214,7 +215,7 @@ export const DecisionSupportService = {
                 type: 'critical',
                 category: 'finance',
                 title: `${treasuries.length} خزينة برصيد سالب`,
-                description: treasuries.map(t => `${t.name}: ${t.balance.toLocaleString()}`).join('، '),
+                description: treasuries.map(t => `${t.name}: ${formatAmount(t.balance)}`).join('، '),
                 action: { label: 'إدارة الخزائن', path: '/treasuries' }
             });
         }
@@ -286,7 +287,7 @@ export const DecisionSupportService = {
                 type: 'warning',
                 category: 'sales',
                 title: `انخفاض المبيعات بنسبة ${declinePercent}%`,
-                description: `هذا الأسبوع: ${thisWeekTotal.toLocaleString()} vs الأسبوع الماضي: ${lastWeekTotal.toLocaleString()}`,
+                description: `هذا الأسبوع: ${formatAmount(thisWeekTotal)} vs الأسبوع الماضي: ${formatAmount(lastWeekTotal)}`,
                 value: declinePercent,
                 action: { label: 'تحليل الاتجاهات', path: '/reports/trends' }
             });
@@ -305,7 +306,7 @@ export const DecisionSupportService = {
                 id: 'supplier-payables',
                 type: totalPayables > 50000 ? 'warning' : 'info',
                 category: 'finance',
-                title: `مستحقات للموردين: ${totalPayables.toLocaleString()} ج.م`,
+                title: `مستحقات للموردين: ${formatAmount(totalPayables)} ج.م`,
                 description: `${supplierPayables.length} مورد — الأعلى: ${supplierPayables.sort((a, b) => a.balance - b.balance)[0]?.name}`,
                 value: totalPayables,
                 action: { label: 'تقرير أعمار الديون', path: '/reports/aging' }

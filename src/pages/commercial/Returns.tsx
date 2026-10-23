@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount } from '@/lib/number-format';
 import {useConfirmation} from '@/hooks/use-confirmation';
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -93,7 +94,7 @@ function PurchaseReturnsList() {
                                 <div className="text-sm text-muted-foreground">{ret.supplier?.name}</div>
                                 <div className="flex items-center justify-between text-sm">
                                     <span>{ret.return_date}</span>
-                                    <span className="font-bold">{ret.total_amount?.toLocaleString()} ج.م</span>
+                                    <span className="font-bold">{displayAmount(ret.total_amount)} ج.م</span>
                                 </div>
                                 {ret.status === 'draft' && (
                                     <Button size="sm" className="w-full mt-2" disabled={processMutation.isPending} onClick={async () => {if (processMutation.isPending) return; if (await ask({title: 'اعتماد المرتجع ' + (ret.return_number || ret.id) + '؟', description: 'اعتماد المرتجع سيخصم الكميات من المخزون ويحدث رصيد المورد. هل أنت متأكد؟', acceptLabel: 'اعتماد المرتجع', cancelLabel: 'رجوع دون اعتماد'})) processMutation.mutate(ret.id);}}>
@@ -125,7 +126,7 @@ function PurchaseReturnsList() {
                                         <TableCell>{ret.return_number || ret.id}</TableCell>
                                         <TableCell>{ret.supplier?.name}</TableCell>
                                         <TableCell>{ret.return_date}</TableCell>
-                                        <TableCell>{ret.total_amount}</TableCell>
+                                        <TableCell>{displayAmount(ret.total_amount)}</TableCell>
                                         <TableCell>
                                             <Badge variant={ret.status === 'posted' ? 'default' : ret.status === 'void' ? 'destructive' : 'secondary'}>
                                                 {ret.status === 'posted' ? 'معتمد' : ret.status === 'void' ? 'ملغى' : 'مسودة'}
@@ -203,7 +204,7 @@ function SalesReturnsList() {
                                 <div className="text-sm text-muted-foreground">{ret.customer?.name}</div>
                                 <div className="flex items-center justify-between text-sm">
                                     <span>{ret.return_date}</span>
-                                    <span className="font-bold">{ret.total_amount?.toLocaleString()} ج.م</span>
+                                    <span className="font-bold">{displayAmount(ret.total_amount)} ج.م</span>
                                 </div>
                                 {ret.status === 'draft' && (
                                     <Button size="sm" className="w-full mt-2" disabled={processMutation.isPending} onClick={async () => {if (processMutation.isPending) return; if (await ask({title: 'اعتماد المرتجع ' + (ret.return_number || ret.id) + '؟', description: 'اعتماد المرتجع سيضيف الكميات للمخزون ويحدث رصيد العميل. هل أنت متأكد؟', acceptLabel: 'اعتماد المرتجع', cancelLabel: 'رجوع دون اعتماد'})) processMutation.mutate(ret.id);}}>
@@ -235,7 +236,7 @@ function SalesReturnsList() {
                                         <TableCell>{ret.return_number || ret.id}</TableCell>
                                         <TableCell>{ret.customer?.name}</TableCell>
                                         <TableCell>{ret.return_date}</TableCell>
-                                        <TableCell>{ret.total_amount}</TableCell>
+                                        <TableCell>{displayAmount(ret.total_amount)}</TableCell>
                                         <TableCell>
                                             <Badge variant={ret.status === 'posted' ? 'default' : ret.status === 'void' ? 'destructive' : 'secondary'}>
                                                 {ret.status === 'posted' ? 'معتمد' : ret.status === 'void' ? 'ملغى' : 'مسودة'}
@@ -453,7 +454,7 @@ function CreateReturnForm({ type, onSuccess }: { type: 'purchase' | 'sales', onS
                     <SearchableSelect
                         options={invoices?.map((inv) => ({
                             value: inv.id.toString(),
-                            label: `#${inv.invoice_number || inv.id} (${inv.total_amount} ج.م) - ${inv.transaction_date}`
+                            label: `#${inv.invoice_number || inv.id} (${displayAmount(inv.total_amount)} ج.م) - ${inv.transaction_date}`
                         })) || []}
                         value={watch('invoice_id')?.toString()}
                         onValueChange={(val) => setValue('invoice_id', val)}

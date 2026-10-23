@@ -1,3 +1,4 @@
+import { formatQuantity as displayQuantity, formatUnitCost as displayUnitCost, formatAmount as displayAmount } from '@/lib/number-format';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -134,7 +135,7 @@ export default function MovementDetails() {
                     </div>
                 </div>
                 <div className={`text-2xl font-bold ${movement.movement_type === 'in' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                    {movement.movement_type === 'in' ? '+' : '-'}{movement.quantity.toLocaleString()}
+                    {movement.movement_type === 'in' ? '+' : '-'}{displayQuantity(movement.quantity)}
                     <span className="block text-xs font-normal text-muted-foreground">الكمية</span>
                 </div>
             </div>
@@ -187,7 +188,7 @@ export default function MovementDetails() {
                             <span className={`text-sm ${movement.movement_type === 'in' ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>الكمية</span>
                         </div>
                         <p className={`text-xl font-bold ${movement.movement_type === 'in' ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100'}`}>
-                            {movement.movement_type === 'in' ? '+' : '-'}{movement.quantity.toLocaleString()}
+                            {movement.movement_type === 'in' ? '+' : '-'}{displayQuantity(movement.quantity)}
                         </p>
                     </CardContent>
                 </Card>
@@ -198,7 +199,7 @@ export default function MovementDetails() {
                             <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                             <span className="text-sm text-blue-700 dark:text-blue-300">تكلفة الوحدة</span>
                         </div>
-                        <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{(movement.unit_cost || 0).toLocaleString()} ج.م</p>
+                        <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{displayUnitCost((movement.unit_cost || 0))} ج.م</p>
                     </CardContent>
                 </Card>
 
@@ -208,7 +209,7 @@ export default function MovementDetails() {
                             <FileText className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                             <span className="text-sm text-purple-700 dark:text-purple-300">إجمالي التكلفة</span>
                         </div>
-                        <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{(movement.total_cost || 0).toLocaleString()} ج.م</p>
+                        <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{displayAmount((movement.total_cost || 0))} ج.م</p>
                     </CardContent>
                 </Card>
             </div>

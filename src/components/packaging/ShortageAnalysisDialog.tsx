@@ -1,3 +1,4 @@
+import { formatQuantity as displayQuantity } from '@/lib/number-format';
 import { useState, type ReactNode } from "react";
 import {
     Dialog,
@@ -199,14 +200,14 @@ export function ShortageAnalysisDialog({
                                         <TableRow key={item.semi_finished_id}>
                                             <TableCell className="font-medium">{item.name}</TableCell>
                                             <TableCell className="text-center">
-                                                {item.required_qty.toLocaleString()} {item.unit}
+                                                {displayQuantity(item.required_qty)} {item.unit}
                                             </TableCell>
                                             <TableCell className="text-center text-muted-foreground">
-                                                {item.available_qty.toLocaleString()} {item.unit}
+                                                {displayQuantity(item.available_qty)} {item.unit}
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant="destructive">
-                                                    {item.shortage_qty.toLocaleString()} {item.unit}
+                                                    {displayQuantity(item.shortage_qty)} {item.unit}
                                                 </Badge>
                                             </TableCell>
                                         </TableRow>
@@ -261,7 +262,7 @@ export function ShortageAnalysisDialog({
                                                 />
                                             ) : (
                                                 <span className="font-mono bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
-                                                    {Number(editableQuantities[item.semi_finished_id] ?? item.suggested_qty).toLocaleString()}
+                                                    {displayQuantity(Number(editableQuantities[item.semi_finished_id] ?? item.suggested_qty))}
                                                 </span>
                                             )}
                                         {quantityErrors[item.semi_finished_id] && <p role="alert" className="text-xs text-destructive mt-1">{quantityErrors[item.semi_finished_id]}</p>}

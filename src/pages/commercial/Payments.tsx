@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount } from '@/lib/number-format';
 import {FinancialService} from '@/services/FinancialService';
 import {paymentCategoryOptions} from '@/features/financial/category-policy';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -196,7 +197,7 @@ function TransactionForm({
                             options={treasuries?.map(t => ({
                                 value: t.id.toString(),
                                 label: t.name,
-                                description: `رصيد: ${t.balance?.toLocaleString() || 0}`
+                                description: `رصيد: ${displayAmount(t.balance) || 0}`
                             })) || []}
                             value={watch('treasury_id')}
                             onValueChange={(val) => setValue('treasury_id', val, { shouldValidate: true })}
@@ -241,7 +242,7 @@ function TransactionForm({
                                 options={unpaidInvoices.map((inv) => ({
                                     value: inv.id.toString(),
                                     label: `#${inv.invoice_number || inv.id}`,
-                                    description: `متبقي: ${(inv.total_amount - inv.paid_amount).toLocaleString()}`
+                                    description: `متبقي: ${displayAmount((inv.total_amount - inv.paid_amount))}`
                                 }))}
                                 value={watch('invoice_id')}
                                 onValueChange={(val) => setValue('invoice_id', val)}
@@ -361,7 +362,7 @@ function RecentTransactions() {
                                         <td className="p-3">{transactionCategoryLabel(t.category)}</td>
                                         <td className={`p-3 font-bold ${t.transaction_type === 'income' ? 'text-green-600' : 'text-red-600'
                                             }`}>
-                                            {t.amount.toLocaleString()} ج.م
+                                            {displayAmount(t.amount)} ج.م
                                         </td>
                                         <td className="p-3">{t.treasury?.name || '-'}</td>
                                         <td className="p-3 text-muted-foreground max-w-[200px] truncate" title={t.description || ''}>

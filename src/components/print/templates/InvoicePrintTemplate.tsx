@@ -1,3 +1,4 @@
+import { formatUnitCostCurrency } from '@/lib/number-format';
 import { forwardRef } from 'react';
 import { format } from 'date-fns';
 import { formatCurrency, formatNumber } from '@/lib/utils';
@@ -115,7 +116,7 @@ const InvoicePrintTemplate = forwardRef<HTMLDivElement, InvoicePrintTemplateProp
                                 <td className="border border-gray-300 p-2 text-center font-mono">{index + 1}</td>
                                 <td className="border border-gray-300 p-2 font-medium">{item.item_name}</td>
                                 <td className="border border-gray-300 p-2 text-center font-mono">{formatNumber(item.quantity)}</td>
-                                <td className="border border-gray-300 p-2 text-center font-mono">{formatCurrency(item.unit_price)}</td>
+                                <td className="border border-gray-300 p-2 text-center font-mono">{formatUnitCostCurrency(item.unit_price)}</td>
                                 <td className="border border-gray-300 p-2 text-center font-mono font-bold">{formatCurrency(item.total_price)}</td>
                             </tr>
                         ))}

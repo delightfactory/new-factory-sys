@@ -1,4 +1,5 @@
-import { cn } from "@/lib/utils";
+import { formatQuantity as displayQuantity } from '@/lib/number-format';
+import { cn } from '@/lib/utils';
 import { CheckCircle2, AlertTriangle, XCircle, Loader2, Package } from "lucide-react";
 import { Badge } from "./badge";
 
@@ -124,18 +125,18 @@ export function MaterialPreviewCard({
                                         <span className="font-medium text-xs sm:text-sm">{material.name}</span>
                                     </td>
                                     <td className="text-center px-2 sm:px-3 py-2">
-                                        <span className="font-mono text-xs sm:text-sm">{material.requiredQty.toLocaleString()}</span>
+                                        <span className="font-mono text-xs sm:text-sm">{displayQuantity(material.requiredQty)}</span>
                                         <span className="text-muted-foreground text-[10px] sm:text-xs mr-1 hidden sm:inline">{material.unit}</span>
                                     </td>
                                     <td className="text-center px-2 sm:px-3 py-2">
-                                        <span className="font-mono text-xs sm:text-sm">{material.availableQty.toLocaleString()}</span>
+                                        <span className="font-mono text-xs sm:text-sm">{displayQuantity(material.availableQty)}</span>
                                         <span className="text-muted-foreground text-[10px] sm:text-xs mr-1 hidden sm:inline">{material.unit}</span>
                                     </td>
                                     <td className="text-center px-2 sm:px-3 py-2">
                                         <div className={cn("flex items-center justify-center gap-1", config.className)}>
                                             <StatusIcon className="h-3 w-3 sm:h-4 sm:w-4" />
                                             <span className="text-[10px] sm:text-xs hidden sm:inline">
-                                                {status === 'insufficient' ? `نقص ${shortage.toLocaleString()}` : config.label}
+                                                {status === 'insufficient' ? `نقص ${displayQuantity(shortage)}` : config.label}
                                             </span>
                                         </div>
                                     </td>

@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount, formatQuantity as displayQuantity, formatUnitCost as displayUnitCost } from '@/lib/number-format';
 import { TaskActions } from '@/components/ui/task-actions';
 import { useAuth } from '@/contexts/AuthContext';
 import { DocumentEditingService, type EditableDocument } from '@/services/DocumentEditingService';
@@ -292,7 +293,7 @@ export default function ProductionOrders() {
                 const cost = row.getValue("total_cost") as number;
                 return cost > 0 ? (
                     <span className="font-medium text-primary">
-                        {cost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م
+                        {displayAmount(cost)} ج.م
                     </span>
                 ) : (
                     <span className="text-muted-foreground">-</span>
@@ -480,7 +481,7 @@ export default function ProductionOrders() {
                                                         options={products?.map(p => ({
                                                             value: p.id.toString(),
                                                             label: p.name,
-                                                            description: `${p.unit} - رصيد: ${p.quantity}`
+                                                            description: `${p.unit} - رصيد: ${displayQuantity(p.quantity)}`
                                                         })) || []}
                                                         value={selectedProductId}
                                                         onValueChange={handleProductChange}
@@ -575,7 +576,7 @@ export default function ProductionOrders() {
                                             <span className="font-medium">التكلفة التقديرية للمواد الخام</span>
                                         </div>
                                         <span className="text-xl font-bold text-blue-700 dark:text-blue-400">
-                                            {totalEstimatedCost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م
+                                            {displayAmount(totalEstimatedCost)} ج.م
                                         </span>
                                     </div>
 
@@ -664,7 +665,7 @@ export default function ProductionOrders() {
                                     </div>
                                     <div className="bg-muted/50 rounded-lg p-3 text-center">
                                         <div className="text-xs text-muted-foreground mb-1">إجمالي الكميات</div>
-                                        <div className="font-bold text-lg">{orderDetails?.reduce((sum, i: any) => sum + (i.quantity || 0), 0).toLocaleString()}</div>
+                                        <div className="font-bold text-lg">{displayQuantity(orderDetails?.reduce((sum, i: any) => sum + (i.quantity || 0), 0))}</div>
                                     </div>
                                 </div>
                             )}
@@ -703,17 +704,17 @@ export default function ProductionOrders() {
                                                     </TableCell>
                                                     <TableCell className="text-center">
                                                         <span className="font-mono bg-primary/10 text-primary px-2 py-1 rounded">
-                                                            {item.quantity?.toLocaleString()}
+                                                            {displayQuantity(item.quantity)}
                                                         </span>
                                                     </TableCell>
                                                     <TableCell className="text-center text-muted-foreground">
                                                         {item.semi_finished_products?.unit || '-'}
                                                     </TableCell>
                                                     <TableCell className="text-center">
-                                                        {item.unit_cost > 0 ? `${item.unit_cost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م` : '-'}
+                                                        {item.unit_cost > 0 ? `${displayUnitCost(item.unit_cost)} ج.م` : '-'}
                                                     </TableCell>
                                                     <TableCell className="text-center font-bold text-green-600 dark:text-green-400">
-                                                        {item.total_cost > 0 ? `${item.total_cost.toLocaleString('ar-EG', { maximumFractionDigits: 2 })} ج.م` : '-'}
+                                                        {item.total_cost > 0 ? `${displayAmount(item.total_cost)} ج.م` : '-'}
                                                     </TableCell>
                                                 </TableRow>
                                             ))}

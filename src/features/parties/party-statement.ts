@@ -1,3 +1,4 @@
+import { formatAmount } from '@/lib/number-format';
 import Decimal from 'decimal.js-light';
 import { readCompleteRows, type FetchDataPage } from '../../platform/data/read-complete-rows.ts';
 const Money = Decimal.clone({ precision: 40 });
@@ -33,7 +34,7 @@ export interface StatementResult {
 }
 function money(value: number | string) { if (value === '' || !Number.isFinite(Number(value)))
     throw Error('STATEMENT_AMOUNT_INVALID'); return new Money(value); }
-export function statementMoney(value: number | string) { return money(value).toDecimalPlaces(2, Money.ROUND_HALF_UP).toNumber().toLocaleString('ar-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+export function statementMoney(value: number | string) { return formatAmount(value); }
 export function balanceDirection(value: number | string) { const n = money(value); return n.isZero() ? 'متوازن' : n.isPositive() ? 'مستحق لنا على الطرف' : 'مستحق للطرف علينا'; }
 export function validStatementDay(value: string) { return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value; }
 export function loadStatementRows(fetcher: FetchDataPage<StatementEntry>) { return readCompleteRows(fetcher, 'PARTY_STATEMENT'); }

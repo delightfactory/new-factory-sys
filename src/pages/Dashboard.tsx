@@ -1,3 +1,5 @@
+import { formatPercentage, formatAmount as displayAmount } from '@/lib/number-format';
+
 import { useQuery } from "@tanstack/react-query";
 import { DashboardService } from "@/services/DashboardService";
 import { FinancialService } from "@/services/FinancialService";
@@ -25,7 +27,7 @@ import { arEG } from "date-fns/locale";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency } from '@/lib/utils';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from "recharts";
 
 function ChangeChip({ value }: { value: number | null }) {
@@ -34,7 +36,7 @@ function ChangeChip({ value }: { value: number | null }) {
     return (
         <span className={`inline-flex items-center gap-0.5 text-xs font-medium ${value > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
             {value > 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-            {formatNumber(Math.abs(value))}%
+            {formatPercentage(Math.abs(value))}%
         </span>
     );
 }
@@ -146,7 +148,7 @@ export default function Dashboard() {
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <StatCard
                             title="مبيعات اليوم"
-                            value={`${stats?.daily_sales.toLocaleString()} ج.م`}
+                            value={`${displayAmount(stats?.daily_sales)} ج.م`}
                             icon={TrendingUp}
                             iconColor="text-green-500"
                             description="فواتير معتمدة بتاريخ اليوم، قبل خصم المرتجعات"
@@ -154,7 +156,7 @@ export default function Dashboard() {
                         />
                         <StatCard
                             title="رصيد الخزائن"
-                            value={`${stats?.cash_balance.toLocaleString()} ج.م`}
+                            value={`${displayAmount(stats?.cash_balance)} ج.م`}
                             icon={Wallet}
                             iconColor="text-emerald-500"
                             description="السيولة النقدية الحالية"
@@ -188,7 +190,7 @@ export default function Dashboard() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold text-indigo-700">{formatNumber(grossMarginPercent)}%</div>
+                                <div className="text-2xl font-bold text-indigo-700">{formatPercentage(grossMarginPercent)}%</div>
                                 <p className="text-xs text-muted-foreground">إيرادات الشهر - تكلفة البضاعة</p>
                             </CardContent>
                         </Card>
@@ -261,15 +263,15 @@ export default function Dashboard() {
                                                 <span className="text-xs text-muted-foreground">الإيرادات</span>
                                                 <ChangeChip value={prevPnlError || prevFetching ? null : revenueChange} />
                                             </div>
-                                            <div className="text-lg font-bold text-blue-600">{pnl?.revenue.toLocaleString()}</div>
+                                            <div className="text-lg font-bold text-blue-600">{displayAmount(pnl?.revenue)}</div>
                                         </div>
                                         <div className="p-4 rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-100">
                                             <div className="text-xs text-muted-foreground mb-1">التكلفة</div>
-                                            <div className="text-lg font-bold text-orange-600">{pnl?.cogs.toLocaleString()}</div>
+                                            <div className="text-lg font-bold text-orange-600">{displayAmount(pnl?.cogs)}</div>
                                         </div>
                                         <div className="p-4 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-100">
                                             <div className="text-xs text-muted-foreground mb-1">المصروفات</div>
-                                            <div className="text-lg font-bold text-red-600">{pnl?.expenses.toLocaleString()}</div>
+                                            <div className="text-lg font-bold text-red-600">{displayAmount(pnl?.expenses)}</div>
                                         </div>
                                         <div className={`p-4 rounded-lg border ${(pnl?.netProfit || 0) >= 0 ? 'bg-emerald-50 border-emerald-100 dark:bg-emerald-950/20' : 'bg-red-50 border-red-100 dark:bg-red-950/20'}`}>
                                             <div className="flex items-center justify-between mb-1">
@@ -277,7 +279,7 @@ export default function Dashboard() {
                                                 <ChangeChip value={prevPnlError || prevFetching ? null : profitChange} />
                                             </div>
                                             <div className={`text-lg font-bold ${(pnl?.netProfit || 0) >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                                                {pnl?.netProfit.toLocaleString()}
+                                                {displayAmount(pnl?.netProfit)}
                                             </div>
                                         </div>
                                     </div>

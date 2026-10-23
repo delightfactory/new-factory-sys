@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount, formatQuantity as displayQuantity, formatUnitCost as displayUnitCost } from '@/lib/number-format';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -149,7 +150,7 @@ export default function ReturnDetails() {
                     </div>
                 </div>
                 <div className="text-2xl font-bold text-foreground">
-                    {returnData.total_amount.toLocaleString('ar-EG')} ج.م
+                    {displayAmount(returnData.total_amount)} ج.م
                     <span className="block text-xs font-normal text-muted-foreground">إجمالي المرتجع</span>
                 </div>
             </div>
@@ -186,7 +187,7 @@ export default function ReturnDetails() {
                             <Banknote className="h-5 w-5 text-muted-foreground" />
                             <div>
                                 <span className="text-xs text-muted-foreground block">إجمالي الكميات</span>
-                                <span className="font-medium">{totalItems.toLocaleString()}</span>
+                                <span className="font-medium">{displayQuantity(totalItems)}</span>
                             </div>
                         </div>
                     </div>
@@ -226,7 +227,7 @@ export default function ReturnDetails() {
                             <RotateCcw className="h-4 w-4 text-green-600 dark:text-green-400" />
                             <span className="text-sm text-green-700 dark:text-green-300">إجمالي الكميات</span>
                         </div>
-                        <p className="text-xl font-bold text-green-900 dark:text-green-100">{totalItems.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-green-900 dark:text-green-100">{displayQuantity(totalItems)}</p>
                     </CardContent>
                 </Card>
 
@@ -236,7 +237,7 @@ export default function ReturnDetails() {
                             <Banknote className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                             <span className="text-sm text-purple-700 dark:text-purple-300">قيمة المرتجع</span>
                         </div>
-                        <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{returnData.total_amount.toLocaleString()} ج.م</p>
+                        <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{displayAmount(returnData.total_amount)} ج.م</p>
                     </CardContent>
                 </Card>
             </div>
@@ -265,9 +266,9 @@ export default function ReturnDetails() {
                                             <TableCell>
                                                 <Badge variant="outline">{({raw_material:'مادة خام',packaging_material:'مادة تعبئة',semi_finished:'نصف مصنع',finished_product:'منتج تام',bundle:'باقة'} as Record<string,string>)[item.item_type]||'صنف آخر'}</Badge>
                                             </TableCell>
-                                            <TableCell>{item.quantity.toLocaleString()}</TableCell>
-                                            <TableCell>{(item.unit_price || 0).toLocaleString()} ج.م</TableCell>
-                                            <TableCell className="font-bold">{(item.total_price || 0).toLocaleString()} ج.م</TableCell>
+                                            <TableCell>{displayQuantity(item.quantity)}</TableCell>
+                                            <TableCell>{displayUnitCost((item.unit_price || 0))} ج.م</TableCell>
+                                            <TableCell className="font-bold">{displayAmount((item.total_price || 0))} ج.م</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

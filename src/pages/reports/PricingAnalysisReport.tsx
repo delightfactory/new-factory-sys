@@ -1,3 +1,4 @@
+import { formatPercentage, formatUnitCostCurrency } from '@/lib/number-format';
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/ui/page-header";
@@ -9,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { ArrowRight, Tags, TrendingUp, TrendingDown, AlertTriangle, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency } from '@/lib/utils';
 import { PrintButton } from "@/components/print/PrintLayout";
 import { useState, useMemo } from "react";
 import {
@@ -194,7 +195,7 @@ export default function PricingAnalysisReport() {
                         </Card>
                         <Card>
                             <CardHeader className="pb-2"><CardTitle className="text-sm">متوسط هامش الربح</CardTitle></CardHeader>
-                            <CardContent><div className="text-2xl font-bold">{formatNumber((items?.reduce((s, i) => s + i.marginPercent, 0) || 0) / (items?.length || 1))}%</div></CardContent>
+                            <CardContent><div className="text-2xl font-bold">{formatPercentage((items?.reduce((s, i) => s + i.marginPercent, 0) || 0) / (items?.length || 1))}%</div></CardContent>
                         </Card>
                     </div>
 
@@ -275,7 +276,7 @@ export default function PricingAnalysisReport() {
                                                 <TableCell className="text-center">
                                                     <Badge variant="outline" className="text-xs">{item.typeLabel}</Badge>
                                                 </TableCell>
-                                                <TableCell className="text-center font-mono text-sm">{formatCurrency(item.unitCost)}</TableCell>
+                                                <TableCell className="text-center font-mono text-sm">{formatUnitCostCurrency(item.unitCost)}</TableCell>
                                                 <TableCell className="text-center font-mono text-sm">{formatCurrency(item.salesPrice)}</TableCell>
                                                 <TableCell className={`text-center font-mono text-sm font-bold ${item.marginPercent < 0 ? 'text-red-600' : item.marginPercent < 15 ? 'text-amber-600' : 'text-emerald-600'}`}>
                                                     {formatCurrency(item.marginAmount)}
@@ -283,7 +284,7 @@ export default function PricingAnalysisReport() {
                                                 <TableCell className="text-center">
                                                     <div className={`flex items-center justify-center gap-1 font-bold ${item.marginPercent < 0 ? 'text-red-600' : item.marginPercent < 15 ? 'text-amber-600' : 'text-emerald-600'}`}>
                                                         {item.marginPercent >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                                                        {formatNumber(item.marginPercent)}%
+                                                        {formatPercentage(item.marginPercent)}%
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-center font-mono text-sm">

@@ -1,3 +1,4 @@
+import { formatQuantity as displayQuantity, formatPercentage as displayPercent } from '@/lib/number-format';
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -175,11 +176,7 @@ export default function LowStockReport() {
         return true;
     }) || [];
 
-    // Format number with max 2 decimal places (removes trailing zeros)
-    const formatNumber = (value: number) => {
-        if (Number.isInteger(value)) return value.toString();
-        return parseFloat(value.toFixed(2)).toString();
-    };
+    const formatNumber = displayQuantity;
 
     const getUrgencyBadge = (urgency: string, quantity: number) => {
         if (urgency === 'critical' || quantity === 0) {
@@ -381,7 +378,7 @@ export default function LowStockReport() {
                                                                     value={Math.min(item.stockLevel, 100)}
                                                                     className={`h-2 ${getStockProgressColor(item.stockLevel)}`}
                                                                 />
-                                                                <p className="text-xs text-center text-muted-foreground">{item.stockLevel}%</p>
+                                                                <p className="text-xs text-center text-muted-foreground">{displayPercent(item.stockLevel)}%</p>
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="text-center font-bold text-red-600">
@@ -462,7 +459,7 @@ export default function LowStockReport() {
                                                 <div className="space-y-2">
                                                     <div className="flex justify-between text-sm">
                                                         <span className="text-muted-foreground">مستوى المخزون</span>
-                                                        <span className="font-bold text-foreground">{item.stockLevel}%</span>
+                                                        <span className="font-bold text-foreground">{displayPercent(item.stockLevel)}%</span>
                                                     </div>
                                                     <Progress
                                                         value={Math.min(item.stockLevel, 100)}

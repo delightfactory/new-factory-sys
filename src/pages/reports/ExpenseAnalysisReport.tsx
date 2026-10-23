@@ -1,3 +1,4 @@
+import { formatPercentage } from '@/lib/number-format';
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +17,7 @@ import {
     Filter
 } from "lucide-react";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber } from '@/lib/utils';
 import { PrintButton } from "@/components/print/PrintLayout";
 import {
     Select,
@@ -486,7 +487,7 @@ export default function ExpenseAnalysisReport() {
                                     <div className="text-left">
                                         <span className="font-bold">{formatCurrency(cat.total)}</span>
                                         <span className="text-muted-foreground text-sm mr-2">
-                                            ({formatNumber(cat.percentage)}%)
+                                            ({formatPercentage(cat.percentage)}%)
                                         </span>
                                     </div>
                                 </div>

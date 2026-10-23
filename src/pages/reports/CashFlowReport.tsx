@@ -1,3 +1,4 @@
+import { formatAmount } from '@/lib/number-format';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -12,12 +13,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { PrintButton } from '@/components/print/PrintLayout';
-const amountFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
 const monthFormat = new Intl.DateTimeFormat('ar-EG', { year: 'numeric', month: 'short', timeZone: 'UTC' });
 function amount(value: string | null, currency: string) {
     if (value === null) return 'غير متاح';
-    const numeric = Number(value);
-    return numeric !== 0 && Math.abs(numeric) < 0.000001 ? `${numeric < 0 ? '−' : ''}أقل من 0.000001 ${currency}` : `${amountFormat.format(numeric)} ${currency}`;
+    return `${formatAmount(value)} ${currency}`;
 }
 function FlowMetric({ label, value }: { label: string; value: string }) { return <div className="min-w-0"><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-2 text-xl font-semibold break-words">{value}</dd></div>; }
 function MovementLabel({ row }: { row: CashFlowRow }) {

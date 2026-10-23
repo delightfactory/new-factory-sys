@@ -1,3 +1,5 @@
+import { formatPercentage, formatUnitCostCurrency, formatQuantity as displayQuantity } from '@/lib/number-format';
+
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +18,7 @@ import {
     Filter
 } from "lucide-react";
 import { CardGridSkeleton } from "@/components/ui/loading-skeleton";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber } from '@/lib/utils';
 import { PrintButton } from "@/components/print/PrintLayout";
 import {
     Select,
@@ -298,7 +300,7 @@ export default function InventoryAnalytics() {
                                         cx="50%"
                                         cy="50%"
                                         outerRadius={80}
-                                        label={({ name, percent }) => `${name}: ${formatNumber((percent ?? 0) * 100)}%`}
+                                        label={({ name, percent }) => `${name}: ${formatPercentage((percent ?? 0) * 100)}%`}
                                         labelLine={false}
                                     >
                                         {stats?.byType.map((entry, index) => (
@@ -452,11 +454,11 @@ export default function InventoryAnalytics() {
                                 <div className="grid grid-cols-3 gap-4 text-center md:flex md:gap-6">
                                     <div>
                                         <p className="text-xs text-muted-foreground">الكمية</p>
-                                        <p className="font-mono font-medium">{item.quantity}</p>
+                                        <p className="font-mono font-medium">{displayQuantity(item.quantity)}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground">التكلفة</p>
-                                        <p className="font-mono">{formatCurrency(item.unit_cost || 0)}</p>
+                                        <p className="font-mono">{formatUnitCostCurrency(item.unit_cost || 0)}</p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground">القيمة</p>
@@ -467,7 +469,7 @@ export default function InventoryAnalytics() {
                                     <div className="hidden md:block">
                                         <p className="text-xs text-muted-foreground">هامش الربح</p>
                                         <p className={`font-mono ${item.profitMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {formatNumber(item.profitMargin)}%
+                                            {formatPercentage(item.profitMargin)}%
                                         </p>
                                     </div>
                                 </div>

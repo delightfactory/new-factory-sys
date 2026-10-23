@@ -1,3 +1,5 @@
+import { formatPercentage as displayPercent, formatQuantity as displayQuantity, formatAmount as displayAmount, formatUnitCost as displayUnitCost } from '@/lib/number-format';
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -322,19 +324,19 @@ export default function Bundles() {
                                 <div className="grid grid-cols-2 gap-2 text-sm mb-4">
                                     <div>
                                         <span className="text-muted-foreground">الكمية:</span>
-                                        <span className="font-medium mr-1">{bundle.quantity}</span>
+                                        <span className="font-medium mr-1">{displayQuantity(bundle.quantity)}</span>
                                     </div>
                                     <div>
                                         <span className="text-muted-foreground">سعر البيع:</span>
-                                        <span className="font-medium mr-1">{bundle.bundle_price.toFixed(2)}</span>
+                                        <span className="font-medium mr-1">{displayAmount(bundle.bundle_price)}</span>
                                     </div>
                                     <div>
                                         <span className="text-muted-foreground">التكلفة:</span>
-                                        <span className="font-medium mr-1">{bundle.unit_cost.toFixed(2)}</span>
+                                        <span className="font-medium mr-1">{displayUnitCost(bundle.unit_cost)}</span>
                                     </div>
                                     <div>
                                         <span className="text-muted-foreground">الحد الأدنى:</span>
-                                        <span className="font-medium mr-1">{bundle.min_stock}</span>
+                                        <span className="font-medium mr-1">{displayQuantity(bundle.min_stock)}</span>
                                     </div>
                                 </div>
                                 {bundle.quantity < bundle.min_stock && (
@@ -481,7 +483,7 @@ export default function Bundles() {
                                                             options={itemOptions.map((opt) => ({
                                                                 value: String(opt.id),
                                                                 label: opt.name,
-                                                                description: `${opt.unit_cost?.toFixed(2) || 0} ج.م`
+                                                                description: `${displayUnitCost(opt.unit_cost) || 0} ج.م`
                                                             }))}
                                                             value={String(itemId || "")}
                                                             onValueChange={(v) =>
@@ -508,7 +510,7 @@ export default function Bundles() {
                                                             <div className="text-sm flex sm:flex-col items-center sm:items-end gap-1">
                                                                 <span className="text-muted-foreground text-xs">التكلفة:</span>
                                                                 <span className="font-bold text-blue-600">
-                                                                    {lineCost.toFixed(2)} ج.م
+                                                                    {displayAmount(lineCost)} ج.م
                                                                 </span>
                                                             </div>
                                                         )}
@@ -521,12 +523,12 @@ export default function Bundles() {
                                     <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-3 rounded-lg flex justify-between items-center">
                                         <span className="font-medium">التكلفة التقديرية الإجمالية</span>
                                         <span className="font-bold text-lg text-blue-600">
-                                            {fields.reduce((sum, _, index) => {
+                                            {displayAmount(fields.reduce((sum, _, index) => {
                                                 const itemId = form.watch(`items.${index}.item_id`);
                                                 const quantity = form.watch(`items.${index}.quantity`) || 0;
                                                 const selectedItem = itemOptions.find(opt => opt.id === itemId);
                                                 return sum + (selectedItem?.unit_cost || 0) * quantity;
-                                            }, 0).toFixed(2)} ج.م
+                                            }, 0))} ج.م
                                         </span>
                                     </div>
                                 </div>
@@ -570,7 +572,7 @@ export default function Bundles() {
                                 </div>
                                 <div className="bg-muted/50 p-3 rounded-lg">
                                     <span className="text-xs text-muted-foreground block">الكمية</span>
-                                    <span className="font-bold text-lg">{viewBundle.quantity}</span>
+                                    <span className="font-bold text-lg">{displayQuantity(viewBundle.quantity)}</span>
                                 </div>
                                 <div className="bg-muted/50 p-3 rounded-lg">
                                     <span className="text-xs text-muted-foreground block">الحالة</span>
@@ -580,11 +582,11 @@ export default function Bundles() {
                                 </div>
                                 <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
                                     <span className="text-xs text-muted-foreground block">سعر البيع</span>
-                                    <span className="font-bold text-green-600">{viewBundle.bundle_price.toFixed(2)} ج.م</span>
+                                    <span className="font-bold text-green-600">{displayAmount(viewBundle.bundle_price)} ج.م</span>
                                 </div>
                                 <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
                                     <span className="text-xs text-muted-foreground block">التكلفة</span>
-                                    <span className="font-bold text-blue-600">{viewBundle.unit_cost.toFixed(2)} ج.م</span>
+                                    <span className="font-bold text-blue-600">{displayUnitCost(viewBundle.unit_cost)} ج.م</span>
                                 </div>
                             </div>
                             {viewBundle.description && (
@@ -606,11 +608,11 @@ export default function Bundles() {
                                             </div>
                                             <div className="flex items-center gap-4">
                                                 <span className="text-sm text-muted-foreground">
-                                                    الكمية: <span className="font-bold text-foreground">{item.quantity}</span>
+                                                    الكمية: <span className="font-bold text-foreground">{displayQuantity(item.quantity)}</span>
                                                 </span>
                                                 {item.unit_cost !== undefined && (
                                                     <span className="text-sm text-muted-foreground">
-                                                        التكلفة: <span className="font-bold text-blue-600">{(item.unit_cost * item.quantity).toFixed(2)}</span>
+                                                        التكلفة: <span className="font-bold text-blue-600">{displayAmount((item.unit_cost * item.quantity))}</span>
                                                     </span>
                                                 )}
                                             </div>
@@ -624,13 +626,13 @@ export default function Bundles() {
                                     <div className="flex justify-between items-center">
                                         <span className="text-sm">هامش الربح</span>
                                         <span className="font-bold text-lg text-purple-600">
-                                            {((viewBundle.bundle_price - viewBundle.unit_cost) / viewBundle.bundle_price * 100).toFixed(1)}%
+                                            {displayPercent(((viewBundle.bundle_price - viewBundle.unit_cost) / viewBundle.bundle_price * 100))}%
                                         </span>
                                     </div>
                                     <div className="flex justify-between items-center mt-1">
                                         <span className="text-xs text-muted-foreground">صافي الربح للوحدة</span>
                                         <span className="font-bold text-green-600">
-                                            {(viewBundle.bundle_price - viewBundle.unit_cost).toFixed(2)} ج.م
+                                            {displayUnitCost((viewBundle.bundle_price - viewBundle.unit_cost))} ج.م
                                         </span>
                                     </div>
                                 </div>

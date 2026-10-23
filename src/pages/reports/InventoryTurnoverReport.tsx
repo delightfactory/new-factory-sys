@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount, formatQuantity as displayQuantity } from '@/lib/number-format';
 import { useQuery } from '@tanstack/react-query';
 import { loadInventoryTurnover } from '@/services/InventoryTurnoverService';
 import { Card, CardContent } from '@/components/ui/card';
@@ -229,7 +230,7 @@ export default function InventoryTurnoverReport() {
                             <RotateCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                             <span className="text-sm text-blue-700 dark:text-blue-300">متوسط الدوران</span>
                         </div>
-                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{avgTurnover.toFixed(1)}x</p>
+                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{displayQuantity(avgTurnover)}x</p>
                         <p className="text-xs text-blue-600 dark:text-blue-400">سنوياً</p>
                     </CardContent>
                 </Card>
@@ -338,16 +339,16 @@ export default function InventoryTurnoverReport() {
                                             </span>
                                         </div>
                                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                                            <span>الكمية: {item.current_quantity.toLocaleString()}</span>
-                                            <span>المستهلك (90 يوم): {item.total_consumed.toLocaleString()}</span>
-                                            <span>القيمة: {(item.current_quantity * item.unit_cost).toLocaleString()} ج.م</span>
+                                            <span>الكمية: {displayQuantity(item.current_quantity)}</span>
+                                            <span>المستهلك (90 يوم): {displayQuantity(item.total_consumed)}</span>
+                                            <span>القيمة: {displayAmount((item.current_quantity * item.unit_cost))} ج.م</span>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-4">
                                         <div className="text-center">
                                             <span className={`px-3 py-1 rounded-full text-sm font-medium ${getTurnoverBadge(item.turnover_ratio, item.total_consumed)}`}>
-                                                {item.total_consumed === 0 ? 'راكد' : `${item.turnover_ratio}x`}
+                                                {item.total_consumed === 0 ? 'راكد' : `${displayQuantity(item.turnover_ratio)}x`}
                                             </span>
                                             <p className="text-xs text-muted-foreground mt-1">الدوران السنوي</p>
                                         </div>

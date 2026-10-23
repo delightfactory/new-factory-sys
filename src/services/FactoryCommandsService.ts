@@ -1,3 +1,4 @@
+import { formatQuantity } from '@/lib/number-format';
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -72,7 +73,7 @@ export async function factoryCommand<T = Payload>(action: string, payload: Paylo
     if (Array.isArray(result.record.negative_stock) && result.record.negative_stock.length) {
         toast.warning("اكتمل الأمر مع أرصدة مخزون سالبة.", {
             description: result.record.negative_stock.map((item: { name: string; quantity: number; unit: string }) =>
-                `${item.name}: ${item.quantity.toLocaleString()} ${item.unit}`).join("، "),
+                `${item.name}: ${formatQuantity(item.quantity)} ${item.unit}`).join("، "),
             duration: 10000,
         });
     }

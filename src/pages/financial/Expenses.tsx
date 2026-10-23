@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount } from '@/lib/number-format';
 import {factoryBusinessDay} from '@/platform/date/factory-business-day';
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -73,7 +74,7 @@ export default function FinancialLog() {
                         <TrendingDown className="h-4 w-4 text-red-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-red-600">{totalExpenses.toLocaleString()} ج.م</div>
+                        <div className="text-2xl font-bold text-red-600">{displayAmount(totalExpenses)} ج.م</div>
                     </CardContent>
                 </Card>
                 <Card>
@@ -82,7 +83,7 @@ export default function FinancialLog() {
                         <TrendingDown className="h-4 w-4 text-emerald-500 rotate-180" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-emerald-600">{totalIncome.toLocaleString()} ج.م</div>
+                        <div className="text-2xl font-bold text-emerald-600">{displayAmount(totalIncome)} ج.م</div>
                     </CardContent>
                 </Card>
             </div>
@@ -141,7 +142,7 @@ export default function FinancialLog() {
                                                 ? 'text-blue-600'
                                                 : 'text-red-600'
                                             }`}>
-                                            {trx.transaction_type === 'income' ? '+' : trx.category?.includes('transfer') ? '↔' : '-'}{trx.amount.toLocaleString()} ج.م
+                                            {trx.transaction_type === 'income' ? '+' : trx.category?.includes('transfer') ? '↔' : '-'}{displayAmount(trx.amount)} ج.م
                                         </TableCell>
                                         <TableCell>{trx.treasury?.name}</TableCell>
                                         <TableCell>
@@ -245,7 +246,7 @@ function CreateTransactionForm({ onSuccess }: { onSuccess: () => void }) {
                     options={treasuries?.map((t: any) => ({
                         value: t.id.toString(),
                         label: t.name,
-                        description: `رصيد: ${t.balance}`
+                        description: `رصيد: ${displayAmount(t.balance)}`
                     })) || []}
                     value={watch('treasury_id')?.toString()}
                     onValueChange={(val) => setValue('treasury_id', val, { shouldValidate: true })}

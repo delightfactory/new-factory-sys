@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount, formatPercentage as displayPercent, formatQuantity as displayQuantity, formatUnitCost as displayUnitCost } from '@/lib/number-format';
 import { readCompleteRows } from '@/platform/data/read-complete-rows';
 import { invoiceItemName, invoiceItemTypeLabel } from '@/features/invoices/item-display';
 import {useAuth} from '@/contexts/AuthContext';
@@ -274,21 +275,21 @@ export default function InvoiceDetails() {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                         <div>
                             <p className="text-sm text-muted-foreground">الإجمالي</p>
-                            <p className="text-xl font-bold">{invoice.total_amount.toLocaleString()} ج.م</p>
+                            <p className="text-xl font-bold">{displayAmount(invoice.total_amount)} ج.م</p>
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground">المدفوع</p>
-                            <p className="text-xl font-bold text-green-600 dark:text-green-400">{invoice.paid_amount.toLocaleString()} ج.م</p>
+                            <p className="text-xl font-bold text-green-600 dark:text-green-400">{displayAmount(invoice.paid_amount)} ج.م</p>
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground">المتبقي</p>
                             <p className={`text-xl font-bold ${remaining > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600'}`}>
-                                {remaining.toLocaleString()} ج.م
+                                {displayAmount(remaining)} ج.م
                             </p>
                         </div>
                         <div>
                             <p className="text-sm text-muted-foreground">نسبة السداد</p>
-                            <p className="text-xl font-bold">{paymentProgress.toFixed(0)}%</p>
+                            <p className="text-xl font-bold">{displayPercent(paymentProgress)}%</p>
                         </div>
                     </div>
                     {/* Progress bar */}
@@ -302,13 +303,13 @@ export default function InvoiceDetails() {
                     {!!(invoice.tax_amount || invoice.discount_amount || invoice.shipping_cost) && (
                         <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t text-sm">
                             {invoice.tax_amount > 0 && (
-                                <div><span className="text-muted-foreground">الضريبة:</span> {invoice.tax_amount.toLocaleString()} ج.م</div>
+                                <div><span className="text-muted-foreground">الضريبة:</span> {displayAmount(invoice.tax_amount)} ج.م</div>
                             )}
                             {invoice.discount_amount > 0 && (
-                                <div><span className="text-muted-foreground">الخصم:</span> {invoice.discount_amount.toLocaleString()} ج.م</div>
+                                <div><span className="text-muted-foreground">الخصم:</span> {displayAmount(invoice.discount_amount)} ج.م</div>
                             )}
                             {invoice.shipping_cost > 0 && (
-                                <div><span className="text-muted-foreground">الشحن:</span> {invoice.shipping_cost.toLocaleString()} ج.م</div>
+                                <div><span className="text-muted-foreground">الشحن:</span> {displayAmount(invoice.shipping_cost)} ج.م</div>
                             )}
                         </div>
                     )}
@@ -350,9 +351,9 @@ export default function InvoiceDetails() {
                                                         {invoiceItemTypeLabel(item.item_type)}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell>{item.quantity}</TableCell>
-                                                <TableCell>{item.unit_price.toLocaleString()}</TableCell>
-                                                <TableCell className="font-bold">{item.total_price.toLocaleString()}</TableCell>
+                                                <TableCell>{displayQuantity(item.quantity)}</TableCell>
+                                                <TableCell>{displayUnitCost(item.unit_price)}</TableCell>
+                                                <TableCell className="font-bold">{displayAmount(item.total_price)}</TableCell>
                                             </TableRow>
                                         );
                                     })}

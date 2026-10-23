@@ -1,3 +1,4 @@
+import { formatQuantity as displayQuantity } from '@/lib/number-format';
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from 'react-router-dom';
@@ -95,7 +96,7 @@ export default function InventoryMovements() {
                             <ArrowUpRight className="w-5 h-5 text-green-600" />
                             <div>
                                 <p className="text-xs text-muted-foreground">دخول</p>
-                                <p className="text-xl font-bold text-green-600">{stats.totalIn}</p>
+                                <p className="text-xl font-bold text-green-600">{displayQuantity(stats.totalIn)}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -106,7 +107,7 @@ export default function InventoryMovements() {
                             <ArrowDownLeft className="w-5 h-5 text-red-600" />
                             <div>
                                 <p className="text-xs text-muted-foreground">خروج</p>
-                                <p className="text-xl font-bold text-red-600">{stats.totalOut}</p>
+                                <p className="text-xl font-bold text-red-600">{displayQuantity(stats.totalOut)}</p>
                             </div>
                         </div>
                     </CardContent>
@@ -117,7 +118,7 @@ export default function InventoryMovements() {
                             <ArrowUpDown className="w-5 h-5 text-blue-600" />
                             <div>
                                 <p className="text-xs text-muted-foreground">تسوية</p>
-                                <p className="text-xl font-bold text-blue-600">{stats.totalAdj}</p>
+                                <p className="text-xl font-bold text-blue-600">{displayQuantity(stats.totalAdj)}</p>
                             </div>
                         </div>
                     </CardContent>

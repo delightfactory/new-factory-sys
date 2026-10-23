@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount } from '@/lib/number-format';
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -52,7 +53,7 @@ export default function Parties() {
             accessorKey: "balance", header: "الرصيد", cell: ({ row }) => {
                 const bal = parseFloat(row.getValue('balance'));
                 return <span className={bal > 0 ? "text-green-600 font-bold" : bal < 0 ? "text-red-600 font-bold" : ""}>
-                    {bal.toLocaleString()} ج.م
+                    {displayAmount(bal)} ج.م
                 </span>
             }
         },

@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount, formatUnitCost as displayUnitCost, formatQuantity as displayQuantity } from '@/lib/number-format';
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -275,7 +276,7 @@ export default function BundleAssemblyOrders() {
                 <Card>
                     <CardContent className="pt-4">
                         <div className="text-2xl font-bold">
-                            {orders.reduce((sum, o) => sum + (o.total_cost || 0), 0).toFixed(2)}
+                            {displayAmount(orders.reduce((sum, o) => sum + (o.total_cost || 0), 0))}
                         </div>
                         <p className="text-sm text-muted-foreground">إجمالي التكلفة</p>
                     </CardContent>
@@ -333,7 +334,7 @@ export default function BundleAssemblyOrders() {
                                 </div>
                                 <div className="flex justify-between items-center mb-3">
                                     <span className="text-sm text-muted-foreground">التكلفة:</span>
-                                    <span className="font-bold">{order.total_cost?.toFixed(2) || "-"} ج.م</span>
+                                    <span className="font-bold">{displayAmount(order.total_cost) || "-"} ج.م</span>
                                 </div>
                                 {order.notes && (
                                     <p className="text-sm text-muted-foreground mb-3 truncate">{order.notes}</p>
@@ -389,7 +390,7 @@ export default function BundleAssemblyOrders() {
                                                 {STATUS_BADGES[order.status]?.label || order.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell>{order.total_cost?.toFixed(2) || "-"}</TableCell>
+                                        <TableCell>{displayAmount(order.total_cost) || "-"}</TableCell>
                                         <TableCell className="max-w-[200px] truncate">
                                             {order.notes || "-"}
                                         </TableCell>
@@ -526,9 +527,9 @@ export default function BundleAssemblyOrders() {
                                                 </div>
                                                 {selectedBundle && (
                                                     <div className="mt-2 text-xs text-muted-foreground">
-                                                        التكلفة: {selectedBundle.unit_cost?.toFixed(2) || 0} ج.م × {form.watch(`items.${index}.quantity`) || 1} =
+                                                        التكلفة: {displayUnitCost(selectedBundle.unit_cost) || 0} ج.م × {form.watch(`items.${index}.quantity`) || 1} =
                                                         <span className="font-bold text-blue-600 mr-1">
-                                                            {((selectedBundle.unit_cost || 0) * (form.watch(`items.${index}.quantity`) || 1)).toFixed(2)} ج.م
+                                                            {displayAmount(((selectedBundle.unit_cost || 0) * (form.watch(`items.${index}.quantity`) || 1)))} ج.م
                                                         </span>
                                                     </div>
                                                 )}
@@ -601,7 +602,7 @@ export default function BundleAssemblyOrders() {
                                 </div>
                                 <div className="bg-muted/30 p-3 rounded-lg">
                                     <span className="text-xs text-muted-foreground block">التكلفة</span>
-                                    <span className="font-bold text-blue-600">{viewOrder.total_cost?.toFixed(2) || "-"} ج.م</span>
+                                    <span className="font-bold text-blue-600">{displayAmount(viewOrder.total_cost) || "-"} ج.م</span>
                                 </div>
                             </div>
                             {viewOrder.notes && (
@@ -617,9 +618,9 @@ export default function BundleAssemblyOrders() {
                                         <div key={item.id} className="bg-muted/30 p-3 rounded-lg flex justify-between items-center">
                                             <div>
                                                 <span className="font-medium">{item.bundle?.name || `#${item.bundle_id}`}</span>
-                                                <span className="text-sm text-muted-foreground mr-2">× {item.quantity}</span>
+                                                <span className="text-sm text-muted-foreground mr-2">× {displayQuantity(item.quantity)}</span>
                                             </div>
-                                            <span className="font-bold text-blue-600">{item.total_cost?.toFixed(2) || "-"} ج.م</span>
+                                            <span className="font-bold text-blue-600">{displayAmount(item.total_cost) || "-"} ج.م</span>
                                         </div>
                                     ))}
                                 </div>

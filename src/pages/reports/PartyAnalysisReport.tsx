@@ -1,3 +1,4 @@
+import { formatAmount as displayAmount, formatPercentage as displayPercent } from '@/lib/number-format';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -243,7 +244,7 @@ export default function PartyAnalysisReport() {
                             <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                             <span className="text-sm text-blue-700 dark:text-blue-300">إجمالي المبيعات</span>
                         </div>
-                        <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{totalCustomerSales.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{displayAmount(totalCustomerSales)}</p>
                         <p className="text-xs text-blue-600 dark:text-blue-400">{customers.length} عميل</p>
                     </CardContent>
                 </Card>
@@ -254,7 +255,7 @@ export default function PartyAnalysisReport() {
                             <Truck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                             <span className="text-sm text-purple-700 dark:text-purple-300">إجمالي المشتريات</span>
                         </div>
-                        <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{totalSupplierPurchases.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-purple-900 dark:text-purple-100">{displayAmount(totalSupplierPurchases)}</p>
                         <p className="text-xs text-purple-600 dark:text-purple-400">{suppliers.length} مورد</p>
                     </CardContent>
                 </Card>
@@ -265,7 +266,7 @@ export default function PartyAnalysisReport() {
                             <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
                             <span className="text-sm text-green-700 dark:text-green-300">مستحقات لنا</span>
                         </div>
-                        <p className="text-xl font-bold text-green-900 dark:text-green-100">{totalReceivables.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-green-900 dark:text-green-100">{displayAmount(totalReceivables)}</p>
                         <p className="text-xs text-green-600 dark:text-green-400">ج.م</p>
                     </CardContent>
                 </Card>
@@ -276,7 +277,7 @@ export default function PartyAnalysisReport() {
                             <Banknote className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                             <span className="text-sm text-amber-700 dark:text-amber-300">مستحقات علينا</span>
                         </div>
-                        <p className="text-xl font-bold text-amber-900 dark:text-amber-100">{totalPayables.toLocaleString()}</p>
+                        <p className="text-xl font-bold text-amber-900 dark:text-amber-100">{displayAmount(totalPayables)}</p>
                         <p className="text-xs text-amber-600 dark:text-amber-400">ج.م</p>
                     </CardContent>
                 </Card>
@@ -347,7 +348,7 @@ export default function PartyAnalysisReport() {
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
                                             <div>
                                                 <span className="text-muted-foreground">إجمالي التعاملات</span>
-                                                <p className="font-medium">{party.total_amount.toLocaleString()} ج.م</p>
+                                                <p className="font-medium">{displayAmount(party.total_amount)} ج.م</p>
                                             </div>
                                             <div>
                                                 <span className="text-muted-foreground">الفواتير</span>
@@ -355,12 +356,12 @@ export default function PartyAnalysisReport() {
                                             </div>
                                             <div>
                                                 <span className="text-muted-foreground">المدفوع</span>
-                                                <p className="font-medium text-green-600">{party.total_paid.toLocaleString()} ج.م</p>
+                                                <p className="font-medium text-green-600">{displayAmount(party.total_paid)} ج.م</p>
                                             </div>
                                             <div>
                                                 <span className="text-muted-foreground">المتبقي</span>
                                                 <p className={`font-medium ${party.total_remaining > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                    {party.total_remaining.toLocaleString()} ج.م
+                                                    {displayAmount(party.total_remaining)} ج.م
                                                 </p>
                                             </div>
                                         </div>
@@ -369,7 +370,7 @@ export default function PartyAnalysisReport() {
                                     <div className="flex sm:flex-col items-center gap-4 sm:gap-2 sm:text-center border-t sm:border-t-0 sm:border-r pt-4 sm:pt-0 sm:pr-4">
                                         <div className="flex items-center gap-1">
                                             <Percent className="h-4 w-4 text-amber-500" />
-                                            <span className="text-sm font-medium">{party.return_percentage.toFixed(1)}%</span>
+                                            <span className="text-sm font-medium">{displayPercent(party.return_percentage)}%</span>
                                             <span className="text-xs text-muted-foreground">مرتجعات</span>
                                         </div>
                                         <div className="flex items-center gap-1">
