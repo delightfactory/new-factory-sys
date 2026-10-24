@@ -9,7 +9,6 @@ import { InventoryService } from "@/services/InventoryService";
 import { DataTable } from "@/components/ui/data-table";
 import { type ColumnDef } from "@tanstack/react-table";
 import { type FinishedProduct } from "@/types";
-import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Plus, Trash2, Pencil, RefreshCcw, Package2 } from "lucide-react";
 import { toast } from "sonner";
@@ -195,7 +194,7 @@ export default function FinishedProducts() {
             accessorKey: "sales_price",
             header: "سعر البيع",
             enableSorting: true,
-            cell: ({ row }) => <span>{formatCurrency(row.getValue("sales_price"))}</span>
+            cell: ({ row }) => <span>{formatInventoryCost(row.getValue("sales_price"))}</span>
         },
         {
             id: "actions",

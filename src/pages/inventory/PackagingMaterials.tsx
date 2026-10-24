@@ -65,7 +65,7 @@ export default function PackagingMaterials() {
             enableSorting: true,
             cell: ({ row }) => <span>{formatInventoryCost(row.getValue("unit_cost"))}</span>
         },
-        { accessorKey: "min_stock", header: "حد الأمان", enableSorting: true },
+        { accessorKey: "min_stock", header: "حد الأمان", enableSorting: true, cell: ({ row }) => <span dir="ltr">{formatInventoryQuantity(row.getValue("min_stock"))}</span> },
         {
             id: "actions",
             header: "إجراءات",

@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync, readdirSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 import { formatAmount, formatCurrency, formatQuantity, formatUnitCost, formatPercentage, formatNumberInput, numberFieldKind, validateNumberInput } from '../src/lib/number-format.ts';
 
 test('Reported long cost decimals round to readable prices', () => {
@@ -59,4 +63,51 @@ test('Native min max and step constraints check raw values before rounding', () 
     assert.equal(validateNumberInput(.015, { min: '.005', step: '.01' }), true);
     assert.notEqual(validateNumberInput(10.0001, { max: '10', step: 'any' }), true);
     assert.equal(validateNumberInput(.1 + .2, { step: '.01' }), true);
+});
+
+function presentationSources() {
+    const root = fileURLToPath(new URL('../src/', import.meta.url));
+    const sources = [];
+    function visit(directory) {
+        for (const entry of readdirSync(directory, { withFileTypes: true })) {
+            const file = path.join(directory, entry.name);
+            if (entry.isDirectory()) visit(file);
+            else if (file.endsWith('.tsx')) sources.push(ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX));
+        }
+    }
+    visit(root);
+    return sources;
+}
+const uiSources = presentationSources();
+
+test('Money and quantity table columns cannot silently use raw default cells', () => {
+    const numericColumns = new Set(['quantity', 'min_stock', 'unit_cost', 'unit_price', 'total_cost', 'total_price', 'sales_price', 'amount', 'balance', 'total_amount', 'paid_amount']);
+    for (const source of uiSources) {
+        function visit(node) {
+            if (ts.isObjectLiteralExpression(node)) {
+                const accessor = node.properties.find(property => ts.isPropertyAssignment(property) && property.name.getText(source) === 'accessorKey');
+                if (accessor && ts.isStringLiteral(accessor.initializer) && numericColumns.has(accessor.initializer.text)) {
+                    assert(node.properties.some(property => property.name?.getText(source) === 'cell'), `${source.fileName}: ${accessor.initializer.text} needs a display cell`);
+                }
+            }
+            ts.forEachChild(node, visit);
+        }
+        visit(source);
+    }
+});
+
+test('Numeric chart axes have explicit tick formatting', () => {
+    for (const source of uiSources) {
+        function visit(node) {
+            if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
+                const name = node.tagName.getText(source);
+                const attributes = node.attributes.properties.filter(ts.isJsxAttribute);
+                const type = attributes.find(attribute => attribute.name.getText(source) === 'type')?.initializer;
+                const numeric = name === 'XAxis' && type?.text === 'number' || name === 'YAxis' && type?.text !== 'category';
+                if (numeric) assert(attributes.some(attribute => attribute.name.getText(source) === 'tickFormatter'), `${source.fileName}: ${name} needs tickFormatter`);
+            }
+            ts.forEachChild(node, visit);
+        }
+        visit(source);
+    }
 });

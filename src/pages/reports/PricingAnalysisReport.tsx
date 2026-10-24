@@ -211,9 +211,9 @@ export default function PricingAnalysisReport() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                                         <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis type="number" tickFormatter={(v) => `${v}%`} />
+                                        <XAxis type="number" tickFormatter={(v) => `${formatPercentage(v)}%`} />
                                         <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 11 }} />
-                                        <Tooltip formatter={(v) => `${v}%`} contentStyle={{ direction: 'rtl' }} />
+                                        <Tooltip formatter={(v) => `${formatPercentage(v as number)}%`} contentStyle={{ direction: 'rtl' }} />
                                         <ReferenceLine x={15} stroke="#ef4444" strokeDasharray="3 3" label="15%" />
                                         <Bar dataKey="margin" radius={[0, 4, 4, 0]}>
                                             {chartData.map((entry, index) => (

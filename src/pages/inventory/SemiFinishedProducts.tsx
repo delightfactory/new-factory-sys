@@ -17,7 +17,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CatalogReadState } from "@/components/ui/catalog-read-state";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { formatCurrency, formatNumber } from '@/lib/utils';
+import { formatNumber } from '@/lib/utils';
 import { FormField, FormGrid } from "@/components/ui/form-field";
 import {
     Dialog,
@@ -218,7 +218,7 @@ export default function SemiFinishedProducts() {
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        سيتم حذف "{item.name}" نهائياً مع الوصفة الخاصة به (Batch Size: {item.recipe_batch_size || 100} {item.unit}).
+                                        سيتم حذف "{item.name}" نهائياً مع الوصفة الخاصة به (Batch Size: {formatInventoryQuantity(item.recipe_batch_size || 100)} {item.unit}).
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -369,7 +369,7 @@ export default function SemiFinishedProducts() {
                                                             ariaLabel={`المادة الخام ${index + 1}`} options={rawMaterials?.map(rm => ({
                                                                 value: rm.id.toString(),
                                                                 label: rm.name,
-                                                                description: `${rm.unit} - ${formatCurrency(rm.sales_price || 0)}`
+                                                                description: `${rm.unit} - ${formatInventoryCost(rm.sales_price || 0)}`
                                                             })) || []}
                                                             value={form.watch(`ingredients.${index}.raw_material_id`)}
                                                             onValueChange={(val) => form.setValue(`ingredients.${index}.raw_material_id`, val, { shouldValidate: true, shouldDirty: true })}

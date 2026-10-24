@@ -526,7 +526,7 @@ export default function BundleAssemblyOrders() {
                                                 </div>
                                                 {selectedBundle && (
                                                     <div className="mt-2 text-xs text-muted-foreground">
-                                                        التكلفة: {displayUnitCost(selectedBundle.unit_cost) || 0} ج.م × {form.watch(`items.${index}.quantity`) || 1} =
+                                                        التكلفة: {displayUnitCost(selectedBundle.unit_cost) || 0} ج.م × {displayQuantity(form.watch(`items.${index}.quantity`) || 1)} =
                                                         <span className="font-bold text-blue-600 mr-1">
                                                             {displayAmount(((selectedBundle.unit_cost || 0) * (form.watch(`items.${index}.quantity`) || 1)))} ج.م
                                                         </span>

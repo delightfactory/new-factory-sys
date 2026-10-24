@@ -591,7 +591,7 @@ export default function ProductionOrders() {
                                                 {missingMaterials.slice(0, 5).map((m, i) => (
                                                     <li key={i} className="flex justify-between">
                                                         <span>{m.name}</span>
-                                                        <span className="font-mono">مطلوب: {m.needed} / متاح: {m.available} {m.unit}</span>
+                                                        <span className="font-mono">مطلوب: {displayQuantity(m.needed)} / متاح: {displayQuantity(m.available)} {m.unit}</span>
                                                     </li>
                                                 ))}
                                                 {missingMaterials.length > 5 && (
